@@ -52,7 +52,7 @@ export function buildReceipt(r: ReceiptData, opts: { paperMm: 58 | 80; openDrawe
   if (r.tableNo) p.line(`Table: ${r.tableNo}`);
   const d = new Date(r.createdAt);
   p.row(d.toLocaleDateString("en-GB", { timeZone: "Asia/Karachi" }), d.toLocaleTimeString("en-GB", { timeZone: "Asia/Karachi", hour: "2-digit", minute: "2-digit" }));
-  p.row(`Cashier: ${r.cashier}`, r.terminal);
+  p.line(r.terminal);
   if (r.customer) p.line(`Customer: ${r.customer.name ?? ""} ${r.customer.phone ?? ""}`);
   if (r.deliveryAddress) p.line(`Addr: ${r.deliveryAddress}`);
   p.rule();

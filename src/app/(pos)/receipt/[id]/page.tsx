@@ -46,7 +46,6 @@ export default async function ReceiptPage({ params, searchParams }: PageProps<"/
           <div className="my-2 border-b border-dashed border-black" />
 
           <div className="text-[11px]">
-            <p>Cashier: <span className="font-semibold">{r.cashier || "Counter"}</span></p>
             <p>Terminal: <span className="font-semibold">{r.terminal || "POS"}</span></p>
             {r.customer?.name && (
               <p>Customer: <span className="font-semibold">{r.customer.name} {r.customer.phone ? `(${r.customer.phone})` : ""}</span></p>
@@ -129,7 +128,7 @@ export default async function ReceiptPage({ params, searchParams }: PageProps<"/
             {r.tableNo ? ` · Table ${r.tableNo}` : ""}
           </p>
           <p className="text-[11px] text-zinc-600 print:text-black">{formattedDate}</p>
-          <p className="text-[11px]">Cashier: {r.cashier} · {r.terminal}</p>
+          <p className="text-[11px]">Terminal: {r.terminal}</p>
           {r.customer && <p className="text-[11px]">Customer: {r.customer.name} {r.customer.phone}</p>}
           {r.deliveryAddress && <p className="text-[11px]">Address: {r.deliveryAddress}</p>}
 

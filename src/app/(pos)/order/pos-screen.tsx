@@ -101,7 +101,7 @@ export function PosScreen({ menu, me, shiftOpenedAt, offline }: PosProps) {
     <div className="flex h-full flex-col">
       <header className="flex h-16 shrink-0 items-center gap-4 border-b border-border bg-surface px-4">
         <Logo height={34} />
-        <div className="leading-tight"><p className="font-bold">{me.branch}</p><p className="text-xs text-muted">{me.terminal} · {me.name}</p></div>
+        <div className="leading-tight"><p className="font-bold">{me.branch}</p><p className="text-xs text-muted">{me.terminal}</p></div>
         <ShiftTimer since={shiftOpenedAt} />
         <div className="mx-auto flex gap-1 rounded-2xl bg-surface-2 p-1">
           {types.map((tp) => (
