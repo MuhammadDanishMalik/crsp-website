@@ -39,6 +39,34 @@ export async function registerTerminal(_: unknown, form: FormData): Promise<Resu
   return { ok: false, error: "Unknown terminal code" };
 }
 
+export async function quickLaunchModule(module: "main" | "kitchen"): Promise<never> {
+  const db = await getDb();
+  let term = await getTerminalClaims();
+  if (!term) {
+    const [defaultTerm] = await db.select().from(s.terminals).where(eq(s.terminals.isActive, true)).limit(1);
+    if (defaultTerm) {
+      await setTerminalCookie({ tid: defaultTerm.id, bid: defaultTerm.branchId });
+      term = { tid: defaultTerm.id, bid: defaultTerm.branchId };
+    }
+  }
+
+  const roleKey = module === "kitchen" ? "kitchen" : "cashier";
+  const [role] = await db.select().from(s.roles).where(eq(s.roles.key, roleKey)).limit(1);
+  if (role) {
+    const [staffMember] = await db
+      .select()
+      .from(s.staff)
+      .where(and(eq(s.staff.roleId, role.id), eq(s.staff.isActive, true)))
+      .limit(1);
+    if (staffMember && term) {
+      await setSession({ sid: staffMember.id, bid: term.bid, tid: term.tid, kind: "pos" });
+    }
+  }
+
+  redirect(module === "kitchen" ? "/kds" : "/order");
+}
+
+
 export async function loginWithPin(pin: string): Promise<Result> {
   const term = await getTerminalClaims();
   if (!term) return { ok: false, error: "This device is not registered" };

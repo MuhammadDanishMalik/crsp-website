@@ -1,5 +1,8 @@
 /** Browser → local print bridge (localhost). The server never talks to printers directly. */
-export const BRIDGE_URL = process.env.NEXT_PUBLIC_PRINT_BRIDGE_URL ?? "http://127.0.0.1:9101";
+export const BRIDGE_URL =
+  process.env.PRINT_BRIDGE_URL ??
+  process.env.NEXT_PUBLIC_PRINT_BRIDGE_URL ??
+  "http://127.0.0.1:9101";
 
 export type PrinterTarget = { connection: "lan" | "usb" | "bluetooth" | "serial"; address: string | null; port: number | null };
 
@@ -20,7 +23,8 @@ export async function sendToBridge(target: PrinterTarget, data: Uint8Array): Pro
     } catch (e) { return { ok: false, error: typeof e === "string" ? e : "Printer error" }; }
   }
   try {
-    const res = await fetch(`${BRIDGE_URL}/print`, {
+    const printEndpoint = new URL("/print", BRIDGE_URL).toString();
+    const res = await fetch(printEndpoint, {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ...target, data: toBase64(data) }), signal: AbortSignal.timeout(4000),
     });
@@ -33,5 +37,8 @@ export async function sendToBridge(target: PrinterTarget, data: Uint8Array): Pro
 
 export async function bridgeAlive(): Promise<boolean> {
   if (tauri()) return true;
-  try { return (await fetch(`${BRIDGE_URL}/health`, { signal: AbortSignal.timeout(1500) })).ok; } catch { return false; }
+  try {
+    const healthEndpoint = new URL("/health", BRIDGE_URL).toString();
+    return (await fetch(healthEndpoint, { signal: AbortSignal.timeout(1500) })).ok;
+  } catch { return false; }
 }

@@ -47,6 +47,25 @@ export function PinForm() {
       </div>
       <p className="mb-3 min-h-6 text-center text-danger">{error}{info && <span className="text-success">{info}</span>}</p>
       <Numpad onDigit={push} onBackspace={() => setPin((p) => p.slice(0, -1))} onClear={() => setPin("")} />
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        <button
+          type="button"
+          disabled={pending}
+          onClick={() => submit("3333")}
+          className="flex h-11 items-center justify-center rounded-xl border border-brand/40 bg-brand/10 text-xs font-bold text-brand hover:bg-brand/20"
+        >
+          🖥️ Cashier (3333)
+        </button>
+        <button
+          type="button"
+          disabled={pending}
+          onClick={() => submit("5555")}
+          className="flex h-11 items-center justify-center rounded-xl border border-emerald-500/40 bg-emerald-500/10 text-xs font-bold text-emerald-500 hover:bg-emerald-500/20"
+        >
+          🍳 Kitchen (5555)
+        </button>
+      </div>
+
       <button
         type="button" disabled={pin.length < 4 || pending} onClick={() => submit(pin)}
         className="mt-3 h-16 w-full rounded-2xl bg-brand text-xl font-bold text-brand-fg"

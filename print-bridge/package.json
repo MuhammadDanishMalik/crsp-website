@@ -1,0 +1,9 @@
+{
+  "name": "crsp-print-bridge",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "server.mjs",
+  "scripts": {
+    "start": "node server.mjs"
+  }
+}
