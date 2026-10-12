@@ -206,7 +206,7 @@ export function Dashboard({ name, data, date, today, branch, branches }: Props) 
                   borderRadius: "0.75rem",
                   fontSize: "12px",
                 }}
-                formatter={(val: any) => [formatPKR(Number(val)), "Sales"]}
+                formatter={(val) => [formatPKR(Number(val ?? 0)), "Sales"]}
               />
               <Area
                 type="monotone"

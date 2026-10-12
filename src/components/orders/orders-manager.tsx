@@ -646,7 +646,7 @@ export function OrdersManager({ orders, can, reasons, context = "pos" }: Props) 
                 {/* Sort Order */}
                 <select
                   value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value as any)}
+                  onChange={(e) => setSortBy(e.target.value as "newest" | "oldest" | "highest" | "lowest")}
                   className="h-12 rounded-xl border border-border bg-surface-2 px-3 text-sm font-semibold text-foreground"
                 >
                   <option value="newest">Newest First</option>
@@ -693,7 +693,7 @@ export function OrdersManager({ orders, can, reasons, context = "pos" }: Props) 
               ].map((tab) => (
                 <button
                   key={tab.id}
-                  onClick={() => setStatusTab(tab.id as any)}
+                  onClick={() => setStatusTab(tab.id as "all" | "active" | "completed" | "delivery" | "pending" | "voided")}
                   className={cn(
                     "flex shrink-0 items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-semibold transition",
                     statusTab === tab.id

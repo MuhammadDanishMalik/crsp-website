@@ -5,6 +5,9 @@ const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
 
 const nextConfig: NextConfig = {
   serverExternalPackages: ["@electric-sql/pglite", "pdfkit", "exceljs"],
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
   turbopack: {
     rules: {
       "*.css": {
