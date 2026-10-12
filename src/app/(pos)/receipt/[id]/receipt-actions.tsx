@@ -58,6 +58,9 @@ export function ReceiptActions({ orderId }: { orderId: string }) {
           </button>
         </div>
       </div>
+      <div className="mx-auto mt-2 max-w-2xl rounded-xl border border-amber-500/30 bg-amber-500/10 px-3.5 py-1.5 text-center text-xs text-amber-700 dark:text-amber-300">
+        💡 <b>Windows Printing Tip:</b> In the print window, change <b>Destination</b> from <i>&quot;Save as PDF&quot;</i> to your physical printer (e.g. <b>POS-80 / Xprinter</b>).
+      </div>
     </div>
   );
 }
