@@ -1,9 +1,8 @@
 import Link from "next/link";
 import { ChefHat, ShoppingBag, ArrowRight, ShieldCheck, Tv } from "lucide-react";
 import { Logo } from "@/components/brand/logo";
-import { quickLaunchModule } from "@/lib/actions/auth";
 
-export default async function Start() {
+export default function Start() {
   return (
     <main className="mx-auto flex min-h-screen max-w-4xl flex-col justify-center px-6 py-12">
       {/* Brand Header */}
@@ -36,24 +35,23 @@ export default async function Start() {
             </p>
           </div>
 
-          <form action={async () => { "use server"; await quickLaunchModule("main"); }} className="mt-6">
-            <button
-              type="submit"
+          <div className="mt-6">
+            <a
+              href="/api/launch?module=main"
               className="flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-brand text-base font-bold text-brand-fg shadow-sm transition hover:opacity-95"
             >
               Open Main Display <ArrowRight size={18} />
-            </button>
-          </form>
+            </a>
+          </div>
         </div>
 
         {/* Module 2: Kitchen Display */}
         <div className="group relative flex flex-col justify-between overflow-hidden rounded-3xl border-2 border-border bg-surface p-7 shadow-sm transition hover:border-emerald-500 hover:shadow-md">
-          <div className="absolute right-0 top-0 h-28 w-28 translate-x-8 -translate-y-8 rounded-full bg-emerald-500/10 transition group-hover:scale-125" />
+          <div className="absolute right-0 top-0 h-28 w-28 translate-x-8 -translate-y-8 rounded-full bg-emerald-500/15 text-emerald-500">
+            <ChefHat size={28} />
+          </div>
 
           <div>
-            <div className="mb-4 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-500/15 text-emerald-500">
-              <ChefHat size={28} />
-            </div>
             <h2 className="text-2xl font-black text-foreground">2. Kitchen Display</h2>
             <p className="mt-1 text-xs font-semibold uppercase tracking-wider text-emerald-500">
               Kitchen Display System (KDS)
@@ -63,14 +61,14 @@ export default async function Start() {
             </p>
           </div>
 
-          <form action={async () => { "use server"; await quickLaunchModule("kitchen"); }} className="mt-6">
-            <button
-              type="submit"
+          <div className="mt-6">
+            <a
+              href="/api/launch?module=kitchen"
               className="flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-emerald-600 text-base font-bold text-white shadow-sm transition hover:bg-emerald-500"
             >
               Open Kitchen Display <ArrowRight size={18} />
-            </button>
-          </form>
+            </a>
+          </div>
         </div>
       </div>
 
