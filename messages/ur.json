@@ -1,0 +1,18 @@
+{
+  "common": { "signOut": "سائن آؤٹ", "back": "واپس", "save": "محفوظ کریں", "close": "بند کریں", "clear": "صاف", "done": "مکمل", "ok": "ٹھیک ہے", "language": "English" },
+  "pin": { "title": "اپنا پن درج کریں", "hint": "4 سے 6 ہندسے، پھر ٹھیک ہے دبائیں", "clockTitle": "حاضری لگائیں", "clockHint": "آمد یا روانگی کے لیے اپنا پن درج کریں", "clock": "حاضری (آمد / روانگی)", "backToSignIn": "سائن اِن پر واپس", "entrances": "تمام داخلے", "backOffice": "بیک آفس لاگ اِن" },
+  "shift": { "openTitle": "شفٹ شروع کریں", "openHint": "دراز میں موجود نقد گن کر ابتدائی رقم درج کریں۔", "open": "شفٹ شروع کریں", "switchUser": "صارف تبدیل کریں", "shift": "شفٹ" },
+  "pos": {
+    "bestSellers": "زیادہ بکنے والے", "search": "تلاش کریں یا بار کوڈ اسکین کریں (F2)", "online": "آن لائن", "offline": "آف لائن", "orders": "آرڈرز", "held": "روکے ہوئے", "deliveries": "ڈیلیوری",
+    "soldOut": "ختم", "nothing": "یہاں کچھ نہیں", "currentOrder": "موجودہ آرڈر", "tapToStart": "آرڈر شروع کرنے کے لیے کوئی آئٹم دبائیں", "subtotal": "ذیلی کل", "total": "کل",
+    "discount": "رعایت", "delivery": "ڈیلیوری", "service": "سروس چارج", "pay": "ادائیگی", "hold": "روکیں", "clearOrder": "صاف", "note": "نوٹ", "setTable": "میز نمبر", "table": "میز",
+    "addAddress": "پتہ لکھیں", "deliverySet": "ڈیلیوری تیار", "platform": "پلیٹ فارم", "backToOrders": "آرڈرز پر واپس"
+  },
+  "types": { "dine_in": "ڈائن اِن", "takeaway": "ٹیک اوے", "delivery": "ڈیلیوری", "drive_thru": "ڈرائیو تھرو", "online": "آن لائن" },
+  "pay": {
+    "order": "آرڈر", "title": "ادائیگی", "cash": "نقد", "card": "کارڈ", "exact": "پوری رقم", "stillDue": "باقی رقم", "cashReceived": "وصول شدہ نقد", "amount": "رقم", "change": "بقایا", "complete": "آرڈر مکمل کریں", "saving": "محفوظ ہو رہا ہے…",
+    "newOrder": "نیا آرڈر", "changeDue": "واپس کرنے کی رقم", "paid": "ادا ہو گیا", "savedOffline": "آف لائن محفوظ", "reprint": "دوبارہ پرنٹ", "browserPrint": "براؤزر پرنٹ", "splitBill": "بل تقسیم کریں", "byItems": "آئٹمز کے حساب سے",
+    "addPart": "جزوی ادائیگی", "takePayer": "ادا کرنے والا", "cod": "کیش آن ڈیلیوری", "redeem": "پوائنٹس استعمال کریں", "offlineNote": "انٹرنیٹ نہیں ہے۔ یہ سیل اس ڈیوائس پر محفوظ ہے اور انٹرنیٹ آتے ہی خود اپ لوڈ ہو جائے گی۔"
+  },
+  "sync": { "waiting": "انتظار میں", "needAttention": "توجہ درکار", "uploaded": "آف لائن آرڈرز اپ لوڈ ہو گئے" }
+}

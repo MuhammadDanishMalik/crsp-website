@@ -1,0 +1,18 @@
+{
+  "common": { "signOut": "Sign out", "back": "Back", "save": "Save", "close": "Close", "clear": "Clear", "done": "Done", "ok": "OK", "language": "اردو" },
+  "pin": { "title": "Enter your PIN", "hint": "4–6 digits, then press OK", "clockTitle": "Clock in / out", "clockHint": "Enter your PIN to clock in or out", "clock": "Clock in / out", "backToSignIn": "Back to sign in", "entrances": "All entrances", "backOffice": "Back office login" },
+  "shift": { "openTitle": "Open shift", "openHint": "Count the cash in the drawer and enter the opening float.", "open": "Open shift", "switchUser": "Switch user", "shift": "Shift" },
+  "pos": {
+    "bestSellers": "Best sellers", "search": "Search or scan barcode (F2)", "online": "Online", "offline": "Offline", "orders": "Orders", "held": "Held", "deliveries": "Deliveries",
+    "soldOut": "SOLD OUT", "nothing": "Nothing here", "currentOrder": "Current order", "tapToStart": "Tap an item to start the order", "subtotal": "Subtotal", "total": "Total",
+    "discount": "Discount", "delivery": "Delivery", "service": "Service charge", "pay": "PAY", "hold": "Hold", "clearOrder": "Clear", "note": "Note", "setTable": "Set table", "table": "Table",
+    "addAddress": "Add address", "deliverySet": "Delivery set", "platform": "Platform", "backToOrders": "Back to orders"
+  },
+  "types": { "dine_in": "Dine-in", "takeaway": "Takeaway", "delivery": "Delivery", "drive_thru": "Drive-thru", "online": "Online" },
+  "pay": {
+    "order": "Order", "title": "Pay", "cash": "Cash", "card": "Card", "exact": "Exact", "stillDue": "Still due", "cashReceived": "Cash received", "amount": "Amount", "change": "Change", "complete": "Complete order", "saving": "Saving…",
+    "newOrder": "New order", "changeDue": "Change due", "paid": "paid", "savedOffline": "saved offline", "reprint": "Reprint", "browserPrint": "Browser print", "splitBill": "Split bill", "byItems": "By items",
+    "addPart": "Add part-payment", "takePayer": "Take payer", "cod": "Cash on delivery", "redeem": "Redeem points", "offlineNote": "No internet. This sale is saved on this device and will upload by itself when the connection returns."
+  },
+  "sync": { "waiting": "waiting", "needAttention": "need attention", "uploaded": "offline orders uploaded" }
+}

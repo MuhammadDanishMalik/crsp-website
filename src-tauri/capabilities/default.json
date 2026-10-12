@@ -1,0 +1,8 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Lets the CRSP POS web app (served from your own server) call the printer commands. Tighten `urls` to your real server address before shipping.",
+  "windows": ["main"],
+  "remote": { "urls": ["http://localhost:*", "http://127.0.0.1:*", "http://192.168.*.*:*", "http://10.*.*.*:*", "https://*"] },
+  "permissions": ["core:default"]
+}

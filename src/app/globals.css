@@ -1,26 +1,56 @@
 @import "tailwindcss";
 
+/* Brand tokens — placeholders until CRSP hex values are supplied. Change here only. */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --brand: #e30e1f; /* from CRSP logo */
+  --brand-fg: #ffffff;
+  --brand-2: #1f1f23;
+  --accent: #f5b301;
+  --background: #fdf6e3; /* logo cream */
+  --surface: #ffffff;
+  --surface-2: #eeeef0;
+  --foreground: #16161a;
+  --muted: #6b6b76;
+  --border: #dcdce0;
+  --success: #16a34a;
+  --warn: #d97706;
+  --danger: #dc2626;
+  --series-1: #2a78d6; /* chart series (validated data-viz blue) */
+  --grid: #e4e2dc;
+}
+.dark {
+  --background: #0f0f12;
+  --surface: #18181d;
+  --surface-2: #23232a;
+  --foreground: #f2f2f4;
+  --muted: #9a9aa6;
+  --border: #2e2e36;
+  --series-1: #3987e5;
+  --grid: #2a2a31;
 }
 
 @theme inline {
+  --color-brand: var(--brand);
+  --color-brand-fg: var(--brand-fg);
+  --color-accent: var(--accent);
   --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
+  --color-muted: var(--muted);
+  --color-border: var(--border);
+  --color-success: var(--success);
+  --color-warn: var(--warn);
+  --color-danger: var(--danger);
+  --font-sans: var(--font-geist-sans), var(--font-urdu), system-ui, sans-serif;
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
-}
+html, body { height: 100%; }
+body { background: var(--background); color: var(--foreground); font-family: var(--font-sans); }
+* { -webkit-tap-highlight-color: transparent; }
+.pos-root { user-select: none; touch-action: manipulation; overscroll-behavior: none; }
+button { cursor: pointer; }
+button:disabled { cursor: not-allowed; opacity: .5; }
+.scroll-thin::-webkit-scrollbar { width: 8px; }
+.scroll-thin::-webkit-scrollbar-thumb { background: var(--border); border-radius: 8px; }

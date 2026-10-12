@@ -1,0 +1,1 @@
+ALTER TABLE "scheduled_reports" ADD COLUMN "last_sent_on" date;

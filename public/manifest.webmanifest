@@ -1,0 +1,10 @@
+{
+  "name": "CRSP POS",
+  "short_name": "CRSP POS",
+  "start_url": "/start",
+  "display": "standalone",
+  "orientation": "landscape",
+  "background_color": "#0f0f12",
+  "theme_color": "#e30e1f",
+  "icons": [{ "src": "/brand/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }]
+}
