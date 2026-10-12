@@ -25,29 +25,57 @@ const URDU: Record<string, string> = {
   "Honey Mustard Sauce": "ہنی مسٹرڈ ساس", "Cheese Sauce": "چیز ساس", "Garlic Sauce": "گارلک ساس", "Spicy Garlic Sauce": "اسپائسی گارلک ساس", "Ranch Sauce": "رینچ ساس",
 };
 
+export const SEED_IDS = {
+  business: "a0000000-0000-4000-8000-000000000001",
+  branch: "a0000000-0000-4000-8000-000000000002",
+  terminal1: "a0000000-0000-4000-8000-000000000003",
+  terminal2: "a0000000-0000-4000-8000-000000000004",
+  roles: {
+    owner: "a0000000-0000-4000-8000-000000000010",
+    branch_manager: "a0000000-0000-4000-8000-000000000011",
+    cashier: "a0000000-0000-4000-8000-000000000012",
+    order_taker: "a0000000-0000-4000-8000-000000000013",
+    kitchen: "a0000000-0000-4000-8000-000000000014",
+    rider: "a0000000-0000-4000-8000-000000000015",
+    accountant: "a0000000-0000-4000-8000-000000000016",
+  } as Record<string, string>,
+  staff: {
+    owner: "a0000000-0000-4000-8000-000000000020",
+    branch_manager: "a0000000-0000-4000-8000-000000000021",
+    cashier: "a0000000-0000-4000-8000-000000000022",
+    order_taker: "a0000000-0000-4000-8000-000000000023",
+    kitchen: "a0000000-0000-4000-8000-000000000024",
+    rider: "a0000000-0000-4000-8000-000000000025",
+    accountant: "a0000000-0000-4000-8000-000000000026",
+  } as Record<string, string>,
+};
+
 /** Idempotent: does nothing if a business already exists. */
 export async function seedIfEmpty(db: Db) {
   const existing = await db.select({ id: s.business.id }).from(s.business).limit(1);
   if (existing.length) return false;
 
   const [biz] = await db.insert(s.business).values({
+    id: SEED_IDS.business,
     name: "CRSP", legalName: "CRSP Foods", ntn: "0000000-0", strn: "00-00-0000-000-00",
     settings: { serviceChargeBps: 0, receiptFooter: "Thank you for choosing CRSP!", receiptFooterUr: "CRSP کا انتخاب کرنے کا شکریہ!" },
   }).returning();
 
   const branches = await db.insert(s.branches).values([
-    { businessId: biz.id, code: "WKC", name: "CRSP Watta Khail Chowk", address: "Watta Khail Chowk, Mianwali, Punjab", city: "Mianwali", phone: "0459-000000", taxAuthority: "pra" },
+    { id: SEED_IDS.branch, businessId: biz.id, code: "WKC", name: "CRSP Watta Khail Chowk", address: "Watta Khail Chowk, Mianwali, Punjab", city: "Mianwali", phone: "0459-000000", taxAuthority: "pra" },
   ]).returning();
 
   await db.insert(s.terminals).values([
-    { branchId: branches[0].id, name: "POS-1", orderNoPrefix: "A", deviceKeyHash: await bcrypt.hash(SEED_LOGINS.terminalCode, 8) },
-    { branchId: branches[0].id, name: "POS-2", orderNoPrefix: "B", deviceKeyHash: await bcrypt.hash("POS2-DEV", 8) },
+    { id: SEED_IDS.terminal1, branchId: branches[0].id, name: "POS-1", orderNoPrefix: "A", deviceKeyHash: await bcrypt.hash(SEED_LOGINS.terminalCode, 8) },
+    { id: SEED_IDS.terminal2, branchId: branches[0].id, name: "POS-2", orderNoPrefix: "B", deviceKeyHash: await bcrypt.hash("POS2-DEV", 8) },
   ]);
 
   // Roles + permissions
   const roleRows: Record<string, string> = {};
   for (const [key, perms] of Object.entries(ROLE_DEFAULTS)) {
+    const roleId = SEED_IDS.roles[key];
     const [role] = await db.insert(s.roles).values({
+      id: roleId,
       businessId: biz.id, key, name: ROLE_NAMES[key], isSystem: true,
       discountLimitBps: key === "owner" ? 10_000 : key === "branch_manager" ? 5000 : 1000,
     }).returning();
@@ -65,7 +93,9 @@ export async function seedIfEmpty(db: Db) {
   const passwordHash = await bcrypt.hash(SEED_LOGINS.backOffice.password, 8);
   const staffIds: Record<string, string> = {};
   for (const [fullName, roleKey, pinKey] of staffSeed) {
+    const staffId = SEED_IDS.staff[roleKey];
     const [st] = await db.insert(s.staff).values({
+      id: staffId,
       businessId: biz.id, roleId: roleRows[roleKey], fullName, phone: "0300-0000000",
       email: roleKey === "owner" ? SEED_LOGINS.backOffice.email : `${roleKey}@crsp.test`,
       passwordHash, pinHash: await bcrypt.hash(SEED_LOGINS.pins[pinKey], 8),

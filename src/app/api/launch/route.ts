@@ -90,6 +90,7 @@ export async function GET(req: Request) {
             bid: defaultTerm.branchId,
             tid: defaultTerm.id,
             kind: "pos",
+            role: targetRoleKey,
           },
           "12h"
         );

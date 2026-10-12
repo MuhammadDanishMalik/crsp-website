@@ -12,7 +12,7 @@ const secret = new TextEncoder().encode(process.env.SESSION_SECRET ?? "dev-only-
 const SESSION = "crsp_session";
 const TERMINAL = "crsp_terminal";
 
-type SessionClaims = { sid: string; bid: string; tid?: string; kind: "pos" | "admin" };
+type SessionClaims = { sid: string; bid: string; tid?: string; kind: "pos" | "admin"; role?: string };
 type TerminalClaims = { tid: string; bid: string };
 
 async function sign(claims: object, ttl: string) {
@@ -73,17 +73,33 @@ export const getSession = cache(async (): Promise<Session | null> => {
     .innerJoin(s.branches, eq(s.branches.id, claims.bid))
     .where(eq(s.staff.id, claims.sid));
 
-  // If ID not matched (e.g. serverless instance restart), fallback to active staff for the role
+  // If not matched, try matching staff by ID and any active branch
   if (!row) {
-    const targetKey = claims.kind === "admin" ? "owner" : "cashier";
-    const [fallback] = await db
-      .select({ staff: s.staff, role: s.roles, branch: s.branches })
+    const [stRow] = await db
+      .select({ staff: s.staff, role: s.roles })
       .from(s.staff)
       .innerJoin(s.roles, eq(s.roles.id, s.staff.roleId))
-      .innerJoin(s.branches, eq(s.branches.businessId, s.staff.businessId))
+      .where(eq(s.staff.id, claims.sid))
+      .limit(1);
+    const [branch] = await db.select().from(s.branches).limit(1);
+    if (stRow && branch) {
+      row = { staff: stRow.staff, role: stRow.role, branch };
+    }
+  }
+
+  // If still not matched (e.g. serverless instance restart), fallback to active staff for the role
+  if (!row) {
+    const targetKey = claims.role ?? (claims.kind === "admin" ? "owner" : "cashier");
+    const [stRow] = await db
+      .select({ staff: s.staff, role: s.roles })
+      .from(s.staff)
+      .innerJoin(s.roles, eq(s.roles.id, s.staff.roleId))
       .where(and(eq(s.roles.key, targetKey), eq(s.staff.isActive, true)))
       .limit(1);
-    row = fallback;
+    const [branch] = await db.select().from(s.branches).limit(1);
+    if (stRow && branch) {
+      row = { staff: stRow.staff, role: stRow.role, branch };
+    }
   }
 
   if (!row || !row.staff.isActive) return null;
@@ -94,7 +110,8 @@ export const getSession = cache(async (): Promise<Session | null> => {
   if (tid) {
     const [t] = await db.select({ name: s.terminals.name }).from(s.terminals).where(eq(s.terminals.id, tid));
     terminalName = t?.name ?? null;
-  } else {
+  }
+  if (!terminalName) {
     const [defT] = await db.select({ id: s.terminals.id, name: s.terminals.name }).from(s.terminals).limit(1);
     if (defT) {
       tid = defT.id;
