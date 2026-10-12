@@ -31,10 +31,10 @@ export async function loadReceipt(orderId: string): Promise<ReceiptData | null> 
     db.select().from(s.taxInvoices).where(eq(s.taxInvoices.orderId, o.id)),
   ]);
   const mods = items.length ? await db.select().from(s.orderItemModifiers).where(inArray(s.orderItemModifiers.orderItemId, items.map((i) => i.id))) : [];
-  const settings = (biz.settings ?? {}) as { receiptHeader?: string; receiptFooter?: string; receiptFooterUr?: string };
+  const settings = (biz?.settings ?? {}) as { receiptHeader?: string; receiptFooter?: string; receiptFooterUr?: string };
   return {
-    business: { name: biz.name, ntn: biz.ntn, header: settings.receiptHeader ?? "", footer: settings.receiptFooter ?? "Thank you!", footerUr: settings.receiptFooterUr ?? "" },
-    branch: { name: branch.name, address: branch.address, phone: branch.phone },
+    business: { name: biz?.name ?? "CRSP", ntn: biz?.ntn ?? null, header: settings.receiptHeader ?? "", footer: settings.receiptFooter ?? "Thank you!", footerUr: settings.receiptFooterUr ?? "" },
+    branch: { name: branch?.name ?? "CRSP", address: branch?.address ?? "", phone: branch?.phone ?? "" },
     orderNo: o.orderNo, type: o.type, tableNo: o.tableNo, cashier: cashier?.fullName ?? "", terminal: terminal?.name ?? "", createdAt: o.createdAt.toISOString(),
     customer: cust ? { name: cust.name, phone: cust.phone } : null, deliveryAddress: o.deliveryAddress,
     lines: items.filter((i) => !i.isVoided).map((i) => ({

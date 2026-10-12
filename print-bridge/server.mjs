@@ -6,7 +6,7 @@ import http from "node:http";
 import net from "node:net";
 
 const PORT = Number(process.env.PORT ?? 9101);
-const ORIGINS = (process.env.ALLOWED_ORIGINS ?? "http://localhost:3000,http://127.0.0.1:3000").split(",");
+const ORIGINS = (process.env.ALLOWED_ORIGINS ?? "http://localhost:3000,http://127.0.0.1:3000,https://www.crspofficial.com,https://crspofficial.com").split(",");
 const HOSTS = process.env.ALLOW_HOSTS?.split(",").filter(Boolean);
 
 function sendTcp(host, port, buf) {

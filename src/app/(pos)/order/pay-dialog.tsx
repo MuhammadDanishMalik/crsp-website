@@ -143,10 +143,31 @@ export function PayDialog({ menu, me, offline, online, onClose, onFinished }: { 
           )}
           {done.offline && <p className="rounded-xl bg-warn/15 p-3 text-sm text-warn">No internet. This sale is saved on this device and will upload by itself when the connection returns. Card/wallet payments stay “pending verification” until a manager checks them.</p>}
           <p className="text-muted">{done.printMsg}</p>
-          {!done.offline && <div className="flex gap-2">
-            <Button variant="secondary" size="lg" className="flex-1" onClick={async () => setDone({ ...done, printMsg: await printReceipt(done.orderId, true) })}><Printer size={20} /> {t("reprint")}</Button>
-            <a href={`/receipt/${done.orderId}?print=1`} target="_blank" className="flex min-h-14 flex-1 items-center justify-center rounded-xl border border-border bg-surface-2 font-semibold text-sm">{t("browserPrint")} (2 Slips)</a>
-          </div>}
+          <div className="flex flex-col gap-2">
+            <a
+              href={`/receipt/${done.orderId}?print=1`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-brand text-base font-bold text-brand-fg shadow-sm transition hover:opacity-95"
+            >
+              <Printer size={20} /> Print 2 Slips (Xprinter) 🖨️
+            </a>
+            {!done.offline && (
+              <Button
+                variant="secondary"
+                size="md"
+                className="w-full text-xs"
+                onClick={async () =>
+                  setDone({
+                    ...done,
+                    printMsg: await printReceipt(done.orderId, true),
+                  })
+                }
+              >
+                Send Direct ESC/POS to Local Bridge
+              </Button>
+            )}
+          </div>
           <div className="flex gap-2">
             <a href="/orders" className="flex min-h-12 flex-1 items-center justify-center rounded-xl border border-border bg-surface-2 text-sm font-semibold text-foreground hover:bg-surface">View Orders Record</a>
             <Button size="xl" className="flex-[2]" onClick={() => { cart.clear(); onFinished(); }}>{t("newOrder")}</Button>

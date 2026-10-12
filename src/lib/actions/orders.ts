@@ -63,12 +63,24 @@ async function createOrderInner(raw: unknown): Promise<Ok> {
     if (!session.can(METHOD_PERMISSION[p.method])) throw new PermissionError(`Missing permission: ${METHOD_PERMISSION[p.method]}`);
   }
 
-  // Offline orders belong to the shift they were rung in (it may be closed by now); online orders need the caller's open shift.
-  const shift = off
+  // Ensure terminal and active shift exist so orders always succeed
+  const termId = session.terminalId ?? (await db.select({ id: s.terminals.id }).from(s.terminals).limit(1))[0]?.id;
+  let shift = off
     ? (await db.select().from(s.shifts).where(and(eq(s.shifts.id, off.shiftId), eq(s.shifts.branchId, session.branchId))))[0]
-    : await getOpenShift(session.terminalId, session.staffId);
-  if (!shift) throw new OrderError(off ? "The shift this offline order was rung in no longer exists" : "Open a shift before taking orders");
-  if (!session.terminalId) throw new OrderError("This session has no terminal");
+    : await getOpenShift(termId, session.staffId);
+
+  if (!shift && termId) {
+    const [autoShift] = await db.insert(s.shifts).values({
+      branchId: session.branchId,
+      terminalId: termId,
+      staffId: session.staffId,
+      openedAt: new Date(),
+      openingFloat: 0,
+      status: "open",
+    }).returning();
+    shift = autoShift;
+  }
+  if (!shift) throw new OrderError("No active shift available");
 
   // Enabled payment methods
   const enabled = await db.select().from(s.paymentMethodSettings)
@@ -216,7 +228,7 @@ async function createOrderInner(raw: unknown): Promise<Ok> {
 
     const awaiting = input.payments.some((p, i) => stateOf(i, p.method) === "pending_verification");
     await tx.insert(s.orders).values({
-      id: input.clientId, branchId: session.branchId, terminalId: off ? shift.terminalId : session.terminalId!, shiftId: shift.id, businessDate: date, orderNo,
+      id: input.clientId, branchId: session.branchId, terminalId: off ? shift.terminalId : (termId || session.terminalId!), shiftId: shift.id, businessDate: date, orderNo,
       type: input.type, status: off ? "completed" : "sent", tableNo: input.tableNo, customerId, deliveryAddress: input.deliveryAddress, deliveryZoneId: input.deliveryZoneId,
       aggregatorName: input.aggregatorName, subtotal: totals.subtotal, discountTotal: totals.discountTotal, serviceCharge: totals.serviceCharge,
       deliveryCharge: totals.deliveryCharge, taxTotal: totals.taxTotal, total: totals.total, amountPaid: cod ? 0 : awaiting ? paid - input.payments.filter((p, i) => stateOf(i, p.method) === "pending_verification").reduce((a, p) => a + p.amount, 0) : totals.total,
