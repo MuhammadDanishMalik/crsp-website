@@ -11,10 +11,21 @@ import { OpenShift } from "./open-shift";
 export default async function OrderPage() {
   const session = await requireSession({ permission: "order.create", kind: "pos" });
   if (session.kind !== "pos") redirect("/admin");
-  const shift = await getOpenShift(session.terminalId, session.staffId);
+  const db = await getDb();
+  let shift = await getOpenShift(session.terminalId, session.staffId);
+  if (!shift && session.terminalId) {
+    const [newShift] = await db.insert(s.shifts).values({
+      branchId: session.branchId,
+      terminalId: session.terminalId,
+      staffId: session.staffId,
+      openedAt: new Date(),
+      openingFloat: 0,
+      status: "open",
+    }).returning();
+    shift = newShift;
+  }
   if (!shift) return <OpenShift name={session.name} canOpen={session.can("shift.open")} />;
   const menu = await loadPosMenu(session.branchId);
-  const db = await getDb();
   const [[term], [biz], [branch], printers, stations] = await Promise.all([
     db.select().from(s.terminals).where(eq(s.terminals.id, session.terminalId!)), db.select().from(s.business).limit(1), db.select().from(s.branches).where(eq(s.branches.id, session.branchId)),
     db.select().from(s.printers).where(and(eq(s.printers.branchId, session.branchId), eq(s.printers.isActive, true))), db.select().from(s.kitchenStations).where(eq(s.kitchenStations.branchId, session.branchId)),

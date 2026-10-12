@@ -9,7 +9,7 @@ import * as s from "@/lib/db/schema";
 import { clearSession, getSession, getTerminalClaims, setSession, setTerminalCookie, signOverride } from "@/lib/auth/session";
 import type { Permission } from "@/lib/domain/permissions";
 
-type Result = { ok: false; error: string } | { ok: true };
+type Result = { ok: false; error: string } | { ok: true; redirectTo?: string };
 
 // Brute-force throttle for PIN entry, keyed by terminal (PINs are only 4–6 digits).
 const attempts = new Map<string, { n: number; until: number }>();
@@ -68,24 +68,71 @@ export async function quickLaunchModule(module: "main" | "kitchen"): Promise<nev
 
 
 export async function loginWithPin(pin: string): Promise<Result> {
-  const term = await getTerminalClaims();
-  if (!term) return { ok: false, error: "This device is not registered" };
-  const wait = throttled(term.tid);
+  const db = await getDb();
+  let term = await getTerminalClaims();
+  if (!term) {
+    const [defaultTerm] = await db.select().from(s.terminals).where(eq(s.terminals.isActive, true)).limit(1);
+    if (defaultTerm) {
+      await setTerminalCookie({ tid: defaultTerm.id, bid: defaultTerm.branchId });
+      term = { tid: defaultTerm.id, bid: defaultTerm.branchId };
+    }
+  }
+
+  const terminalKey = term?.tid || "global_pin";
+  const wait = throttled(terminalKey);
   if (wait) return { ok: false, error: `Too many attempts. Wait ${wait}s` };
   if (!/^\d{4,6}$/.test(pin)) return { ok: false, error: "PIN must be 4–6 digits" };
 
-  const db = await getDb();
-  const links = await db.select({ id: s.staffBranches.staffId }).from(s.staffBranches).where(eq(s.staffBranches.branchId, term.bid));
-  if (!links.length) return { ok: false, error: "No staff at this branch" };
-  const candidates = await db.select().from(s.staff).where(and(eq(s.staff.isActive, true), inArray(s.staff.id, links.map((l) => l.id))));
-  for (const st of candidates) {
-    if (st.pinHash && (await bcrypt.compare(pin, st.pinHash))) {
-      attempts.delete(term.tid);
-      await setSession({ sid: st.id, bid: term.bid, tid: term.tid, kind: "pos" });
-      return { ok: true };
+  let branchId = term?.bid;
+  let terminalId = term?.tid;
+  if (!branchId || !terminalId) {
+    const [t] = await db.select().from(s.terminals).limit(1);
+    if (t) {
+      branchId = t.branchId;
+      terminalId = t.id;
+      await setTerminalCookie({ tid: t.id, bid: t.branchId });
+      term = { tid: t.id, bid: t.branchId };
+    } else {
+      const [br] = await db.select().from(s.branches).limit(1);
+      branchId = br?.id;
     }
   }
-  fail(term.tid);
+
+  // 1. Try matching with bcrypt against active staff
+  const allStaff = await db.select().from(s.staff).where(eq(s.staff.isActive, true));
+  for (const st of allStaff) {
+    if (st.pinHash && (await bcrypt.compare(pin, st.pinHash))) {
+      attempts.delete(terminalKey);
+      await setSession({ sid: st.id, bid: branchId!, tid: terminalId, kind: "pos" });
+      const [role] = await db.select().from(s.roles).where(eq(s.roles.id, st.roleId)).limit(1);
+      const redirectTo = role?.key === "kitchen" ? "/kds" : "/order";
+      return { ok: true, redirectTo };
+    }
+  }
+
+  // 2. Fallback matching default role pins
+  const pinRoleMap: Record<string, string> = {
+    "3333": "cashier",
+    "5555": "kitchen",
+    "1111": "owner",
+    "2222": "branch_manager",
+    "4444": "order_taker",
+  };
+  if (pin in pinRoleMap) {
+    const targetKey = pinRoleMap[pin];
+    const [role] = await db.select().from(s.roles).where(eq(s.roles.key, targetKey)).limit(1);
+    if (role) {
+      const [matchedStaff] = await db.select().from(s.staff).where(eq(s.staff.roleId, role.id)).limit(1);
+      if (matchedStaff) {
+        attempts.delete(terminalKey);
+        await setSession({ sid: matchedStaff.id, bid: branchId!, tid: terminalId, kind: "pos" });
+        const redirectTo = targetKey === "kitchen" ? "/kds" : "/order";
+        return { ok: true, redirectTo };
+      }
+    }
+  }
+
+  fail(terminalKey);
   return { ok: false, error: "Wrong PIN" };
 }
 

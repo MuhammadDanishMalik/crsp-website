@@ -38,9 +38,11 @@ export default function Start() {
           <div className="mt-6">
             <a
               href="/api/launch?module=main"
+              target="_blank"
+              rel="noopener noreferrer"
               className="flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-brand text-base font-bold text-brand-fg shadow-sm transition hover:opacity-95"
             >
-              Open Main Display <ArrowRight size={18} />
+              Open Main Display ↗
             </a>
           </div>
         </div>
@@ -64,9 +66,11 @@ export default function Start() {
           <div className="mt-6">
             <a
               href="/api/launch?module=kitchen"
+              target="_blank"
+              rel="noopener noreferrer"
               className="flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-emerald-600 text-base font-bold text-white shadow-sm transition hover:bg-emerald-500"
             >
-              Open Kitchen Display <ArrowRight size={18} />
+              Open Kitchen Display ↗
             </a>
           </div>
         </div>

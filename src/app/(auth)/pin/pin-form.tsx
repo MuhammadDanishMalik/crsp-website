@@ -26,8 +26,12 @@ export function PinForm() {
         return setPin("");
       }
       const r = await loginWithPin(value);
-      if (r.ok) router.replace("/");
-      else { setError(r.error); setPin(""); }
+      if (r.ok) {
+        window.location.href = r.redirectTo || "/order";
+      } else {
+        setError(r.error);
+        setPin("");
+      }
     });
 
   const push = (d: string) => {

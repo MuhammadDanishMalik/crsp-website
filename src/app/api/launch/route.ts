@@ -1,40 +1,133 @@
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db/client";
 import * as s from "@/lib/db/schema";
-import { getTerminalClaims, setSession, setTerminalCookie } from "@/lib/auth/session";
+import {
+  createToken,
+  SESSION,
+  TERMINAL,
+  cookieOpts,
+} from "@/lib/auth/session";
 import { eq, and } from "drizzle-orm";
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const mod = searchParams.get("module") ?? "main";
   const redirectTarget = mod === "kitchen" ? "/kds" : "/order";
+  const response = NextResponse.redirect(new URL(redirectTarget, req.url));
 
   try {
     const db = await getDb();
-    let term = await getTerminalClaims();
-    if (!term) {
-      const [defaultTerm] = await db.select().from(s.terminals).where(eq(s.terminals.isActive, true)).limit(1);
-      if (defaultTerm) {
-        await setTerminalCookie({ tid: defaultTerm.id, bid: defaultTerm.branchId });
-        term = { tid: defaultTerm.id, bid: defaultTerm.branchId };
+
+    // 1. Terminal resolution
+    let [defaultTerm] = await db
+      .select()
+      .from(s.terminals)
+      .where(eq(s.terminals.isActive, true))
+      .limit(1);
+
+    if (!defaultTerm) {
+      const [branch] = await db.select().from(s.branches).limit(1);
+      if (branch) {
+        const [createdTerm] = await db
+          .insert(s.terminals)
+          .values({
+            branchId: branch.id,
+            name: "POS-1",
+            orderNoPrefix: "A",
+            deviceKeyHash: "$2a$08$exampleHashPlaceholder",
+          })
+          .returning();
+        defaultTerm = createdTerm;
       }
     }
 
-    const roleKey = mod === "kitchen" ? "kitchen" : "cashier";
-    const [role] = await db.select().from(s.roles).where(eq(s.roles.key, roleKey)).limit(1);
-    if (role && term) {
-      const [staffMember] = await db
+    if (defaultTerm) {
+      const termToken = await createToken(
+        { tid: defaultTerm.id, bid: defaultTerm.branchId },
+        "3650d"
+      );
+      response.cookies.set(TERMINAL, termToken, {
+        ...cookieOpts,
+        maxAge: 3650 * 86400,
+      });
+
+      // 2. Staff resolution based on module
+      const targetRoleKey = mod === "kitchen" ? "kitchen" : "cashier";
+      const [role] = await db
         .select()
-        .from(s.staff)
-        .where(and(eq(s.staff.roleId, role.id), eq(s.staff.isActive, true)))
+        .from(s.roles)
+        .where(eq(s.roles.key, targetRoleKey))
         .limit(1);
+
+      let staffMember = role
+        ? (
+            await db
+              .select()
+              .from(s.staff)
+              .where(
+                and(
+                  eq(s.staff.roleId, role.id),
+                  eq(s.staff.isActive, true)
+                )
+              )
+              .limit(1)
+          )[0]
+        : null;
+
+      if (!staffMember) {
+        const [anyStaff] = await db
+          .select()
+          .from(s.staff)
+          .where(eq(s.staff.isActive, true))
+          .limit(1);
+        staffMember = anyStaff;
+      }
+
       if (staffMember) {
-        await setSession({ sid: staffMember.id, bid: term.bid, tid: term.tid, kind: "pos" });
+        const sessionToken = await createToken(
+          {
+            sid: staffMember.id,
+            bid: defaultTerm.branchId,
+            tid: defaultTerm.id,
+            kind: "pos",
+          },
+          "12h"
+        );
+        response.cookies.set(SESSION, sessionToken, {
+          ...cookieOpts,
+          maxAge: 12 * 3600,
+        });
+
+        // 3. Ensure an open shift exists for the cashier so they go straight to POS
+        if (mod !== "kitchen") {
+          const [existingShift] = await db
+            .select()
+            .from(s.shifts)
+            .where(
+              and(
+                eq(s.shifts.terminalId, defaultTerm.id),
+                eq(s.shifts.staffId, staffMember.id),
+                eq(s.shifts.status, "open")
+              )
+            )
+            .limit(1);
+
+          if (!existingShift) {
+            await db.insert(s.shifts).values({
+              branchId: defaultTerm.branchId,
+              terminalId: defaultTerm.id,
+              staffId: staffMember.id,
+              openedAt: new Date(),
+              openingFloat: 500000,
+              status: "open",
+            });
+          }
+        }
       }
     }
   } catch (err) {
     console.error("Auto-launch error:", err);
   }
 
-  return NextResponse.redirect(new URL(redirectTarget, req.url));
+  return response;
 }

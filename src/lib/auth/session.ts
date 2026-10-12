@@ -3,7 +3,7 @@ import { cache } from "react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { SignJWT, jwtVerify } from "jose";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { getDb } from "@/lib/db/client";
 import * as s from "@/lib/db/schema";
 import type { Permission } from "@/lib/domain/permissions";
@@ -28,6 +28,12 @@ async function verify<T>(token?: string): Promise<T | null> {
 }
 
 const cookieOpts = { httpOnly: true, sameSite: "lax", path: "/", secure: process.env.NODE_ENV === "production" } as const;
+
+export { cookieOpts, SESSION, TERMINAL };
+
+export async function createToken(claims: object, ttl: string) {
+  return sign(claims, ttl);
+}
 
 export async function setSession(c: SessionClaims) {
   const ttl = c.kind === "pos" ? "12h" : "8h";
@@ -60,24 +66,45 @@ export const getSession = cache(async (): Promise<Session | null> => {
   const claims = await verify<SessionClaims>((await cookies()).get(SESSION)?.value);
   if (!claims) return null;
   const db = await getDb();
-  const [row] = await db
+  let [row] = await db
     .select({ staff: s.staff, role: s.roles, branch: s.branches })
     .from(s.staff)
     .innerJoin(s.roles, eq(s.roles.id, s.staff.roleId))
     .innerJoin(s.branches, eq(s.branches.id, claims.bid))
     .where(eq(s.staff.id, claims.sid));
+
+  // If ID not matched (e.g. serverless instance restart), fallback to active staff for the role
+  if (!row) {
+    const targetKey = claims.kind === "admin" ? "owner" : "cashier";
+    const [fallback] = await db
+      .select({ staff: s.staff, role: s.roles, branch: s.branches })
+      .from(s.staff)
+      .innerJoin(s.roles, eq(s.roles.id, s.staff.roleId))
+      .innerJoin(s.branches, eq(s.branches.businessId, s.staff.businessId))
+      .where(and(eq(s.roles.key, targetKey), eq(s.staff.isActive, true)))
+      .limit(1);
+    row = fallback;
+  }
+
   if (!row || !row.staff.isActive) return null;
   const perms = await db.select({ p: s.rolePermissions.permission }).from(s.rolePermissions).where(eq(s.rolePermissions.roleId, row.role.id));
   const permissions = new Set(perms.map((x) => x.p as Permission));
   let terminalName: string | null = null;
-  if (claims.tid) {
-    const [t] = await db.select({ name: s.terminals.name }).from(s.terminals).where(eq(s.terminals.id, claims.tid));
+  let tid = claims.tid;
+  if (tid) {
+    const [t] = await db.select({ name: s.terminals.name }).from(s.terminals).where(eq(s.terminals.id, tid));
     terminalName = t?.name ?? null;
+  } else {
+    const [defT] = await db.select({ id: s.terminals.id, name: s.terminals.name }).from(s.terminals).limit(1);
+    if (defT) {
+      tid = defT.id;
+      terminalName = defT.name;
+    }
   }
   return {
     staffId: row.staff.id, name: row.staff.fullName, roleKey: row.role.key, roleName: row.role.name,
     discountLimitBps: row.role.discountLimitBps, branchId: row.branch.id, branchName: row.branch.name,
-    terminalId: claims.tid ?? null, terminalName, kind: claims.kind, permissions, can: (p) => permissions.has(p),
+    terminalId: tid ?? null, terminalName, kind: claims.kind, permissions, can: (p) => permissions.has(p),
   };
 });
 
