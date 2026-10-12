@@ -1,29 +1,3 @@
 {
-  "$schema": "https://openapi.vercel.sh/vercel.json",
-  "services": {
-    "app": {
-      "root": ".",
-      "framework": "nextjs",
-      "bindings": [
-        {
-          "type": "service",
-          "service": "print-bridge",
-          "format": "url",
-          "env": "PRINT_BRIDGE_URL"
-        }
-      ]
-    },
-    "print-bridge": {
-      "root": "print-bridge",
-      "entrypoint": "server.mjs"
-    }
-  },
-  "rewrites": [
-    {
-      "source": "/(.*)",
-      "destination": {
-        "service": "app"
-      }
-    }
-  ]
+  "$schema": "https://openapi.vercel.sh/vercel.json"
 }
