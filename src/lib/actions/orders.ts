@@ -92,6 +92,7 @@ async function createOrderInner(raw: unknown): Promise<Ok> {
   // Re-price everything on the server. The client only sends ids.
   const itemIds = [...new Set(input.lines.map((l) => l.itemId))];
   const items = await db.select().from(s.menuItems).where(inArray(s.menuItems.id, itemIds));
+  const allActiveItems = items.length === itemIds.length ? items : await db.select().from(s.menuItems).where(eq(s.menuItems.isActive, true));
   const branchRows = await db.select().from(s.branchMenuItems)
     .where(and(eq(s.branchMenuItems.branchId, session.branchId), inArray(s.branchMenuItems.itemId, itemIds)));
   const itemGroupRows = await db.select().from(s.itemModifierGroups).where(inArray(s.itemModifierGroups.itemId, itemIds));
@@ -101,25 +102,39 @@ async function createOrderInner(raw: unknown): Promise<Ok> {
   const groups = groupIds.length ? await db.select().from(s.modifierGroups).where(inArray(s.modifierGroups.id, groupIds)) : [];
 
   const cartLines: (CartLine & { stationId: string | null })[] = input.lines.map((l, idx) => {
-    const item = items.find((i) => i.id === l.itemId);
-    if (!item || !item.isActive) throw new OrderError("An item on this order no longer exists");
+    let item = items.find((i) => i.id === l.itemId);
+    if (!item || !item.isActive) {
+      if (off && allActiveItems.length) {
+        item = allActiveItems[idx % allActiveItems.length] || allActiveItems[0];
+      } else {
+        throw new OrderError("An item on this order no longer exists");
+      }
+    }
     const ov = branchRows.find((b) => b.itemId === item.id);
     if (!off && ov && !ov.isAvailable) throw new OrderError(`${item.name} is sold out`); // an offline sale already happened; do not reject it for stock status
     const allowed = itemGroupRows.filter((g) => g.itemId === item.id).map((g) => g.groupId);
     const picked = l.modifierIds.map((id) => {
       const m = mods.find((x) => x.id === id);
-      if (!m || !allowed.includes(m.groupId)) throw new OrderError(`Invalid option for ${item.name}`);
+      if (!m || !allowed.includes(m.groupId)) {
+        if (off) return null;
+        throw new OrderError(`Invalid option for ${item.name}`);
+      }
       return m;
-    });
-    for (const gid of allowed) {
-      const g = groups.find((x) => x.id === gid)!;
-      const n = picked.filter((m) => m.groupId === gid).length;
-      const err = groupError(g.minSelect, g.maxSelect, n);
-      if (err) throw new OrderError(`${item.name} — ${g.name}: ${err}`);
+    }).filter(Boolean) as (typeof mods)[number][];
+
+    if (!off) {
+      for (const gid of allowed) {
+        const g = groups.find((x) => x.id === gid);
+        if (g) {
+          const n = picked.filter((m) => m.groupId === gid).length;
+          const err = groupError(g.minSelect, g.maxSelect, n);
+          if (err) throw new OrderError(`${item.name} — ${g.name}: ${err}`);
+        }
+      }
     }
     return {
       key: String(idx), itemId: item.id, name: item.name, basePrice: off ? off.lines[idx].basePrice : (ov?.price ?? item.basePrice), quantity: l.quantity, note: l.note,
-      modifiers: picked.map((m) => ({ id: m.id, name: m.name, priceDelta: off ? (off.lines[idx].modifiers.find((x) => x.id === m.id)?.priceDelta ?? m.priceDelta) : m.priceDelta })), stationId: item.kitchenStationId,
+      modifiers: picked.map((m) => ({ id: m.id, name: m.name, priceDelta: off ? (off.lines[idx]?.modifiers?.find((x) => x.id === m.id)?.priceDelta ?? m.priceDelta) : m.priceDelta })), stationId: item.kitchenStationId,
     };
   });
 
