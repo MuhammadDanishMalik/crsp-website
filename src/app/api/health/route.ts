@@ -1,11 +1,11 @@
 import { sql } from "drizzle-orm";
-import { getDb } from "@/lib/db/client";
+import { databaseUrl, getDb } from "@/lib/db/client";
 
 export const dynamic = "force-dynamic";
 
 /** Is the database reachable? Safe to expose: it reveals only the mode and a short error code, never the connection string. */
 export async function GET() {
-  const mode = process.env.DATABASE_URL ? "postgres" : "embedded";
+  const mode = databaseUrl() ? "postgres" : "embedded";
   try {
     const db = await getDb();
     await db.execute(sql`select 1`);

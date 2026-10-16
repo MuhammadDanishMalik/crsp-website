@@ -34,10 +34,20 @@ async function seedFirstRun(db: Db) {
   }
 }
 
+/**
+ * The Postgres address: DATABASE_URL, or POSTGRES_URL which the Supabase ↔ Vercel integration adds on its own.
+ * The integration's pooled URL carries a `supa=base-pooler.x` marker that the pooler rejects as a startup parameter, so it is removed.
+ */
+export function databaseUrl(): string | undefined {
+  const raw = process.env.DATABASE_URL || process.env.POSTGRES_URL;
+  if (!raw) return undefined;
+  try { const u = new URL(raw); u.searchParams.delete("supa"); return u.toString(); } catch { return raw; }
+}
+
 async function init(): Promise<Db> {
-  const url = process.env.DATABASE_URL;
+  const url = databaseUrl();
   if (url) {
-    const db = drizzlePg(postgres(url, { prepare: false }), { schema });
+    const db = drizzlePg(postgres(url, { prepare: false, ...(/supabase|pooler/.test(url) ? { ssl: "require" as const } : {}) }), { schema }); // Supabase only accepts encrypted connections
     if (fs.existsSync(migrationsFolder)) {
       try {
         await migratePg(db, { migrationsFolder });
