@@ -3,6 +3,7 @@ import { useMemo, useState, useTransition } from "react";
 import { useTranslations } from "next-intl";
 import { Banknote, CreditCard, Landmark, Smartphone, QrCode, Printer } from "lucide-react";
 import { createOrder } from "@/lib/actions/orders";
+import { lookupCustomer } from "@/lib/actions/customers";
 import { getKotJobs, getReceiptPrintJob } from "@/lib/actions/print";
 import { sendToBridge } from "@/lib/adapters/printers/bridge-client";
 import { computeTotals } from "@/lib/domain/pricing";
@@ -116,7 +117,7 @@ export function PayDialog({ menu, me, offline, online, onClose, onFinished }: { 
       if (cart.discount || cod || redeem.points) return setError("Discounts, points and cash-on-delivery need the internet. Remove them to continue offline.");
       const createdAt = new Date().toISOString();
       const localNo = await nextLocalNo(offline.prefix, businessDate());
-      const lr = localReceipt({ cfg: offline, localNo, createdAt, type: cart.orderType, tableNo: cart.tableNo || null, lines: cart.lines, taxRules: menu.taxRules, serviceChargeBps: menu.serviceChargeBps, payments: all });
+      const lr = localReceipt({ cfg: offline, localNo, createdAt, type: cart.orderType, tableNo: cart.tableNo || null, lines: cart.lines, taxRules: menu.taxRules, serviceChargeBps: menu.serviceChargeBps, payments: all, customer: { name: cart.customerName, phone: cart.customerPhone }, address: cart.deliveryAddress });
       const offlinePayload = { ...payload, offline: { localNo, createdAt, shiftId: offline.shiftId, staffId: offline.staffId, staffName: offline.staffName, lines: cart.lines.map((l) => ({ itemId: l.itemId, basePrice: l.basePrice, modifiers: l.modifiers.map((m) => ({ id: m.id, priceDelta: m.priceDelta })) })) } };
       await enqueue({ clientId: cart.clientId, localNo, createdAt, status: "queued", error: "", attempts: 0, payload: offlinePayload, total: lr.total, summary: cart.lines.map((l) => `${l.quantity}× ${l.name}`).join(", ") });
       const printMsg = await printOffline(offline, lr.receipt, cart.lines, menu.items, all.some((e) => e.method === "cash"));
@@ -179,6 +180,16 @@ export function PayDialog({ menu, me, offline, online, onClose, onFinished }: { 
 
   return (
     <Modal title={`${t("title")} · ${formatPKR(totals.total)}`} onClose={onClose} width="max-w-4xl">
+      <details className="mb-4 rounded-2xl border border-border bg-surface-2 p-3" open={!!(cart.customerName || cart.customerPhone || cart.deliveryAddress)}>
+        <summary className="cursor-pointer font-semibold">Customer name / number / address on receipt <span className="font-normal text-muted">(optional)</span></summary>
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          <Input aria-label="Customer name" placeholder="Name" value={cart.customerName} maxLength={80} onChange={(e) => cart.set({ customerName: e.target.value })} />
+          <Input aria-label="Customer phone" placeholder="Phone (03xx-xxxxxxx)" inputMode="tel" value={cart.customerPhone} maxLength={20}
+            onChange={(e) => cart.set({ customerPhone: e.target.value })}
+            onBlur={async () => { if (!online || cart.customerPhone.replace(/\D/g, "").length < 7) return; const c = await lookupCustomer(cart.customerPhone); if (c) cart.set({ customerName: cart.customerName || c.name, customerPoints: c.points }); }} />
+        </div>
+        {cart.orderType !== "delivery" && <Input className="mt-2" aria-label="Customer address" placeholder="Address (optional)" value={cart.deliveryAddress} maxLength={300} onChange={(e) => cart.set({ deliveryAddress: e.target.value })} />}
+      </details>
       <div className="grid grid-cols-[220px_1fr] gap-6">
         <div className="space-y-2">
           {available.map((m) => (
@@ -271,11 +282,11 @@ export function PayDialog({ menu, me, offline, online, onClose, onFinished }: { 
   );
 }
 
-export async function printReceipt(orderId: string, reprint = false): Promise<string> {
+export async function printReceipt(orderId: string, reprint = false, changes?: { added: { name: string; qty: number; mods: string[]; note: string | null }[]; removed: { name: string; qty: number }[] }): Promise<string> {
   const msgs: string[] = [];
   
   // 1st SLIP: Kitchen Order Ticket (KOT)
-  if (!reprint) {
+  if (!reprint && !changes) { // an edited order only needs the change slip + receipt, not every station ticket again
     const kots = await getKotJobs(orderId);
     if (kots.ok) {
       let failed = 0;
@@ -288,7 +299,7 @@ export async function printReceipt(orderId: string, reprint = false): Promise<st
   }
 
   // 2nd SLIP: Customer Receipt
-  const job = await getReceiptPrintJob(orderId, reprint);
+  const job = await getReceiptPrintJob(orderId, reprint, changes);
   if (job.ok) {
     const r = await sendToBridge(job.target, Uint8Array.from(atob(job.data), (c) => c.charCodeAt(0)));
     msgs.push(r.ok ? (reprint ? "Receipt reprinted" : "2. Customer receipt printed") : `Receipt not printed (${r.error})`);

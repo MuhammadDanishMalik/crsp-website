@@ -33,3 +33,15 @@ describe("payroll", () => {
   it("lateness respects grace", () => { expect(lateMinutes("09:00", "09:08")).toBe(0); expect(lateMinutes("09:00", "09:25")).toBe(25); });
   it("csv escaping", () => expect(csvEscape('a,"b"')).toBe('"a,""b"""'));
 });
+
+import { recipeNutrition, roundN } from "./nutrition";
+describe("nutrition calculator", () => {
+  const ings = new Map([
+    ["chicken", { baseUnitId: "g", unitCode: "g", per: { kcal: 165, protein: 31, carbs: 0, fat: 3.6 } }],
+    ["bun", { baseUnitId: "pc", unitCode: "pc", per: { kcal: 150, protein: 5, carbs: 28, fat: 2 } }],
+  ]);
+  it("scales per-100g values by the quantity used, converting units", () => {
+    const n = roundN(recipeNutrition([{ ingredientId: "chicken", qty: 0.2, unitId: "kg" }, { ingredientId: "bun", qty: 1, unitId: "pc" }], ings, conv));
+    expect(n).toEqual({ kcal: 480, protein: 67, carbs: 28, fat: 9.2 });
+  });
+});

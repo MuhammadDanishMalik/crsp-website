@@ -20,9 +20,10 @@ export async function saveIngredient(raw: unknown): Promise<R> {
     const v = z.object({
       id: z.string().uuid().optional(), name: z.string().trim().min(1, "Name is required").max(80), baseUnitId: z.string().uuid("Choose a unit"),
       isImported: z.boolean(), originCountry: z.string().trim().max(40).optional(), costPerUnitPaisa: num(), reorderLevel: num(),
+      kcal: num().max(1000), protein: num().max(100), carbs: num().max(100), fat: num().max(100),
     }).parse(raw);
     const db = await getDb();
-    const values = { name: v.name, baseUnitId: v.baseUnitId, isImported: v.isImported, originCountry: v.isImported ? v.originCountry || null : null, avgCost: Math.round(v.costPerUnitPaisa) };
+    const values = { name: v.name, baseUnitId: v.baseUnitId, isImported: v.isImported, originCountry: v.isImported ? v.originCountry || null : null, avgCost: Math.round(v.costPerUnitPaisa), kcal: String(v.kcal), proteinG: String(v.protein), carbsG: String(v.carbs), fatG: String(v.fat) };
     let id = v.id;
     if (id) await db.update(s.ingredients).set(values).where(eq(s.ingredients.id, id));
     else { const [b] = await db.select().from(s.business).limit(1); [{ id }] = await db.insert(s.ingredients).values({ ...values, businessId: b.id }).returning({ id: s.ingredients.id }); }
@@ -106,6 +107,19 @@ export async function transferStock(ingredientId: string, toBranchId: string, qt
       await applyMovement(tx, { branchId: toBranchId, ingredientId, qty: base, type: "transfer_in", unitCost: ing.avgCost, transferBranchId: session.branchId, staffId: session.staffId });
     });
     await audit(session, { action: "inventory.transfer", entity: "ingredient", entityId: ingredientId, after: { toBranchId, base } });
+    reval();
+    return { ok: true };
+  });
+}
+
+/** Type calories/protein/carbs/fat for a menu item by hand (e.g. from a lab or supplier sheet). null goes back to the recipe calculation. */
+export async function saveItemNutrition(itemId: string, n: { kcal: number; protein: number; carbs: number; fat: number } | null): Promise<R> {
+  return guard(async () => {
+    const session = await requirePermission("inventory.recipes");
+    const v = n === null ? null : z.object({ kcal: num().max(5000), protein: num().max(500), carbs: num().max(500), fat: num().max(500) }).parse(n);
+    const db = await getDb();
+    await db.update(s.menuItems).set({ nutritionOverride: v }).where(eq(s.menuItems.id, itemId));
+    await audit(session, { action: "menu.nutrition", entity: "menu_item", entityId: itemId, after: v });
     reval();
     return { ok: true };
   });

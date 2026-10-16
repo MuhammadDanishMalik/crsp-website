@@ -195,13 +195,14 @@ export default async function ReceiptPage({ params, searchParams }: PageProps<"/
           )}
 
           <p className="mt-3 text-center text-[10px] text-zinc-400 print:text-black">
-            Powered by CRSP POS
+            Software powered by Orixto.com
           </p>
         </section>
       </div>
 
       <style dangerouslySetInnerHTML={{ __html: `
         @media print {
+          @page { size: 80mm auto; margin: 0; } /* continuous roll: each slip is its own page, so the printer driver cuts after it */
           body[data-print-mode="kitchen"] #customer-slip {
             display: none !important;
           }

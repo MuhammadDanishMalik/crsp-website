@@ -67,12 +67,13 @@ export async function deductForOrder(tx: Tx, o: {
   return costs;
 }
 
-/** Put a voided order's ingredients back (once). */
+/** Put an order's ingredients back: reverse whatever is still booked against it (sales and edits net out, so this is safe to call twice). */
 export async function restoreForOrder(tx: Tx, orderId: string, branchId: string, staffId: string) {
-  const sold = await tx.select().from(s.stockMovements).where(and(eq(s.stockMovements.orderId, orderId), eq(s.stockMovements.type, "sale")));
-  const restored = await tx.select().from(s.stockMovements).where(and(eq(s.stockMovements.orderId, orderId), eq(s.stockMovements.type, "adjustment")));
-  if (!sold.length || restored.length) return;
-  for (const m of sold) {
-    await applyMovement(tx, { branchId, ingredientId: m.ingredientId, qty: -Number(m.quantity), type: "adjustment", unitCost: m.unitCost, orderId, staffId, note: "Order voided — stock restored" });
+  const mv = await tx.select({ i: s.stockMovements.ingredientId, q: s.stockMovements.quantity, c: s.stockMovements.unitCost }).from(s.stockMovements).where(eq(s.stockMovements.orderId, orderId));
+  const net = new Map<string, { q: number; c: number }>();
+  for (const m of mv) { const x = net.get(m.i) ?? { q: 0, c: m.c }; x.q += Number(m.q); net.set(m.i, x); }
+  for (const [ingredientId, x] of net) {
+    if (Math.abs(x.q) < 1e-9) continue;
+    await applyMovement(tx, { branchId, ingredientId, qty: -x.q, type: "adjustment", unitCost: x.c, orderId, staffId, note: "Order voided — stock restored" });
   }
 }

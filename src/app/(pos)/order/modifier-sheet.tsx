@@ -26,6 +26,12 @@ export function ModifierSheet({ item, onAdd, onClose }: { item: PosItem; onAdd: 
   const picked = useMemo(() => item.groups.flatMap((g) => g.modifiers.filter((m) => sel[g.id]?.includes(m.id))), [item.groups, sel]);
   const errors = item.groups.map((g) => groupError(g.min, g.max, sel[g.id]?.length ?? 0));
   const valid = errors.every((e) => !e);
+  const nutri = (() => {
+    if (!item.nutrition) return null;
+    const t = { ...item.nutrition };
+    for (const m of picked) if (m.nutrition) { t.kcal += m.nutrition.kcal; t.protein += m.nutrition.protein; t.carbs += m.nutrition.carbs; t.fat += m.nutrition.fat; }
+    return { kcal: Math.round(t.kcal), protein: Math.round(t.protein * 10) / 10, carbs: Math.round(t.carbs * 10) / 10, fat: Math.round(t.fat * 10) / 10 };
+  })();
   const unit = item.price + picked.reduce((a, m) => a + m.priceDelta, 0);
 
   return (
@@ -53,6 +59,11 @@ export function ModifierSheet({ item, onAdd, onClose }: { item: PosItem; onAdd: 
           </section>
         ))}
       </div>
+      {nutri && (
+        <div className="mt-5 grid grid-cols-4 gap-2 rounded-2xl bg-surface-2 p-3 text-center">
+          {([["Calories", nutri.kcal, "kcal"], ["Protein", nutri.protein, "g"], ["Carbs", nutri.carbs, "g"], ["Fat", nutri.fat, "g"]] as const).map(([l, v, u]) => <div key={l}><p className="text-xs text-muted">{l}</p><p className="text-lg font-bold tabular-nums">{v}<span className="text-xs font-normal text-muted"> {u}</span></p></div>)}
+        </div>
+      )}
       <div className="mt-6 flex items-center gap-4">
         <div className="flex items-center gap-2">
           <button className="h-14 w-14 rounded-xl bg-surface-2 text-2xl" onClick={() => setQty((q) => Math.max(1, q - 1))}>−</button>

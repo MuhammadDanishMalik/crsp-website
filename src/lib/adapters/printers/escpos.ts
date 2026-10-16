@@ -39,6 +39,44 @@ export class EscPos {
 const TYPE_LABEL: Record<string, string> = { dine_in: "DINE-IN", takeaway: "TAKEAWAY", delivery: "DELIVERY", drive_thru: "DRIVE-THRU", online: "ONLINE" };
 const METHOD_LABEL: Record<string, string> = { cash: "Cash", card: "Card", jazzcash: "JazzCash", easypaisa: "Easypaisa", raast: "Raast", bank_transfer: "Bank transfer" };
 
+export const POWERED_BY = "Software powered by Orixto.com";
+
+/** Slip 1 — for the kitchen: the whole order, big order number, no prices. Ends with a cut. */
+export function buildKitchenSlip(r: ReceiptData, paperMm: 58 | 80): Uint8Array {
+  const p = new EscPos(paperMm === 58 ? 32 : 48).init().align("center");
+  p.bold(true).line("*** KITCHEN ORDER ***").size(2, 2).line(`#${r.orderNo}`).size(1, 1).line(`${TYPE_LABEL[r.type] ?? r.type}${r.tableNo ? ` - TABLE ${r.tableNo}` : ""}`).bold(false);
+  p.line(new Date(r.createdAt).toLocaleString("en-GB", { timeZone: "Asia/Karachi", dateStyle: "short", timeStyle: "short" })).rule().align("left");
+  if (r.customer?.name) p.line(`Customer: ${r.customer.name} ${r.customer.phone ?? ""}`);
+  if (r.deliveryAddress) p.line(`Addr: ${r.deliveryAddress}`);
+  for (const l of r.lines) {
+    p.bold(true).size(1, 2).line(`${l.qty} x ${l.name}`).size(1, 1).bold(false);
+    for (const m of l.mods) p.line(`   + ${m}`);
+    if (l.note) p.bold(true).line(`   ** ${l.note}`).bold(false);
+  }
+  p.rule().align("center").line("-- end of kitchen ticket --").feed(4).cut();
+  return p.bytes();
+}
+
+/** Kitchen change slip after an order was edited: what to add and what to stop making. */
+export function buildChangeSlip(a: { orderNo: string; type: string; tableNo: string | null; added: { name: string; qty: number; mods: string[]; note: string | null }[]; removed: { name: string; qty: number }[] }, paperMm: 58 | 80): Uint8Array {
+  const p = new EscPos(paperMm === 58 ? 32 : 48).init().align("center");
+  p.bold(true).line("*** ORDER CHANGED ***").size(2, 2).line(`#${a.orderNo}`).size(1, 1).line(`${TYPE_LABEL[a.type] ?? a.type}${a.tableNo ? ` - TABLE ${a.tableNo}` : ""}`).bold(false).rule().align("left");
+  if (a.added.length) { p.bold(true).line("ADD:").bold(false); for (const i of a.added) { p.bold(true).size(1, 2).line(`+ ${i.qty} x ${i.name}`).size(1, 1).bold(false); for (const m of i.mods) p.line(`     + ${m}`); if (i.note) p.line(`     ** ${i.note}`); } }
+  if (a.removed.length) { p.bold(true).line("REMOVE / CANCEL:").bold(false); for (const i of a.removed) p.bold(true).size(1, 2).line(`- ${i.qty} x ${i.name}`).size(1, 1).bold(false); }
+  p.rule().feed(4).cut();
+  return p.bytes();
+}
+
+const concat = (...parts: Uint8Array[]) => { const out = new Uint8Array(parts.reduce((n, x) => n + x.length, 0)); let o = 0; for (const x of parts) { out.set(x, o); o += x.length; } return out; };
+
+/** One print job per order: kitchen slip first (cut), then the customer receipt (cut). Reprints send only the customer receipt. */
+export function buildOrderSlips(r: ReceiptData, opts: { paperMm: 58 | 80; openDrawer: boolean; kitchen: boolean; changeSlip?: Parameters<typeof buildChangeSlip>[0] }): Uint8Array {
+  const customer = buildReceipt(r, opts);
+  if (opts.changeSlip) return concat(buildChangeSlip(opts.changeSlip, opts.paperMm), customer);
+  return opts.kitchen ? concat(buildKitchenSlip(r, opts.paperMm), customer) : customer;
+}
+
+/** Slip 2 — the customer receipt. Ends with a cut. */
 export function buildReceipt(r: ReceiptData, opts: { paperMm: 58 | 80; openDrawer: boolean }): Uint8Array {
   const p = new EscPos(opts.paperMm === 58 ? 32 : 48).init();
   p.align("center").bold(true).size(2, 2).line(r.business.name).size(1, 1).bold(false);
@@ -78,7 +116,7 @@ export function buildReceipt(r: ReceiptData, opts: { paperMm: 58 | 80; openDrawe
   if (r.taxInvoiceNo) p.line(`Tax invoice: ${r.taxInvoiceNo}`);
   else if (r.taxPending) p.line("Tax invoice no. pending");
   if (r.qr) p.feed(1).qr(r.qr, opts.paperMm === 58 ? 5 : 6).feed(1);
-  p.line(r.business.footer).feed(4).cut();
+  p.line(r.business.footer).feed(1).line(POWERED_BY).feed(4).cut();
   if (opts.openDrawer) p.openDrawer();
   return p.bytes();
 }

@@ -111,6 +111,8 @@ export const PERMISSIONS = {
   "branch.manage": "Manage branches",
   "branch.switch": "Access other branches",
   "audit.view": "View audit log",
+  "sadqa.view": "See sadqa totals",
+  "sadqa.manage": "Set sadqa rules & record sadqa given",
   "pos.override_pin": "Can authorize PIN overrides for others",
 } as const;
 
@@ -128,7 +130,7 @@ export const ROLE_DEFAULTS: Record<string, Permission[] | "ALL"> = {
   owner: "ALL",
   branch_manager: [
     "order.create","order.hold","order.merge","order.transfer_table","order.edit_sent","order.void","order.void_item",
-    "order.view_all","order.reprint","order.price_override","order.delivery.create","order.aggregator.create",
+    "order.view_all","order.reprint","order.price_override","order.delivery.create","order.aggregator.create","sadqa.view",
     "discount.apply","discount.apply.above_10pct","discount.apply.any","discount.staff_meal","discount.promo_code",
     "payment.cash","payment.card","payment.wallet","payment.raast","payment.credit_account","payment.voucher",
     "payment.split","payment.verify_pending","refund.create","refund.approve","drawer.open_no_sale",
@@ -151,6 +153,6 @@ export const ROLE_DEFAULTS: Record<string, Permission[] | "ALL"> = {
   accountant: [
     "report.sales","report.financial","report.staff","report.inventory","report.export","dashboard.view",
     "expense.create","expense.approve","bank_deposit.manage","purchasing.pay_supplier","staff.salary_view",
-    "payroll.export","order.view_all","audit.view","inventory.view","staff.view","customer.view","menu.view",
+    "payroll.export","order.view_all","audit.view","sadqa.view","inventory.view","staff.view","customer.view","menu.view",
   ],
 };

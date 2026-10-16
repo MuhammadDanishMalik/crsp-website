@@ -54,6 +54,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
 import { OverrideDialog } from "@/app/(pos)/order/override-dialog";
+import { EditCustomerDialog } from "./edit-customer-dialog";
+import { EditItemsDialog } from "./edit-items-dialog";
 import { useBranchEvents } from "@/lib/realtime/use-events";
 import { cn } from "@/lib/utils";
 
@@ -148,6 +150,8 @@ export function OrdersManager({ orders, can, reasons, context = "pos" }: Props) 
     setTimeout(() => setFeedback(null), 4000);
   };
 
+  const [editCustomer, setEditCustomer] = useState<ManageableOrder | null>(null);
+  const [editItems, setEditItems] = useState<ManageableOrder | null>(null);
   const handleReprintReceipt = (orderId: string) => {
     startTransition(async () => {
       try {
@@ -1152,6 +1156,16 @@ export function OrdersManager({ orders, can, reasons, context = "pos" }: Props) 
                   <Printer size={15} /> Print Receipt
                 </Button>
               )}
+              {selectedOrder.status !== "voided" && selectedOrder.status !== "refunded" && (
+                <Button variant="secondary" size="md" className="flex-1 text-xs font-bold" onClick={() => { const o = selectedOrder; setSelectedOrder(null); setEditItems(o); }}>
+                  Edit items
+                </Button>
+              )}
+              {selectedOrder.status !== "voided" && (
+                <Button variant="secondary" size="md" className="flex-1 text-xs font-bold" onClick={() => setEditCustomer(selectedOrder)}>
+                  Edit customer / address
+                </Button>
+              )}
               {can.reprint && (
                 <Button
                   variant="secondary"
@@ -1199,6 +1213,16 @@ export function OrdersManager({ orders, can, reasons, context = "pos" }: Props) 
             </div>
           </div>
         </Modal>
+      )}
+
+      {editItems && (
+        <EditItemsDialog orderId={editItems.id} onClose={() => setEditItems(null)}
+          onDone={({ changes }) => { const id = editItems.id; setEditItems(null); router.refresh(); startTransition(async () => { try { showToast((await printReceipt(id, false, changes)) || "Order updated", "success"); } catch { showToast("Order updated, but printing failed", "error"); } }); }} />
+      )}
+      {editCustomer && (
+        <EditCustomerDialog orderId={editCustomer.id} orderNo={editCustomer.no} initial={{ name: editCustomer.customerName ?? "", phone: editCustomer.customerPhone ?? "", address: editCustomer.deliveryAddress ?? "" }}
+          onClose={() => setEditCustomer(null)}
+          onSaved={(reprint) => { const id = editCustomer.id; setEditCustomer(null); setSelectedOrder(null); router.refresh(); if (reprint && can.reprint) handleReprintReceipt(id); }} />
       )}
 
       {/* Void & Refund Modal Dialog */}

@@ -11,14 +11,23 @@ const ROLE_NAMES: Record<string, string> = {
   order_taker: "Order Taker", kitchen: "Kitchen Staff", rider: "Rider", accountant: "Accountant",
 };
 
+/**
+ * The repository is public, so the real admin password is NOT in the code. Set ADMIN_EMAIL / ADMIN_PASSWORD in the environment
+ * (.env.local on your computer, Environment Variables on Vercel). Without them: development uses admin@crsp.com / admin123;
+ * production creates a random password and prints it once in the server log.
+ */
+const generatedPassword = Array.from(crypto.getRandomValues(new Uint8Array(14)), (b) => "abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789"[b % 54]).join("");
+if (process.env.NODE_ENV === "production" && !process.env.ADMIN_PASSWORD && process.env.CRSP_NO_SEED !== "1") console.warn(`[seed] ADMIN_PASSWORD not set: if the database is empty the owner password will be ${generatedPassword}`);
+
 export const SEED_LOGINS = {
-  backOffice: { email: "owner@crsp.test", password: "admin123" },
+  backOffice: { email: process.env.ADMIN_EMAIL ?? "admin@crsp.com", password: process.env.ADMIN_PASSWORD ?? (process.env.NODE_ENV === "production" ? generatedPassword : "admin123") }, // owner
+  otherStaffPassword: "admin123", // manager@/cashier@/accountant@crsp.test
   terminalCode: "POS1-DEV",
   pins: { owner: "1111", branch_manager: "2222", cashier: "3333", order_taker: "4444", kitchen: "5555", rider: "6666", accountant: "7777" },
 };
 
 const URDU: Record<string, string> = {
-  "Chicken Injected Broast": "چکن انجیکٹڈ بروسٹ", "Chicken Strips": "چکن اسٹرپس", "Chicken Popcorn": "چکن پاپ کارن", "Fried Wings": "فرائیڈ ونگز",
+  "Chicken Injected Broast (Quarter)": "چکن انجیکٹڈ بروسٹ (کوارٹر)", "Chicken Injected Broast (Half kg)": "چکن انجیکٹڈ بروسٹ (آدھا کلو)", "Chicken Injected Broast (1 kg)": "چکن انجیکٹڈ بروسٹ (1 کلو)", "Chicken Strips": "چکن اسٹرپس", "Chicken Popcorn": "چکن پاپ کارن", "Fried Wings": "فرائیڈ ونگز",
   "Grill Chicken Wrap": "گرل چکن ریپ", "Beef Wrap": "بیف ریپ", "Zinger Wrap": "زنگر ریپ", "Chicken Grill Burger": "چکن گرل برگر", "Zinger Burger": "زنگر برگر",
   "Double Zinger Burger": "ڈبل زنگر برگر", "Beef Grill Burger": "بیف گرل برگر", "Beef Smash Burger": "بیف سمیش برگر", "Fries": "فرائز", "Crispy Fries": "کرسپی فرائز",
   "Curly Fries": "کرلی فرائز", "Beef Smash Fries": "بیف سمیش فرائز", "Zinger Fries": "زنگر فرائز", "Coleslaw": "کول سلا", "Potato Wedges": "پوٹیٹو ویجز",
@@ -90,7 +99,7 @@ export async function seedIfEmpty(db: Db) {
     ["Bilal Khan", "cashier", "cashier"], ["Hamza Malik", "order_taker", "order_taker"],
     ["Usman Ahmed", "kitchen", "kitchen"], ["Imran Shah", "rider", "rider"], ["Sana Iqbal", "accountant", "accountant"],
   ];
-  const passwordHash = await bcrypt.hash(SEED_LOGINS.backOffice.password, 8);
+  const ownerHash = await bcrypt.hash(SEED_LOGINS.backOffice.password, 8), otherHash = await bcrypt.hash(SEED_LOGINS.otherStaffPassword, 8);
   const staffIds: Record<string, string> = {};
   for (const [fullName, roleKey, pinKey] of staffSeed) {
     const staffId = SEED_IDS.staff[roleKey];
@@ -98,7 +107,7 @@ export async function seedIfEmpty(db: Db) {
       id: staffId,
       businessId: biz.id, roleId: roleRows[roleKey], fullName, phone: "0300-0000000",
       email: roleKey === "owner" ? SEED_LOGINS.backOffice.email : `${roleKey}@crsp.test`,
-      passwordHash, pinHash: await bcrypt.hash(SEED_LOGINS.pins[pinKey], 8),
+      passwordHash: roleKey === "owner" ? ownerHash : otherHash, pinHash: await bcrypt.hash(SEED_LOGINS.pins[pinKey], 8),
     }).returning();
     staffIds[roleKey] = st.id;
     await db.insert(s.staffBranches).values(branches.map((b) => ({ staffId: st.id, branchId: b.id })));
@@ -142,7 +151,7 @@ export async function seedIfEmpty(db: Db) {
   type Item = [string, string, number, string[], string, boolean?]; // category, name, price, groups, emoji, favourite
   const G = { spice: spice.id, sauce: sauce.id };
   const items: Item[] = [
-    ["Chicken", "Chicken Injected Broast", 650, [G.spice, G.sauce], "🍗", true], ["Chicken", "Chicken Strips", 550, [G.spice, G.sauce], "🍗"],
+    ["Chicken", "Chicken Injected Broast (Quarter)", 650, [G.spice, G.sauce], "🍗", true], ["Chicken", "Chicken Injected Broast (Half kg)", 1200, [G.spice, G.sauce], "🍗"], ["Chicken", "Chicken Injected Broast (1 kg)", 2300, [G.spice, G.sauce], "🍗"], ["Chicken", "Chicken Strips", 550, [G.spice, G.sauce], "🍗"],
     ["Chicken", "Chicken Popcorn", 450, [G.spice, G.sauce], "🍿"], ["Chicken", "Fried Wings", 500, [G.spice, G.sauce], "🔥"],
     ["Wraps", "Grill Chicken Wrap", 450, [G.sauce], "🌯"], ["Wraps", "Beef Wrap", 520, [G.sauce], "🌯"], ["Wraps", "Zinger Wrap", 480, [G.spice, G.sauce], "🌯", true],
     ["Sando", "Chicken Grill Burger", 480, [G.sauce], "🍔"], ["Sando", "Zinger Burger", 520, [G.spice, G.sauce], "🍔", true],
@@ -153,14 +162,11 @@ export async function seedIfEmpty(db: Db) {
     ...SAUCES.map((n): Item => ["Sauce", n, 50, [], "🥫"]),
   ];
   // Kitchen stations + KOT printers (main branch). Printer IPs are placeholders.
-  const kotPrinters = await db.insert(s.printers).values([
-    { branchId: branches[0].id, name: "KOT Fryer", role: "kot", connection: "lan", address: "192.168.1.51", port: 9100, paperWidthMm: 80 },
-    { branchId: branches[0].id, name: "KOT Grill", role: "kot", connection: "lan", address: "192.168.1.52", port: 9100, paperWidthMm: 80 },
-  ]).returning();
+  // No separate kitchen printers by default: the till printer prints the kitchen slip first, then the customer receipt. Add kitchen printers in Admin → Printers & kitchen if you have them.
   const stations = await db.insert(s.kitchenStations).values([
-    { branchId: branches[0].id, name: "Fryer", printerId: kotPrinters[0].id },
-    { branchId: branches[0].id, name: "Grill & Burgers", printerId: kotPrinters[1].id },
-    { branchId: branches[0].id, name: "Sides & Sauce", printerId: kotPrinters[0].id },
+    { branchId: branches[0].id, name: "Fryer" },
+    { branchId: branches[0].id, name: "Grill & Burgers" },
+    { branchId: branches[0].id, name: "Sides & Sauce" },
   ]).returning();
   const stationFor: Record<string, string> = { Chicken: stations[0].id, Wraps: stations[1].id, Sando: stations[1].id, Sides: stations[2].id, Sauce: stations[2].id };
   await db.insert(s.discounts).values([
@@ -177,12 +183,17 @@ export async function seedIfEmpty(db: Db) {
     if (groups.length) await db.insert(s.itemModifierGroups).values(groups.map((groupId, i) => ({ itemId: it.id, groupId, sortOrder: i })));
   }
 
+  // Owner's sadqa pledge: a share of every broast sold is set aside (Quarter 5%, Half kg 10%, 1 kg 20%). Editable in Admin → Sadqa.
+  await db.insert(s.sadqaRules).values([
+    { itemId: itemIds["Chicken Injected Broast (Quarter)"], percentBps: 500 }, { itemId: itemIds["Chicken Injected Broast (Half kg)"], percentBps: 1000 }, { itemId: itemIds["Chicken Injected Broast (1 kg)"], percentBps: 2000 },
+  ]);
+
   await seedInventory(db, { bizId: biz.id, branches: branches.map((b) => b.id), itemIds, sauceGroup: sauce.id, staffId: staffIds.owner });
 
   await db.insert(s.printers).values({
     branchId: branches[0].id, name: "Receipt Printer", role: "receipt", connection: "lan", address: "192.168.1.50", port: 9100, openDrawer: true,
   });
-  if (process.env.CRSP_NO_DEMO_HISTORY !== "1") await seedHistory(db);
+  if (process.env.CRSP_DEMO_HISTORY === "1") await seedHistory(db); // off by default: a fresh install starts with zero orders
   return true;
 }
 
@@ -207,30 +218,32 @@ async function seedInventory(db: Db, c: { bizId: string; branches: string[]; ite
     ["Broast seasoning", g, 150, true, 1000], ["Coleslaw mix", g, 10, false, 3000], ["Cheese slice", pc, 2000, false, 50], ["Packaging box", pc, 1500, false, 100],
     ["Honey mustard sauce", ml, 20, false, 1500], ["Cheese sauce", ml, 25, false, 1500], ["Garlic sauce", ml, 15, false, 2000], ["Spicy garlic sauce", ml, 18, false, 1500], ["Ranch sauce", ml, 20, false, 1500],
   ];
-  const ings = await db.insert(s.ingredients).values(defs.map(([name, u, avgCost, imp]) => ({ businessId: c.bizId, name, baseUnitId: u.id, avgCost, isImported: imp, originCountry: imp ? "Saudi Arabia" : null }))).returning();
+  // Typical nutrition per 100 g / 100 ml (per piece for "pc"): [kcal, protein, carbs, fat]. Approximate textbook values: replace with your supplier/lab figures.
+  const NUT: Record<string, [number, number, number, number]> = {
+    "Chicken (raw)": [165, 31, 0, 3.6], "Beef (minced)": [250, 26, 0, 15], "Zinger fillet": [300, 20, 15, 17], "Burger bun": [150, 5, 28, 2], "Tortilla wrap": [140, 4, 24, 3],
+    "Potato (fries)": [77, 2, 17, 0.1], "Cooking oil": [220, 0, 0, 25], /* only ~25% of the frying oil used ends up in the food */ "Breading mix": [350, 10, 72, 1.5],
+    "Broast seasoning": [250, 10, 40, 5], "Coleslaw mix": [60, 1, 6, 4], "Cheese slice": [70, 4, 1, 6], "Packaging box": [0, 0, 0, 0],
+    "Honey mustard sauce": [300, 1, 25, 22], "Cheese sauce": [250, 6, 10, 20], "Garlic sauce": [450, 1, 3, 48], "Spicy garlic sauce": [440, 1, 4, 46], "Ranch sauce": [430, 1, 6, 45],
+  };
+  const ings = await db.insert(s.ingredients).values(defs.map(([name, u, avgCost, imp]) => { const n = NUT[name] ?? [0, 0, 0, 0]; return { businessId: c.bizId, name, baseUnitId: u.id, avgCost, isImported: imp, originCountry: imp ? "Saudi Arabia" : null, kcal: String(n[0]), proteinG: String(n[1]), carbsG: String(n[2]), fatG: String(n[3]) }; })).returning();
   const I = Object.fromEntries(ings.map((i) => [i.name, i.id]));
   for (const b of c.branches) {
     await db.insert(s.ingredientStock).values(defs.map(([name, , , , reorder]) => ({
-      branchId: b, ingredientId: I[name], quantity: String(name === "Cheese slice" ? 55 : reorder * 6), reorderLevel: String(reorder), // cheese slices start near the alert level
+      branchId: b, ingredientId: I[name], quantity: "0", reorderLevel: String(reorder), // start at zero: enter your real opening stock with a purchase or a stock count
     })));
   }
   const [local, importer] = await db.insert(s.suppliers).values([
     { businessId: c.bizId, name: "Mianwali Poultry Traders", phone: "0300-1112223" },
-    { businessId: c.bizId, name: "Al-Riyadh Foods (Saudi importer)", phone: "+966-500000000", isImporter: true, balance: 750_000 },
+    { businessId: c.bizId, name: "Al-Riyadh Foods (Saudi importer)", phone: "+966-500000000", isImporter: true },
   ]).returning();
   void local;
-  const exp = new Date(Date.now() + 120 * 86_400_000).toISOString().slice(0, 10);
-  await db.insert(s.stockBatches).values({
-    branchId: c.branches[0], ingredientId: I["Broast seasoning"], batchNo: "SA-114", expiryDate: exp, quantityRemaining: "6000",
-    unitCost: 100, landedUnitCost: 150, freightCost: 100_000, dutyCost: 150_000,
-  });
   void importer;
 
   // Recipes: [menu item, [ingredient, qty, unit]...]
   type R = [string, [string, number, typeof g][]];
   const chickenBase = (grams: number, oil: number, season: number): [string, number, typeof g][] => [["Chicken (raw)", grams, g], ["Breading mix", 40, g], ["Cooking oil", oil, ml], ["Broast seasoning", season, g], ["Packaging box", 1, pc]];
   const recipes: R[] = [
-    ["Chicken Injected Broast", chickenBase(350, 30, 8)], ["Chicken Strips", chickenBase(200, 25, 4)], ["Chicken Popcorn", chickenBase(180, 25, 0).filter((x) => x[1] > 0)], ["Fried Wings", chickenBase(250, 25, 5)],
+    ["Chicken Injected Broast (Quarter)", chickenBase(250, 30, 8)], ["Chicken Injected Broast (Half kg)", chickenBase(500, 50, 14)], ["Chicken Injected Broast (1 kg)", chickenBase(1000, 90, 26)], ["Chicken Strips", chickenBase(200, 25, 4)], ["Chicken Popcorn", chickenBase(180, 25, 0).filter((x) => x[1] > 0)], ["Fried Wings", chickenBase(250, 25, 5)],
     ["Grill Chicken Wrap", [["Chicken (raw)", 150, g], ["Tortilla wrap", 1, pc], ["Coleslaw mix", 40, g], ["Garlic sauce", 20, ml], ["Packaging box", 1, pc]]],
     ["Beef Wrap", [["Beef (minced)", 130, g], ["Tortilla wrap", 1, pc], ["Coleslaw mix", 40, g], ["Garlic sauce", 20, ml], ["Packaging box", 1, pc]]],
     ["Zinger Wrap", [["Zinger fillet", 1, pc], ["Tortilla wrap", 1, pc], ["Coleslaw mix", 30, g], ["Garlic sauce", 15, ml], ["Packaging box", 1, pc]]],

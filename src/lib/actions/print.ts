@@ -5,7 +5,7 @@ import { getDb } from "@/lib/db/client";
 import * as s from "@/lib/db/schema";
 import { audit } from "@/lib/auth/audit";
 import { getSession, requirePermission } from "@/lib/auth/session";
-import { buildKot, buildReceipt, drawerKick } from "@/lib/adapters/printers/escpos";
+import { buildKot, buildOrderSlips, drawerKick } from "@/lib/adapters/printers/escpos";
 import { loadReceipt } from "@/lib/queries/receipt";
 
 async function receiptPrinter(branchId: string) {
@@ -15,14 +15,14 @@ async function receiptPrinter(branchId: string) {
 }
 const b64 = (u: Uint8Array) => Buffer.from(u).toString("base64");
 
-export async function getReceiptPrintJob(orderId: string, reprint = false) {
+export async function getReceiptPrintJob(orderId: string, reprint = false, changes?: { added: { name: string; qty: number; mods: string[]; note: string | null }[]; removed: { name: string; qty: number }[] }) {
   const session = reprint ? await requirePermission("order.reprint") : await getSession();
   if (!session) return { ok: false as const, error: "Not signed in" };
   const [receipt, printer] = await Promise.all([loadReceipt(orderId), receiptPrinter(session.branchId)]);
   if (!receipt) return { ok: false as const, error: "Order not found" };
   if (!printer) return { ok: false as const, error: "No receipt printer configured" };
   const hasCash = receipt.payments.some((p) => p.method === "cash");
-  const data = buildReceipt(receipt, { paperMm: printer.paperWidthMm === 58 ? 58 : 80, openDrawer: printer.openDrawer && hasCash && !reprint });
+  const data = buildOrderSlips(receipt, { paperMm: printer.paperWidthMm === 58 ? 58 : 80, openDrawer: printer.openDrawer && hasCash && !reprint, kitchen: !reprint, changeSlip: changes ? { orderNo: receipt.orderNo, type: receipt.type, tableNo: receipt.tableNo, added: changes.added, removed: changes.removed } : undefined });
   if (reprint) await audit(session, { action: "order.reprint", entity: "order", entityId: orderId });
   return { ok: true as const, data: b64(data), target: { connection: printer.connection, address: printer.address, port: printer.port } };
 }

@@ -2,12 +2,14 @@ import "server-only";
 import { and, asc, eq, inArray } from "drizzle-orm";
 import { getDb } from "@/lib/db/client";
 import * as s from "@/lib/db/schema";
+import type { Nutrition } from "@/lib/domain/nutrition";
+import { loadNutritionMaps } from "./nutrition";
 
-export type PosModifier = { id: string; name: string; priceDelta: number; isDefault: boolean };
+export type PosModifier = { id: string; name: string; priceDelta: number; isDefault: boolean; nutrition: Nutrition | null };
 export type PosGroup = { id: string; name: string; min: number; max: number; modifiers: PosModifier[] };
 export type PosItem = {
   id: string; categoryId: string; name: string; nameUr: string | null; price: number; image: string | null;
-  isFavourite: boolean; available: boolean; barcode: string | null; stationId: string | null; groups: PosGroup[];
+  isFavourite: boolean; available: boolean; barcode: string | null; stationId: string | null; nutrition: Nutrition | null; groups: PosGroup[];
 };
 export type PosMenu = {
   categories: { id: string; name: string; nameUr: string | null; icon: string | null }[];
@@ -50,10 +52,11 @@ export async function loadPosMenu(branchId: string): Promise<PosMenu> {
   const mods = groupIds.length
     ? await db.select().from(s.modifiers).where(and(inArray(s.modifiers.groupId, groupIds), eq(s.modifiers.isActive, true))).orderBy(asc(s.modifiers.sortOrder))
     : [];
+  const nut = await loadNutritionMaps();
   const groupMap = new Map<string, PosGroup>(
     groups.map((g) => [g.id, {
       id: g.id, name: g.name, min: g.minSelect, max: g.maxSelect,
-      modifiers: mods.filter((m) => m.groupId === g.id).map((m) => ({ id: m.id, name: m.name, priceDelta: m.priceDelta, isDefault: m.isDefault })),
+      modifiers: mods.filter((m) => m.groupId === g.id).map((m) => ({ id: m.id, name: m.name, priceDelta: m.priceDelta, isDefault: m.isDefault, nutrition: nut.modifiers.get(m.id) ?? null })),
     }]),
   );
   const override = new Map(branchRows.map((b) => [b.itemId, b]));
@@ -63,7 +66,7 @@ export async function loadPosMenu(branchId: string): Promise<PosMenu> {
       const o = override.get(i.id);
       return {
         id: i.id, categoryId: i.categoryId, name: i.name, nameUr: i.nameUr, price: o?.price ?? i.basePrice, image: i.imageUrl,
-        isFavourite: i.isFavourite, available: o ? o.isAvailable : true, barcode: i.barcode, stationId: i.kitchenStationId,
+        isFavourite: i.isFavourite, available: o ? o.isAvailable : true, barcode: i.barcode, stationId: i.kitchenStationId, nutrition: nut.items.get(i.id)?.value ?? null,
         groups: itemGroups.filter((g) => g.itemId === i.id).map((g) => groupMap.get(g.groupId)).filter((g): g is PosGroup => !!g),
       };
     }),
@@ -75,3 +78,29 @@ export async function loadPosMenu(branchId: string): Promise<PosMenu> {
     loyalty: lr ? { earnPerRupee: Number(lr.earnPerRupee), pointValuePaisa: lr.pointValuePaisa, minRedeemPoints: lr.minRedeemPoints } : null,
   };
 }
+
+export type PublicItem = PosItem & { description?: string | null };
+export type PublicCategory = { id: string; name: string; nameUr: string | null; icon: string | null; count?: number };
+export type PublicMenu = {
+  categories: PublicCategory[];
+  items: PublicItem[];
+  zones: { id: string; name: string; charge: number }[];
+  branches: { id: string; name: string; city: string | null; address: string | null; phone: string | null }[];
+};
+
+export async function loadPublicMenu(): Promise<PublicMenu> {
+  const db = await getDb();
+  const branchList = await db.select().from(s.branches).where(eq(s.branches.isActive, true));
+  const primaryBranch = branchList[0];
+  const posMenu = primaryBranch ? await loadPosMenu(primaryBranch.id) : null;
+  return {
+    categories: posMenu?.categories ?? [],
+    items: (posMenu?.items ?? []).map((it) => ({
+      ...it,
+      description: null,
+    })),
+    zones: posMenu?.zones ?? [],
+    branches: branchList.map((b) => ({ id: b.id, name: b.name, city: b.city, address: b.address, phone: b.phone })),
+  };
+}
+

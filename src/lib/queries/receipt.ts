@@ -36,7 +36,7 @@ export async function loadReceipt(orderId: string): Promise<ReceiptData | null> 
     business: { name: biz?.name ?? "CRSP", ntn: biz?.ntn ?? null, header: settings.receiptHeader ?? "", footer: settings.receiptFooter ?? "Thank you!", footerUr: settings.receiptFooterUr ?? "" },
     branch: { name: branch?.name ?? "CRSP", address: branch?.address ?? "", phone: branch?.phone ?? "" },
     orderNo: o.orderNo, type: o.type, tableNo: o.tableNo, cashier: cashier?.fullName ?? "", terminal: terminal?.name ?? "", createdAt: o.createdAt.toISOString(),
-    customer: cust ? { name: cust.name, phone: cust.phone } : null, deliveryAddress: o.deliveryAddress,
+    customer: cust ? { name: o.customerName ?? cust.name, phone: cust.phone } : o.customerName ? { name: o.customerName, phone: null } : null, deliveryAddress: o.deliveryAddress,
     lines: items.filter((i) => !i.isVoided).map((i) => ({
       name: i.nameSnapshot, qty: i.quantity, unit: i.unitPrice, total: i.lineTotal, note: i.note,
       mods: mods.filter((m) => m.orderItemId === i.id).map((m) => m.nameSnapshot),

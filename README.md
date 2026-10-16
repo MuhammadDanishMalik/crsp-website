@@ -9,7 +9,7 @@ npm run dev            # http://localhost:3000 — embedded database, seeded on 
 ```
 1. Open `/terminal`, enter terminal code **POS1-DEV**.
 2. PINs: owner 1111 · manager 2222 · cashier 3333 · order taker 4444 · kitchen 5555 · rider 6666 · accountant 7777.
-3. Back office: `/login` — `owner@crsp.test` / `admin123` (other roles: `cashier@crsp.test` etc., same password). **Change these before going live.**
+3. Back office: `/login` — `ADMIN_EMAIL` / `ADMIN_PASSWORD` from `.env.local` (default in development: `admin@crsp.com` / `admin123`; other roles: `manager@crsp.test`, `cashier@crsp.test`, … with password `admin123`). **Change these before going live.**
 
 To use Supabase/Postgres, set `DATABASE_URL` (see `.env.example`). Schema changes: edit `src/lib/db/schema.ts`, run `npm run db:generate`.
 
@@ -57,7 +57,7 @@ Each sale deducts recipe ingredients (including sauce add-ons) and stores the re
 - **Cash on delivery:** on the PAY screen of a delivery order. It is not till cash until the rider hands it over; settlement adds it to the receiving cashier's shift.
 - **Loyalty:** earn on what the customer pays, redeem at the PAY screen once the customer's phone is entered. Voiding an order reverses the points.
 - **Daily summary:** Settings → Daily summary to the owner. Call `GET /api/cron/daily-summary` every ~10 minutes from any scheduler with `Authorization: Bearer $CRON_SECRET`. Email needs `RESEND_API_KEY` + `MAIL_FROM`; WhatsApp needs `WHATSAPP_TOKEN` + `WHATSAPP_PHONE_ID`. Without them messages are only logged. The real email/WhatsApp calls have not been run against live accounts.
-- **Demo data:** the first start seeds 30 days of sample orders so reports are not empty. Set `CRSP_NO_DEMO_HISTORY=1` (or `CRSP_NO_SEED=1`) to skip.
+- **Demo data:** the first start seeds 30 days of sample orders so reports are not empty. A fresh start now has **no** sample orders and zero stock; set `CRSP_DEMO_HISTORY=1` before the first start to get the 30 days of sample orders back (`CRSP_NO_SEED=1` skips all demo data).
 
 ## Phase 5
 **Offline.** Once a till has been opened online it keeps working with no internet (production build registers `public/sw.js`; in development set `NEXT_PUBLIC_ENABLE_SW=1`). Sales are saved in the browser (IndexedDB), printed from local data, numbered with the terminal's letter (A001, B001…), and uploaded in order when the connection returns. Each sale has its own id, so a retry can never create a duplicate. Not available offline: discounts, loyalty points, cash on delivery, gateway payments. Card/wallet money taken offline is flagged "pending verification". If the server rejects an offline sale (for example the shift or an item was deleted) it stays in the *Orders saved on this device* list marked "need attention".
@@ -86,3 +86,10 @@ Each sale deducts recipe ingredients (including sauce add-ons) and stores the re
 ## Notes
 - Menu names come from the CRSP menu card; **prices are placeholders** — set real ones in Admin → Menu. Tax rate (16%) is a placeholder — set in Admin → Settings.
 - Not yet built (later phases): full reports and dashboard, Excel/PDF export (payroll is CSV for now), offline sync, FBR/PRA, Urdu UI, Tauri.
+
+## Daily sadqa & stock days
+- **Admin → Daily Sadqa:** the owner's pledge is a % of an item's price (before tax) set aside per item sold: Broast Quarter 5%, Half kg 10%, 1 kg 20% (editable, one rule per menu item). The amount is fixed on each sale line, so changing a % only affects future sales; voided orders drop out. Record what was actually given out; "Still to give" is set aside minus given.
+- **Admin → Inventory:** *Used per day* (average of the last 14 days of sales) and *Will last* (days + run-out date) per ingredient; **Stock on** date picker shows the stock at the end of any past day.
+
+## Editing a printed order
+Orders → View → **Edit items** (needs internet). Add items, change quantities, remove items. The new total is worked out on the server; if it went up the customer pays the difference (cash/card/wallet), if it went down the screen says how much to give back. Needs a manager PIN unless the signed-in user has `order.edit_sent`. Stock is re-booked for the new items, the kitchen gets a **change slip** (ADD / REMOVE) and the customer receipt prints again, and the tax-authority invoice is cancelled and re-filed. Not editable: voided/refunded orders, orders that used loyalty points, orders with a transfer still pending verification, closed deliveries. Money handed back on a smaller bill is stored as an `adjustment` (counted in the drawer, not as a refund in the reports). **Edit customer / address** changes only the name, phone and address.

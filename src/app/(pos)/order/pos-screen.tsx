@@ -180,6 +180,7 @@ function ItemTile({ item, ur, soldOut, onPick }: { item: PosItem; ur: boolean; s
       <span>
         <span dir="auto" className="block text-[15px] font-semibold leading-tight">{ur && item.nameUr ? item.nameUr : item.name}</span>
         <span className="text-sm font-bold text-accent">{formatPKR(item.price)}</span>
+        {item.nutrition && <span className="block text-[11px] leading-tight text-muted">{item.nutrition.kcal} kcal · {item.nutrition.protein}g protein</span>}
       </span>
       {!item.available && <span className="absolute inset-0 flex items-center justify-center bg-black/70 text-lg font-black tracking-wide text-danger">{soldOut}</span>}
     </button>

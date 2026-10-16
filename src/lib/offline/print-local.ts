@@ -1,5 +1,5 @@
 "use client";
-import { buildKot, buildReceipt } from "@/lib/adapters/printers/escpos";
+import { buildKot, buildOrderSlips } from "@/lib/adapters/printers/escpos";
 import { sendToBridge } from "@/lib/adapters/printers/bridge-client";
 import type { CartLine } from "@/lib/domain/pricing";
 import type { ReceiptData } from "@/lib/queries/receipt";
@@ -35,7 +35,7 @@ export async function printOffline(cfg: OfflineConfig, receipt: ReceiptData, lin
 
   // 2nd: Customer Receipt
   if (cfg.receiptPrinter) {
-    const r = await sendToBridge(cfg.receiptPrinter.target, buildReceipt(receipt, { paperMm: cfg.receiptPrinter.paperMm, openDrawer: cfg.receiptPrinter.openDrawer && hasCash }));
+    const r = await sendToBridge(cfg.receiptPrinter.target, buildOrderSlips(receipt, { paperMm: cfg.receiptPrinter.paperMm, openDrawer: cfg.receiptPrinter.openDrawer && hasCash, kitchen: true }));
     msgs.push(r.ok ? "2. Customer receipt printed" : `Receipt not printed (${r.error})`);
   } else msgs.push("No receipt printer configured");
 

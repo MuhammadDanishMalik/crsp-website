@@ -47,14 +47,18 @@ export async function voidOrder(orderId: string, reason: string, overrideToken?:
     const shift = await getOpenShift(session.terminalId, session.staffId);
     const pays = await db.select().from(s.payments).where(eq(s.payments.orderId, o.id));
     if (pays.some((p) => p.method === "cash") && !shift) throw new UserError("Open a shift to refund cash");
-    const already = await db.select({ t: sql<number>`coalesce(sum(${s.refunds.amount}),0)::int` }).from(s.refunds).where(eq(s.refunds.orderId, o.id));
+    const prior = await db.select().from(s.refunds).where(eq(s.refunds.orderId, o.id));
+    const given = new Map<string, number>(); // money already handed back per method (e.g. when the bill was reduced by an edit)
+    for (const r of prior) given.set(r.method ?? "", (given.get(r.method ?? "") ?? 0) + r.amount);
     for (const p of pays.filter((x) => x.status !== "pending" && x.method !== "cash" && x.provider !== "manual" && x.provider !== "cod")) {
       const rr = await getProvider(p.provider).refund(p.providerRef, p.amount, why);
       if (!rr.ok) throw new UserError(rr.message ?? "The payment gateway refused the refund");
     }
     await db.transaction(async (tx) => {
       for (const p of pays.filter((x) => x.status !== "pending")) { // an unpaid cash-on-delivery has nothing to give back
-        const left = p.amount - (pays.length === 1 ? already[0].t : 0);
+        const used = Math.min(p.amount, given.get(p.method) ?? 0);
+        given.set(p.method, (given.get(p.method) ?? 0) - used);
+        const left = p.amount - used;
         if (left > 0) await tx.insert(s.refunds).values({ orderId: o.id, paymentId: p.id, branchId: o.branchId, shiftId: shift?.id, kind: "void", method: p.method, amount: left, reasonCode: why, requestedBy: session.staffId, approvedBy: approverId ?? session.staffId });
       }
       await tx.update(s.payments).set({ status: "refunded" }).where(eq(s.payments.orderId, o.id));
@@ -88,7 +92,7 @@ export async function refundOrder(orderId: string, amountPaisa: number, method: 
     if (["voided", "refunded", "held"].includes(o.status)) throw new UserError("This order cannot be refunded");
     const pays = await db.select().from(s.payments).where(and(eq(s.payments.orderId, o.id), inArray(s.payments.status, ["confirmed", "partially_refunded", "pending_verification"])));
     const paidVia = pays.filter((p) => p.method === m).reduce((a, p) => a + p.amount, 0);
-    const [done] = await db.select({ t: sql<number>`coalesce(sum(${s.refunds.amount}),0)::int`, tm: sql<number>`coalesce(sum(case when ${s.refunds.method} = ${m} then ${s.refunds.amount} else 0 end),0)::int` }).from(s.refunds).where(eq(s.refunds.orderId, o.id));
+    const [done] = await db.select({ t: sql<number>`coalesce(sum(case when ${s.refunds.kind} <> 'adjustment' then ${s.refunds.amount} else 0 end),0)::int`, /* t: refunds against the current total (edit adjustments already lowered it); tm: all money actually returned per method */ tm: sql<number>`coalesce(sum(case when ${s.refunds.method} = ${m} then ${s.refunds.amount} else 0 end),0)::int` }).from(s.refunds).where(eq(s.refunds.orderId, o.id));
     if (amount > o.total - done.t) throw new UserError("Refund exceeds what is left on the order");
     if (amount > paidVia - done.tm) throw new UserError(`Only ${(paidVia - done.tm) / 100} can be refunded to ${m}`);
     const shift = await getOpenShift(session.terminalId, session.staffId);

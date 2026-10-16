@@ -6,7 +6,7 @@ export default defineConfig({
   workers: 1,
   use: { baseURL: "http://localhost:3011", viewport: { width: 1366, height: 768 } },
   webServer: {
-    command: "rm -rf .data/e2e && PGLITE_DIR=.data/e2e/pglite npx next dev -p 3011",
+    command: "rm -rf .data/e2e && ADMIN_EMAIL=admin@crsp.com ADMIN_PASSWORD=test-admin-pass PGLITE_DIR=.data/e2e/pglite npx next dev -p 3011",
     url: "http://localhost:3011/terminal", reuseExistingServer: false, stdout: "pipe", stderr: "pipe", timeout: 120_000,
   },
 });

@@ -10,6 +10,7 @@ import {
   UtensilsCrossed,
   BookOpen,
   Boxes,
+  HandHeart,
   Truck,
   Users,
   Clock,
@@ -56,6 +57,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           <NavLink href="/admin/menu" label="Menu" icon={<UtensilsCrossed size={18} />} />
           <NavLink href="/admin/recipes" label="Recipes" icon={<BookOpen size={18} />} />
           <NavLink href="/admin/inventory" label="Inventory" icon={<Boxes size={18} />} />
+          <NavLink href="/admin/sadqa" label="Daily Sadqa" icon={<HandHeart size={18} />} />
           <NavLink href="/admin/purchasing" label="Purchasing" icon={<Truck size={18} />} />
           <NavLink href="/admin/staff" label="Staff" icon={<Users size={18} />} />
           <NavLink href="/admin/attendance" label="Attendance" icon={<Clock size={18} />} />

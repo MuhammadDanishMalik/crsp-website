@@ -22,6 +22,27 @@
       "when": 1791374136477,
       "tag": "0002_brave_may_parker",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1792142607933,
+      "tag": "0003_fluffy_madame_masque",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1792143030708,
+      "tag": "0004_damp_lifeguard",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1792143674507,
+      "tag": "0005_tiresome_firebird",
+      "breakpoints": true
     }
   ]
 }

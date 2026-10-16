@@ -79,7 +79,7 @@ export async function loadManageableOrders(branchIds: string | string[], limit =
       at: o.createdAt.toISOString(),
       table: o.tableNo ?? null,
       guestCount: null,
-      customerName: cust?.name ?? null,
+      customerName: o.customerName ?? cust?.name ?? null,
       customerPhone: cust?.phone ?? null,
       deliveryAddress: o.deliveryAddress ?? null,
       cashierName: staffMap.get(o.createdBy) ?? null,

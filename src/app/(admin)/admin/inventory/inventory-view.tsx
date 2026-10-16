@@ -10,10 +10,10 @@ import { Input, Label } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
 import { cn } from "@/lib/utils";
 
-type Row = { id: string; name: string; baseUnitId: string; unit: string; qty: number; reorder: number; avgCost: number; isImported: boolean; origin: string; low: boolean; negative: boolean; batches: { id: string; no: string; expiry: string; remaining: number; landed: number | null; expiringSoon: boolean }[] };
+type Row = { perDay: number; daysLeft: number | null; runOut: string; id: string; name: string; baseUnitId: string; unit: string; qty: number; reorder: number; avgCost: number; isImported: boolean; origin: string; nutrition: { kcal: number; protein: number; carbs: number; fat: number }; low: boolean; negative: boolean; batches: { id: string; no: string; expiry: string; remaining: number; landed: number | null; expiringSoon: boolean }[] };
 type Unit = { id: string; code: string };
 type Mv = { id: string; at: string; name: string; type: string; qty: number; note: string };
-type Props = { stock: Row[]; movements: Mv[]; units: Unit[]; conv: Conversion[]; branches: { id: string; name: string }[]; reasons: { id: string; label: string }[]; can: { adjust: boolean; waste: boolean; transfer: boolean; cost: boolean } };
+type Props = { asof: string; stock: Row[]; movements: Mv[]; units: Unit[]; conv: Conversion[]; branches: { id: string; name: string }[]; reasons: { id: string; label: string }[]; can: { adjust: boolean; waste: boolean; transfer: boolean; cost: boolean } };
 const sel = "min-h-12 w-full rounded-xl border border-border bg-surface-2 px-3";
 const fmt = (n: number) => (Math.abs(n) >= 100 ? Math.round(n).toLocaleString() : String(Math.round(n * 100) / 100));
 
@@ -22,7 +22,7 @@ export function unitsFor(base: string, units: Unit[], conv: Conversion[]) {
   return units.filter((u) => { try { convertQty(1, u.id, base, conv); return true; } catch { return false; } });
 }
 
-export function InventoryView({ stock, movements, units, conv, branches, reasons, can }: Props) {
+export function InventoryView({ asof, stock, movements, units, conv, branches, reasons, can }: Props) {
   const router = useRouter();
   const [tab, setTab] = useState<"stock" | "log">("stock");
   const [act, setAct] = useState<null | { kind: "count" | "waste" | "transfer"; row: Row }>(null);
@@ -34,8 +34,12 @@ export function InventoryView({ stock, movements, units, conv, branches, reasons
       <div className="mb-4 flex items-center gap-3">
         <h1 className="text-3xl font-bold">Inventory</h1>
         <div className="ml-4 flex gap-1 rounded-xl bg-surface p-1">{(["stock", "log"] as const).map((t) => <button key={t} onClick={() => setTab(t)} className={cn("h-10 rounded-lg px-4 font-semibold", tab === t ? "bg-brand text-brand-fg" : "text-muted")}>{t === "stock" ? "Stock" : "Movement log"}</button>)}</div>
-        {can.adjust && <Button className="ml-auto" onClick={() => setEdit({ baseUnitId: units[0]?.id, avgCost: 0, reorder: 0 })}><Plus size={18} />Ingredient</Button>}
+        <label className="ml-4 flex items-center gap-2 text-sm text-muted">Stock on
+          <input type="date" value={asof} max={new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Karachi" })} onChange={(e) => router.push(e.target.value ? `/admin/inventory?asof=${e.target.value}` : "/admin/inventory")} className="h-12 rounded-xl border border-border bg-surface px-3 text-foreground" />
+          {asof && <button className="rounded-lg bg-surface-2 px-3 py-2 font-semibold text-foreground" onClick={() => router.push("/admin/inventory")}>Today</button>}</label>
+        {can.adjust && !asof && <Button className="ml-auto" onClick={() => setEdit({ baseUnitId: units[0]?.id, avgCost: 0, reorder: 0 })}><Plus size={18} />Ingredient</Button>}
       </div>
+      {asof && <p className="mb-3 rounded-xl bg-accent/15 p-3 text-sm font-semibold">Showing stock as it was at the end of {asof}. Pick “Today” to count, waste or edit.</p>}
       {(low.length > 0 || expiring.length > 0) && (
         <div className="mb-4 space-y-1 rounded-2xl border border-warn/50 bg-warn/10 p-4">
           {low.length > 0 && <p className="flex items-center gap-2 font-semibold text-warn"><AlertTriangle size={18} />Low stock: {low.map((r) => `${r.name} (${fmt(r.qty)} ${r.unit})`).join(", ")}</p>}
@@ -45,7 +49,7 @@ export function InventoryView({ stock, movements, units, conv, branches, reasons
       {tab === "stock" && (
         <div className="overflow-x-auto rounded-2xl border border-border bg-surface">
           <table className="w-full text-sm">
-            <thead className="bg-surface-2"><tr><th className="p-3 text-left">Ingredient</th><th className="p-3 text-right">On hand</th><th className="p-3 text-right">Reorder at</th>{can.cost && <th className="p-3 text-right">Avg cost / unit</th>}<th className="p-3" /></tr></thead>
+            <thead className="bg-surface-2"><tr><th className="p-3 text-left">Ingredient</th><th className="p-3 text-right">On hand</th><th className="p-3 text-right">Reorder at</th><th className="p-3 text-right">Used per day</th><th className="p-3 text-right">Will last</th>{can.cost && <th className="p-3 text-right">Avg cost / unit</th>}<th className="p-3" /></tr></thead>
             <tbody>
               {stock.map((r) => (
                 <tr key={r.id} className="border-t border-border align-top">
@@ -53,13 +57,17 @@ export function InventoryView({ stock, movements, units, conv, branches, reasons
                     {r.batches.map((b) => <p key={b.id} className={cn("text-xs", b.expiringSoon ? "text-warn" : "text-muted")}>Batch {b.no || "—"} · {fmt(b.remaining)} {r.unit} · exp {b.expiry || "—"}{can.cost && b.landed ? ` · landed ${formatPKR(b.landed)}/${r.unit}` : ""}</p>)}</td>
                   <td className={cn("p-3 text-right font-bold tabular-nums", r.negative ? "text-danger" : r.low ? "text-warn" : "")}>{fmt(r.qty)} {r.unit}</td>
                   <td className="p-3 text-right tabular-nums text-muted">{fmt(r.reorder)} {r.unit}</td>
+                  <td className="p-3 text-right tabular-nums text-muted">{r.perDay > 0 ? `${fmt(r.perDay)} ${r.unit}` : "—"}</td>
+                  <td className={cn("p-3 text-right tabular-nums", r.daysLeft !== null && r.daysLeft < 3 ? "font-bold text-danger" : r.daysLeft !== null && r.daysLeft < 7 ? "text-warn" : "")}>
+                    {r.qty <= 0 ? <span className="text-danger">Out</span> : r.daysLeft === null ? <span className="text-muted">no usage yet</span> : <>{r.daysLeft < 1 ? "< 1 day" : `${Math.floor(r.daysLeft)} days`}<span className="block text-xs text-muted">till {r.runOut}</span></>}
+                  </td>
                   {can.cost && <td className="p-3 text-right tabular-nums">{formatPKR(r.avgCost)}</td>}
-                  <td className="p-2"><div className="flex justify-end gap-1">
+                  <td className="p-2">{!asof && <div className="flex justify-end gap-1">
                     {can.adjust && <Button variant="secondary" className="min-h-10" onClick={() => setAct({ kind: "count", row: r })}>Count</Button>}
                     {can.waste && <Button variant="secondary" className="min-h-10" onClick={() => setAct({ kind: "waste", row: r })}>Waste</Button>}
                     {can.transfer && branches.length > 0 && <Button variant="secondary" className="min-h-10" onClick={() => setAct({ kind: "transfer", row: r })}>Transfer</Button>}
                     {can.adjust && <Button variant="ghost" className="min-h-10" onClick={() => setEdit(r)}>Edit</Button>}
-                  </div></td>
+                  </div>}</td>
                 </tr>
               ))}
             </tbody>
@@ -114,7 +122,7 @@ function ActionForm({ kind, row, units, conv, branches, reasons, onClose, onDone
 }
 
 function IngredientForm({ initial, units, onClose, onDone }: { initial: Partial<Row>; units: Unit[]; onClose: () => void; onDone: () => void }) {
-  const [v, setV] = useState({ name: initial.name ?? "", unit: initial.baseUnitId ?? units[0]?.id ?? "", cost: String((initial.avgCost ?? 0) / 100), reorder: String(initial.reorder ?? 0), imported: initial.isImported ?? false, origin: initial.origin ?? "" });
+  const [v, setV] = useState({ name: initial.name ?? "", unit: initial.baseUnitId ?? units[0]?.id ?? "", cost: String((initial.avgCost ?? 0) / 100), reorder: String(initial.reorder ?? 0), imported: initial.isImported ?? false, origin: initial.origin ?? "", kcal: String(initial.nutrition?.kcal ?? 0), protein: String(initial.nutrition?.protein ?? 0), carbs: String(initial.nutrition?.carbs ?? 0), fat: String(initial.nutrition?.fat ?? 0) });
   const [error, setError] = useState("");
   const [pending, start] = useTransition();
   return (
@@ -126,10 +134,18 @@ function IngredientForm({ initial, units, onClose, onDone }: { initial: Partial<
           <div><Label>Reorder level</Label><Input inputMode="decimal" value={v.reorder} onChange={(e) => setV({ ...v, reorder: e.target.value })} /></div>
         </div>
         <div><Label>Cost per base unit (Rs)</Label><Input inputMode="decimal" value={v.cost} onChange={(e) => setV({ ...v, cost: e.target.value })} /><p className="mt-1 text-xs text-muted">Updated automatically by purchases (weighted average).</p></div>
+        <div>
+          <Label>Nutrition per {units.find((u) => u.id === v.unit)?.code === "pc" ? "1 piece" : "100 g / 100 ml"} (for the calories calculator)</Label>
+          <div className="grid grid-cols-4 gap-2">
+            {([["kcal", "Calories"], ["protein", "Protein g"], ["carbs", "Carbs g"], ["fat", "Fat g"]] as const).map(([k, l]) => (
+              <label key={k} className="text-xs text-muted">{l}<Input inputMode="decimal" value={v[k]} onChange={(e) => setV({ ...v, [k]: e.target.value })} /></label>
+            ))}
+          </div>
+        </div>
         <label className="flex items-center gap-3"><input type="checkbox" className="h-6 w-6" checked={v.imported} onChange={(e) => setV({ ...v, imported: e.target.checked })} />Imported (track batch, expiry, landed cost)</label>
         {v.imported && <Input placeholder="Country of origin" value={v.origin} onChange={(e) => setV({ ...v, origin: e.target.value })} />}
         {error && <p className="text-danger">{error}</p>}
-        <Button size="lg" className="w-full" disabled={pending} onClick={() => start(async () => { const r = await saveIngredient({ id: initial.id, name: v.name, baseUnitId: v.unit, isImported: v.imported, originCountry: v.origin || undefined, costPerUnitPaisa: (Number(v.cost) || 0) * 100, reorderLevel: Number(v.reorder) || 0 }); if (r.ok) onDone(); else setError(r.error); })}>Save</Button>
+        <Button size="lg" className="w-full" disabled={pending} onClick={() => start(async () => { const r = await saveIngredient({ id: initial.id, name: v.name, baseUnitId: v.unit, isImported: v.imported, originCountry: v.origin || undefined, costPerUnitPaisa: (Number(v.cost) || 0) * 100, reorderLevel: Number(v.reorder) || 0, kcal: Number(v.kcal) || 0, protein: Number(v.protein) || 0, carbs: Number(v.carbs) || 0, fat: Number(v.fat) || 0 }); if (r.ok) onDone(); else setError(r.error); })}>Save</Button>
       </div>
     </Modal>
   );

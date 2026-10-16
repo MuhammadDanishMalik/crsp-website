@@ -15,6 +15,7 @@ import { publish } from "@/lib/realtime/bus";
 import { findPromo } from "@/lib/queries/promo";
 import { deductForOrder } from "@/lib/inventory/stock";
 import { fiscalizeNow } from "@/lib/tax/fiscalize";
+import { sadqaFor } from "@/lib/domain/sadqa";
 import { getProvider, manualProvider } from "@/lib/adapters/payments";
 import { maxRedeemablePoints, pointsEarned, redeemValue } from "@/lib/domain/loyalty";
 
@@ -217,6 +218,7 @@ async function createOrderInner(raw: unknown): Promise<Ok> {
 
   // Offline orders keep the cashier who rang them if the person syncing is that cashier or a manager; otherwise the syncer is recorded.
   const attributedTo = off && (off.staffId === session.staffId || session.can("shift.close_any")) ? off.staffId : session.staffId;
+  const sadqaRules = await db.select().from(s.sadqaRules).where(and(eq(s.sadqaRules.isActive, true), inArray(s.sadqaRules.itemId, itemIds)));
   const result = await db.transaction(async (tx) => {
     let orderNo: string;
     if (off) { // keep the number printed on the offline receipt; make it unique if two terminals picked the same one
@@ -244,7 +246,7 @@ async function createOrderInner(raw: unknown): Promise<Ok> {
     const awaiting = input.payments.some((p, i) => stateOf(i, p.method) === "pending_verification");
     await tx.insert(s.orders).values({
       id: input.clientId, branchId: session.branchId, terminalId: off ? shift.terminalId : (termId || session.terminalId!), shiftId: shift.id, businessDate: date, orderNo,
-      type: input.type, status: off ? "completed" : "sent", tableNo: input.tableNo, customerId, deliveryAddress: input.deliveryAddress, deliveryZoneId: input.deliveryZoneId,
+      type: input.type, status: off ? "completed" : "sent", tableNo: input.tableNo, customerName: input.customerName?.trim() || null, customerId, deliveryAddress: input.deliveryAddress, deliveryZoneId: input.deliveryZoneId,
       aggregatorName: input.aggregatorName, subtotal: totals.subtotal, discountTotal: totals.discountTotal, serviceCharge: totals.serviceCharge,
       deliveryCharge: totals.deliveryCharge, taxTotal: totals.taxTotal, total: totals.total, amountPaid: cod ? 0 : awaiting ? paid - input.payments.filter((p, i) => stateOf(i, p.method) === "pending_verification").reduce((a, p) => a + p.amount, 0) : totals.total,
       loyaltyPointsRedeemed: redeemedPoints, loyaltyPointsEarned: customerId && loyalty ? pointsEarned(totals.total, loyalty) : 0,
@@ -256,7 +258,8 @@ async function createOrderInner(raw: unknown): Promise<Ok> {
       const [oi] = await tx.insert(s.orderItems).values({
         orderId: input.clientId, itemId: l.itemId, nameSnapshot: l.name, unitPrice: l.basePrice + l.modifiers.reduce((x, m) => x + m.priceDelta, 0),
         quantity: l.quantity, lineTotal: (l.basePrice + l.modifiers.reduce((x, m) => x + m.priceDelta, 0)) * l.quantity,
-        note: l.note, stationId: l.stationId, sentAt: placedAt, kdsStatus: off ? "bumped" : "new", // offline sales were cooked from the paper ticket; do not resurrect them on the KDS
+        note: l.note, stationId: l.stationId, sentAt: placedAt,
+        sadqaAmount: sadqaFor((l.basePrice + l.modifiers.reduce((x, m) => x + m.priceDelta, 0)) * l.quantity, sadqaRules.find((r) => r.itemId === l.itemId)?.percentBps ?? 0), kdsStatus: off ? "bumped" : "new", // offline sales were cooked from the paper ticket; do not resurrect them on the KDS
       }).returning();
       if (l.modifiers.length) await tx.insert(s.orderItemModifiers).values(l.modifiers.map((m) => ({ orderItemId: oi.id, modifierId: m.id, nameSnapshot: m.name, priceDelta: m.priceDelta })));
       created.push({ orderItemId: oi.id, itemId: l.itemId, quantity: l.quantity, modifierIds: l.modifiers.map((m) => m.id) });

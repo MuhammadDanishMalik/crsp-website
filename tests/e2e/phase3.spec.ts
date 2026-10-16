@@ -15,8 +15,8 @@ async function pin(page: Page, digits: string) {
 async function owner(browser: Browser) {
   const page = await (await browser.newContext({ viewport: { width: 1400, height: 900 } })).newPage();
   await page.goto("/login");
-  await page.getByLabel("Email").fill("owner@crsp.test");
-  await page.getByLabel("Password").fill("admin123");
+  await page.getByLabel("Email").fill("admin@crsp.com");
+  await page.getByLabel("Password").fill("test-admin-pass");
   await page.getByRole("button", { name: "Sign in" }).click();
   await page.waitForURL(/\/admin/);
   return page;

@@ -127,6 +127,7 @@ export const menuItems = pgTable("menu_items", {
   categoryId: uuid("category_id").notNull().references(() => categories.id),
   name: text("name").notNull(), nameUr: text("name_ur"), description: text("description"), imageUrl: text("image_url"),
   sku: text("sku"), barcode: text("barcode"), basePrice: paisa("base_price"), isCombo: boolean("is_combo").notNull().default(false),
+  nutritionOverride: jsonb("nutrition_override"), // {kcal,protein,carbs,fat} typed by hand; wins over the recipe calculation
   kitchenStationId: uuid("kitchen_station_id"), isFavourite: boolean("is_favourite").notNull().default(false),
   sortOrder: integer("sort_order").notNull().default(0), isActive: boolean("is_active").notNull().default(true),
   createdAt: createdAt(), updatedAt: updatedAt(),
@@ -274,7 +275,7 @@ export const orders = pgTable("orders", {
   branchId: uuid("branch_id").notNull().references(() => branches.id), terminalId: uuid("terminal_id").notNull().references(() => terminals.id),
   shiftId: uuid("shift_id").references(() => shifts.id), businessDate: date("business_date").notNull(),
   orderNo: text("order_no").notNull(), type: orderType("type").notNull(), status: orderStatus("status").notNull().default("open"),
-  tableNo: text("table_no"), customerId: uuid("customer_id").references(() => customers.id),
+  tableNo: text("table_no"), customerName: text("customer_name"), customerId: uuid("customer_id").references(() => customers.id),
   deliveryAddress: text("delivery_address"), deliveryZoneId: uuid("delivery_zone_id").references(() => deliveryZones.id),
   aggregatorName: text("aggregator_name"), aggregatorRef: text("aggregator_ref"), guestCount: smallint("guest_count"),
   subtotal: paisa("subtotal"), discountTotal: paisa("discount_total"), serviceCharge: paisa("service_charge"),
@@ -294,7 +295,8 @@ export const orderItems = pgTable("order_items", {
   itemId: uuid("item_id").notNull().references(() => menuItems.id), parentLineId: uuid("parent_line_id"), // combo children
   nameSnapshot: text("name_snapshot").notNull(), sizeName: text("size_name"), unitPrice: paisa("unit_price"), quantity: smallint("quantity").notNull().default(1),
   discountAmount: paisa("discount_amount"), taxAmount: paisa("tax_amount"), lineTotal: paisa("line_total"),
-  costSnapshot: paisa("cost_snapshot"), note: text("note"), stationId: uuid("station_id"),
+  costSnapshot: paisa("cost_snapshot"), sadqaAmount: paisa("sadqa_amount"), note: text("note"), stationId: uuid("station_id"), // sadqaAmount: share of this line set aside for sadqa, fixed at the time of sale
+ 
   kdsStatus: kdsStatus("kds_status").notNull().default("new"), sentAt: timestamp("sent_at", { withTimezone: true }),
   bumpedAt: timestamp("bumped_at", { withTimezone: true }), isVoided: boolean("is_voided").notNull().default(false),
   voidReason: text("void_reason"), voidedBy: uuid("voided_by").references(() => staff.id),
@@ -408,6 +410,9 @@ export const ingredients = pgTable("ingredients", {
   id: id(), businessId: uuid("business_id").notNull().references(() => business.id), name: text("name").notNull(), sku: text("sku"),
   baseUnitId: uuid("base_unit_id").notNull().references(() => units.id), isImported: boolean("is_imported").notNull().default(false),
   originCountry: text("origin_country"), avgCost: paisa("avg_cost"), // per base unit
+  // Nutrition per 100 g / 100 ml (or per piece when the base unit is "pc"). Used by the recipe nutrition calculator.
+  kcal: numeric("kcal", { precision: 8, scale: 2 }).notNull().default("0"), proteinG: numeric("protein_g", { precision: 8, scale: 2 }).notNull().default("0"),
+  carbsG: numeric("carbs_g", { precision: 8, scale: 2 }).notNull().default("0"), fatG: numeric("fat_g", { precision: 8, scale: 2 }).notNull().default("0"),
   isActive: boolean("is_active").notNull().default(true),
 });
 
@@ -522,3 +527,14 @@ export const scheduledReports = pgTable("scheduled_reports", {
 /* RLS notes (rls.sql): every table with branch_id gets
    USING (branch_id = ANY (auth.jwt() -> 'branches') OR auth.jwt() ->> 'role' = 'owner').
    Staff PINs / pin_hash never exposed to the client (column-level revoke). */
+
+/* ───────────── Sadqa (charity set aside from sales) ───────────── */
+export const sadqaRules = pgTable("sadqa_rules", {
+  id: id(), itemId: uuid("item_id").notNull().unique().references(() => menuItems.id, { onDelete: "cascade" }),
+  percentBps: integer("percent_bps").notNull(), // 500 = 5% of the item's line total
+  isActive: boolean("is_active").notNull().default(true),
+});
+export const sadqaGiven = pgTable("sadqa_given", {
+  id: id(), branchId: uuid("branch_id").notNull().references(() => branches.id), givenOn: date("given_on").notNull(),
+  amount: paisa("amount"), note: text("note"), createdBy: uuid("created_by").notNull().references(() => staff.id), createdAt: createdAt(),
+});
