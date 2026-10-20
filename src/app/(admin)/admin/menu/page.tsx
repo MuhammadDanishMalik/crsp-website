@@ -4,6 +4,8 @@ import { getDb } from "@/lib/db/client";
 import * as s from "@/lib/db/schema";
 import { MenuManager } from "./menu-manager";
 
+export const maxDuration = 60; // "Load CRSP menu card" writes ~25 batched statements to a remote database
+
 export default async function MenuPage() {
   const session = await requireSession({ permission: "menu.view", kind: "admin" });
   const db = await getDb();
