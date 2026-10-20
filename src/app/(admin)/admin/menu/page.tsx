@@ -17,7 +17,7 @@ export default async function MenuPage() {
   const mods = groups.length ? await db.select().from(s.modifiers).where(eq(s.modifiers.isActive, true)).orderBy(asc(s.modifiers.sortOrder)) : [];
   return (
     <MenuManager
-      can={{ manage: session.can("menu.manage"), availability: session.can("menu.availability"), price: session.can("menu.price") }}
+      can={{ manage: session.can("menu.manage"), availability: session.can("menu.availability"), price: session.can("menu.price"), owner: session.roleKey === "owner" }}
       categories={cats.map((c) => ({ id: c.id, name: c.name }))}
       items={items.map((i) => ({
         id: i.id, name: i.name, nameUr: i.nameUr ?? "", categoryId: i.categoryId, price: i.basePrice, emoji: i.imageUrl?.startsWith("emoji:") ? i.imageUrl.slice(6) : "",

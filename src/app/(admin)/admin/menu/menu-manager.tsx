@@ -3,7 +3,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { Plus, Pencil, Trash2 } from "lucide-react";
 import { setBranchPrice } from "@/lib/actions/branches";
-import { deactivateItem, saveCategory, saveItem, saveModifierGroup, setAvailability } from "@/lib/actions/menu";
+import { installCrspMenu, deactivateItem, saveCategory, saveItem, saveModifierGroup, setAvailability } from "@/lib/actions/menu";
 import { formatPKR } from "@/lib/domain/money";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils";
 
 type Item = { id: string; name: string; nameUr: string; categoryId: string; price: number; emoji: string; barcode: string; isFavourite: boolean; available: boolean; branchPrice: number | null; groupIds: string[] };
 type Group = { id: string; name: string; min: number; max: number; options: { name: string; price: number; isDefault: boolean }[] };
-type Props = { can: { manage: boolean; availability: boolean; price: boolean }; categories: { id: string; name: string }[]; items: Item[]; groups: Group[] };
+type Props = { can: { manage: boolean; availability: boolean; price: boolean; owner: boolean }; categories: { id: string; name: string }[]; items: Item[]; groups: Group[] };
 
 export function MenuManager({ can, categories, items, groups }: Props) {
   const router = useRouter();
@@ -20,6 +20,7 @@ export function MenuManager({ can, categories, items, groups }: Props) {
   const [editing, setEditing] = useState<Partial<Item> | null>(null);
   const [editGroup, setEditGroup] = useState<Group | "new" | null>(null);
   const [, start] = useTransition();
+  const [note, setNote] = useState("");
   const refresh = () => router.refresh();
 
   const toggle = (i: Item) => start(async () => { await setAvailability(i.id, !i.available); refresh(); });
@@ -33,6 +34,7 @@ export function MenuManager({ can, categories, items, groups }: Props) {
         </div>
         {can.manage && tab === "items" && (
           <div className="ml-auto flex gap-2">
+            {can.owner && <Button variant="ghost" className="text-danger" onClick={() => confirm("Replace the WHOLE menu with the CRSP menu card (Broast, Burgers, Wraps, Wings, Nuggets, Fries, Beverages, Extras, Deals 1–10)?\n\nPrices or options you edited by hand will be replaced. Orders, staff and stock are kept.") && start(async () => { const r = await installCrspMenu(); setNote(r.ok ? (r.message ?? "Menu replaced") : r.error); refresh(); })}>Load CRSP menu card</Button>}
             <Button variant="secondary" onClick={() => { const n = prompt("New category name"); if (n) start(async () => { await saveCategory(n); refresh(); }); }}>+ Category</Button>
             <Button onClick={() => setEditing({ categoryId: categories[0]?.id, groupIds: [], isFavourite: false, price: 0 })}><Plus size={18} />Add item</Button>
           </div>
@@ -40,6 +42,7 @@ export function MenuManager({ can, categories, items, groups }: Props) {
         {can.manage && tab === "groups" && <Button className="ml-auto" onClick={() => setEditGroup("new")}><Plus size={18} />Add group</Button>}
       </div>
 
+      {note && <p className="mb-3 rounded-xl bg-accent/20 p-3">{note}</p>}
       {tab === "items" && categories.map((c) => {
         const list = items.filter((i) => i.categoryId === c.id);
         if (!list.length) return null;

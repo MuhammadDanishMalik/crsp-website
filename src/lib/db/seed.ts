@@ -2,6 +2,7 @@ import bcrypt from "bcryptjs";
 import { eq } from "drizzle-orm";
 import type { Db } from "./client";
 import * as s from "./schema";
+import { installMenu } from "./install-menu";
 import { PERMISSIONS, ROLE_DEFAULTS, type Permission } from "../domain/permissions";
 
 const R = (rupees: number) => rupees * 100;
@@ -26,13 +27,6 @@ export const SEED_LOGINS = {
   pins: { owner: "1111", branch_manager: "2222", cashier: "3333", order_taker: "4444", kitchen: "5555", rider: "6666", accountant: "7777" },
 };
 
-const URDU: Record<string, string> = {
-  "Chicken Injected Broast (Quarter)": "چکن انجیکٹڈ بروسٹ (کوارٹر)", "Chicken Injected Broast (Half kg)": "چکن انجیکٹڈ بروسٹ (آدھا کلو)", "Chicken Injected Broast (1 kg)": "چکن انجیکٹڈ بروسٹ (1 کلو)", "Chicken Strips": "چکن اسٹرپس", "Chicken Popcorn": "چکن پاپ کارن", "Fried Wings": "فرائیڈ ونگز",
-  "Grill Chicken Wrap": "گرل چکن ریپ", "Beef Wrap": "بیف ریپ", "Zinger Wrap": "زنگر ریپ", "Chicken Grill Burger": "چکن گرل برگر", "Zinger Burger": "زنگر برگر",
-  "Double Zinger Burger": "ڈبل زنگر برگر", "Beef Grill Burger": "بیف گرل برگر", "Beef Smash Burger": "بیف سمیش برگر", "Fries": "فرائز", "Crispy Fries": "کرسپی فرائز",
-  "Curly Fries": "کرلی فرائز", "Beef Smash Fries": "بیف سمیش فرائز", "Zinger Fries": "زنگر فرائز", "Coleslaw": "کول سلا", "Potato Wedges": "پوٹیٹو ویجز",
-  "Honey Mustard Sauce": "ہنی مسٹرڈ ساس", "Cheese Sauce": "چیز ساس", "Garlic Sauce": "گارلک ساس", "Spicy Garlic Sauce": "اسپائسی گارلک ساس", "Ranch Sauce": "رینچ ساس",
-};
 
 export const SEED_IDS = {
   business: "a0000000-0000-4000-8000-000000000001",
@@ -128,67 +122,13 @@ export async function seedIfEmpty(db: Db) {
     { businessId: biz.id, kind: "void", label: "Kitchen error" }, { businessId: biz.id, kind: "refund", label: "Quality complaint" },
   ]);
 
-  // Menu — names from the CRSP menu card. PRICES ARE PLACEHOLDERS: set real prices in Admin → Menu.
-  const cats = await db.insert(s.categories).values([
-    { businessId: biz.id, name: "Chicken", nameUr: "چکن", icon: "Drumstick", sortOrder: 1 },
-    { businessId: biz.id, name: "Wraps", nameUr: "ریپس", icon: "Wheat", sortOrder: 2 },
-    { businessId: biz.id, name: "Sando", nameUr: "سینڈو", icon: "Sandwich", sortOrder: 3 },
-    { businessId: biz.id, name: "Sides", nameUr: "سائیڈز", icon: "Soup", sortOrder: 4 },
-    { businessId: biz.id, name: "Sauce", nameUr: "ساس", icon: "Droplet", sortOrder: 5 },
-  ]).returning();
-  const cat = Object.fromEntries(cats.map((c) => [c.name, c.id]));
-
-  const [spice, sauce] = await db.insert(s.modifierGroups).values([
-    { businessId: biz.id, name: "Spice Level", minSelect: 1, maxSelect: 1 },
-    { businessId: biz.id, name: "Extra Sauce", minSelect: 0, maxSelect: 3 },
-  ]).returning();
-  const SAUCES = ["Honey Mustard Sauce", "Cheese Sauce", "Garlic Sauce", "Spicy Garlic Sauce", "Ranch Sauce"];
-  await db.insert(s.modifiers).values([
-    { groupId: spice.id, name: "Regular", isDefault: true, sortOrder: 1 }, { groupId: spice.id, name: "Spicy", sortOrder: 2 },
-    ...SAUCES.map((name, i) => ({ groupId: sauce.id, name, priceDelta: R(50), sortOrder: i + 1 })),
-  ]);
-
-  type Item = [string, string, number, string[], string, boolean?]; // category, name, price, groups, emoji, favourite
-  const G = { spice: spice.id, sauce: sauce.id };
-  const items: Item[] = [
-    ["Chicken", "Chicken Injected Broast (Quarter)", 650, [G.spice, G.sauce], "🍗", true], ["Chicken", "Chicken Injected Broast (Half kg)", 1200, [G.spice, G.sauce], "🍗"], ["Chicken", "Chicken Injected Broast (1 kg)", 2300, [G.spice, G.sauce], "🍗"], ["Chicken", "Chicken Strips", 550, [G.spice, G.sauce], "🍗"],
-    ["Chicken", "Chicken Popcorn", 450, [G.spice, G.sauce], "🍿"], ["Chicken", "Fried Wings", 500, [G.spice, G.sauce], "🔥"],
-    ["Wraps", "Grill Chicken Wrap", 450, [G.sauce], "🌯"], ["Wraps", "Beef Wrap", 520, [G.sauce], "🌯"], ["Wraps", "Zinger Wrap", 480, [G.spice, G.sauce], "🌯", true],
-    ["Sando", "Chicken Grill Burger", 480, [G.sauce], "🍔"], ["Sando", "Zinger Burger", 520, [G.spice, G.sauce], "🍔", true],
-    ["Sando", "Double Zinger Burger", 780, [G.spice, G.sauce], "🍔"], ["Sando", "Beef Grill Burger", 560, [G.sauce], "🍔"], ["Sando", "Beef Smash Burger", 620, [G.sauce], "🍔"],
-    ["Sides", "Fries", 220, [G.sauce], "🍟", true], ["Sides", "Crispy Fries", 260, [G.sauce], "🍟"], ["Sides", "Curly Fries", 300, [G.sauce], "🍟"],
-    ["Sides", "Beef Smash Fries", 420, [G.sauce], "🍟"], ["Sides", "Zinger Fries", 380, [G.spice, G.sauce], "🍟"],
-    ["Sides", "Coleslaw", 120, [], "🥗"], ["Sides", "Potato Wedges", 280, [G.sauce], "🥔"],
-    ...SAUCES.map((n): Item => ["Sauce", n, 50, [], "🥫"]),
-  ];
-  // Kitchen stations + KOT printers (main branch). Printer IPs are placeholders.
-  // No separate kitchen printers by default: the till printer prints the kitchen slip first, then the customer receipt. Add kitchen printers in Admin → Printers & kitchen if you have them.
-  const stations = await db.insert(s.kitchenStations).values([
-    { branchId: branches[0].id, name: "Fryer" },
-    { branchId: branches[0].id, name: "Grill & Burgers" },
-    { branchId: branches[0].id, name: "Sides & Sauce" },
-  ]).returning();
-  const stationFor: Record<string, string> = { Chicken: stations[0].id, Wraps: stations[1].id, Sando: stations[1].id, Sides: stations[2].id, Sauce: stations[2].id };
+  // Menu (menu-data.ts): categories, items, options, recipes, ingredients, kitchen stations, sadqa pledge.
+  await installMenu(db, biz.id, branches.map((b) => b.id));
   await db.insert(s.discounts).values([
     { businessId: biz.id, name: "Welcome 10%", code: "WELCOME10", kind: "percent", value: 1000 },
     { businessId: biz.id, name: "Staff meal 50%", code: "STAFF", kind: "percent", value: 5000, isStaffMeal: true },
   ]);
-  let order = 0;
-  const itemIds: Record<string, string> = {};
-  for (const [c, name, price, groups, emoji, fav] of items) {
-    const [it] = await db.insert(s.menuItems).values({
-      businessId: biz.id, categoryId: cat[c], name, nameUr: URDU[name] ?? null, basePrice: R(price), imageUrl: `emoji:${emoji}`, sortOrder: order++, isFavourite: !!fav, kitchenStationId: stationFor[c],
-    }).returning();
-    itemIds[name] = it.id;
-    if (groups.length) await db.insert(s.itemModifierGroups).values(groups.map((groupId, i) => ({ itemId: it.id, groupId, sortOrder: i })));
-  }
-
-  // Owner's sadqa pledge: a share of every broast sold is set aside (Quarter 5%, Half kg 10%, 1 kg 20%). Editable in Admin → Sadqa.
-  await db.insert(s.sadqaRules).values([
-    { itemId: itemIds["Chicken Injected Broast (Quarter)"], percentBps: 500 }, { itemId: itemIds["Chicken Injected Broast (Half kg)"], percentBps: 1000 }, { itemId: itemIds["Chicken Injected Broast (1 kg)"], percentBps: 2000 },
-  ]);
-
-  await seedInventory(db, { bizId: biz.id, branches: branches.map((b) => b.id), itemIds, sauceGroup: sauce.id, staffId: staffIds.owner });
+  await seedInventory(db, { bizId: biz.id });
 
   await db.insert(s.printers).values({
     branchId: branches[0].id, name: "Receipt Printer", role: "receipt", connection: "lan", address: "192.168.1.50", port: 9100, openDrawer: true,
@@ -202,79 +142,18 @@ export async function resetBusiness(db: Db) {
 }
 
 
-/** Units, ingredients, recipes, opening stock, suppliers and expense categories. Costs are placeholders. */
-async function seedInventory(db: Db, c: { bizId: string; branches: string[]; itemIds: Record<string, string>; sauceGroup: string; staffId: string }) {
-  const [kg, g, l, ml, pc] = await db.insert(s.units).values([
-    { code: "kg", name: "Kilogram" }, { code: "g", name: "Gram" }, { code: "l", name: "Litre" }, { code: "ml", name: "Millilitre" }, { code: "pc", name: "Piece" },
-  ]).returning();
-  await db.insert(s.unitConversions).values([
-    { fromUnitId: kg.id, toUnitId: g.id, factor: "1000" }, { fromUnitId: l.id, toUnitId: ml.id, factor: "1000" },
-  ]);
-  // [name, base unit, avg cost paisa per base unit, imported?, reorder level]
-  type Ing = [string, typeof g, number, boolean, number];
-  const defs: Ing[] = [
-    ["Chicken (raw)", g, 60, false, 8000], ["Beef (minced)", g, 90, false, 4000], ["Zinger fillet", pc, 9500, false, 40], ["Burger bun", pc, 2500, false, 60],
-    ["Tortilla wrap", pc, 2000, false, 60], ["Potato (fries)", g, 12, false, 10000], ["Cooking oil", ml, 45, false, 8000], ["Breading mix", g, 20, false, 5000],
-    ["Broast seasoning", g, 150, true, 1000], ["Coleslaw mix", g, 10, false, 3000], ["Cheese slice", pc, 2000, false, 50], ["Packaging box", pc, 1500, false, 100],
-    ["Honey mustard sauce", ml, 20, false, 1500], ["Cheese sauce", ml, 25, false, 1500], ["Garlic sauce", ml, 15, false, 2000], ["Spicy garlic sauce", ml, 18, false, 1500], ["Ranch sauce", ml, 20, false, 1500],
-  ];
-  // Typical nutrition per 100 g / 100 ml (per piece for "pc"): [kcal, protein, carbs, fat]. Approximate textbook values: replace with your supplier/lab figures.
-  const NUT: Record<string, [number, number, number, number]> = {
-    "Chicken (raw)": [165, 31, 0, 3.6], "Beef (minced)": [250, 26, 0, 15], "Zinger fillet": [300, 20, 15, 17], "Burger bun": [150, 5, 28, 2], "Tortilla wrap": [140, 4, 24, 3],
-    "Potato (fries)": [77, 2, 17, 0.1], "Cooking oil": [220, 0, 0, 25], /* only ~25% of the frying oil used ends up in the food */ "Breading mix": [350, 10, 72, 1.5],
-    "Broast seasoning": [250, 10, 40, 5], "Coleslaw mix": [60, 1, 6, 4], "Cheese slice": [70, 4, 1, 6], "Packaging box": [0, 0, 0, 0],
-    "Honey mustard sauce": [300, 1, 25, 22], "Cheese sauce": [250, 6, 10, 20], "Garlic sauce": [450, 1, 3, 48], "Spicy garlic sauce": [440, 1, 4, 46], "Ranch sauce": [430, 1, 6, 45],
-  };
-  const ings = await db.insert(s.ingredients).values(defs.map(([name, u, avgCost, imp]) => { const n = NUT[name] ?? [0, 0, 0, 0]; return { businessId: c.bizId, name, baseUnitId: u.id, avgCost, isImported: imp, originCountry: imp ? "Saudi Arabia" : null, kcal: String(n[0]), proteinG: String(n[1]), carbsG: String(n[2]), fatG: String(n[3]) }; })).returning();
-  const I = Object.fromEntries(ings.map((i) => [i.name, i.id]));
-  for (const b of c.branches) {
-    await db.insert(s.ingredientStock).values(defs.map(([name, , , , reorder]) => ({
-      branchId: b, ingredientId: I[name], quantity: "0", reorderLevel: String(reorder), // start at zero: enter your real opening stock with a purchase or a stock count
-    })));
-  }
-  const [local, importer] = await db.insert(s.suppliers).values([
+/** Suppliers, expense categories and wastage reasons. (Ingredients and recipes come with the menu: see install-menu.ts.) */
+async function seedInventory(db: Db, c: { bizId: string }) {
+  await db.insert(s.suppliers).values([
     { businessId: c.bizId, name: "Mianwali Poultry Traders", phone: "0300-1112223" },
     { businessId: c.bizId, name: "Al-Riyadh Foods (Saudi importer)", phone: "+966-500000000", isImporter: true },
-  ]).returning();
-  void local;
-  void importer;
-
-  // Recipes: [menu item, [ingredient, qty, unit]...]
-  type R = [string, [string, number, typeof g][]];
-  const chickenBase = (grams: number, oil: number, season: number): [string, number, typeof g][] => [["Chicken (raw)", grams, g], ["Breading mix", 40, g], ["Cooking oil", oil, ml], ["Broast seasoning", season, g], ["Packaging box", 1, pc]];
-  const recipes: R[] = [
-    ["Chicken Injected Broast (Quarter)", chickenBase(250, 30, 8)], ["Chicken Injected Broast (Half kg)", chickenBase(500, 50, 14)], ["Chicken Injected Broast (1 kg)", chickenBase(1000, 90, 26)], ["Chicken Strips", chickenBase(200, 25, 4)], ["Chicken Popcorn", chickenBase(180, 25, 0).filter((x) => x[1] > 0)], ["Fried Wings", chickenBase(250, 25, 5)],
-    ["Grill Chicken Wrap", [["Chicken (raw)", 150, g], ["Tortilla wrap", 1, pc], ["Coleslaw mix", 40, g], ["Garlic sauce", 20, ml], ["Packaging box", 1, pc]]],
-    ["Beef Wrap", [["Beef (minced)", 130, g], ["Tortilla wrap", 1, pc], ["Coleslaw mix", 40, g], ["Garlic sauce", 20, ml], ["Packaging box", 1, pc]]],
-    ["Zinger Wrap", [["Zinger fillet", 1, pc], ["Tortilla wrap", 1, pc], ["Coleslaw mix", 30, g], ["Garlic sauce", 15, ml], ["Packaging box", 1, pc]]],
-    ["Chicken Grill Burger", [["Chicken (raw)", 150, g], ["Burger bun", 1, pc], ["Garlic sauce", 15, ml], ["Packaging box", 1, pc]]],
-    ["Zinger Burger", [["Zinger fillet", 1, pc], ["Burger bun", 1, pc], ["Coleslaw mix", 30, g], ["Garlic sauce", 15, ml], ["Packaging box", 1, pc]]],
-    ["Double Zinger Burger", [["Zinger fillet", 2, pc], ["Burger bun", 1, pc], ["Cheese slice", 1, pc], ["Garlic sauce", 20, ml], ["Packaging box", 1, pc]]],
-    ["Beef Grill Burger", [["Beef (minced)", 130, g], ["Burger bun", 1, pc], ["Cheese slice", 1, pc], ["Packaging box", 1, pc]]],
-    ["Beef Smash Burger", [["Beef (minced)", 160, g], ["Burger bun", 1, pc], ["Cheese slice", 1, pc], ["Packaging box", 1, pc]]],
-    ["Fries", [["Potato (fries)", 200, g], ["Cooking oil", 20, ml]]], ["Crispy Fries", [["Potato (fries)", 220, g], ["Breading mix", 20, g], ["Cooking oil", 25, ml]]],
-    ["Curly Fries", [["Potato (fries)", 220, g], ["Cooking oil", 25, ml]]], ["Beef Smash Fries", [["Potato (fries)", 200, g], ["Beef (minced)", 60, g], ["Cheese sauce", 30, ml], ["Cooking oil", 20, ml]]],
-    ["Zinger Fries", [["Potato (fries)", 200, g], ["Chicken (raw)", 60, g], ["Cooking oil", 25, ml]]], ["Coleslaw", [["Coleslaw mix", 100, g]]], ["Potato Wedges", [["Potato (fries)", 250, g], ["Cooking oil", 25, ml]]],
-    ["Honey Mustard Sauce", [["Honey mustard sauce", 30, ml]]], ["Cheese Sauce", [["Cheese sauce", 30, ml]]], ["Garlic Sauce", [["Garlic sauce", 30, ml]]],
-    ["Spicy Garlic Sauce", [["Spicy garlic sauce", 30, ml]]], ["Ranch Sauce", [["Ranch sauce", 30, ml]]],
-  ];
-  for (const [name, lines] of recipes) {
-    if (!c.itemIds[name]) continue;
-    await db.insert(s.recipes).values(lines.map(([ing, qty, u]) => ({ itemId: c.itemIds[name], ingredientId: I[ing], quantity: String(qty), unitId: u.id })));
-  }
-  // The "Extra Sauce" modifiers also consume sauce stock
-  const sauceMods = await db.select().from(s.modifiers).where(eq(s.modifiers.groupId, c.sauceGroup));
-  const sauceIng: Record<string, string> = { "Honey Mustard Sauce": "Honey mustard sauce", "Cheese Sauce": "Cheese sauce", "Garlic Sauce": "Garlic sauce", "Spicy Garlic Sauce": "Spicy garlic sauce", "Ranch Sauce": "Ranch sauce" };
-  for (const m of sauceMods) if (sauceIng[m.name]) await db.insert(s.recipes).values({ modifierId: m.id, ingredientId: I[sauceIng[m.name]], quantity: "30", unitId: ml.id });
-
+  ]);
   await db.insert(s.expenseCategories).values(["Gas", "Electricity", "Rent", "Salaries", "Packaging & supplies", "Transport", "Maintenance", "Miscellaneous"].map((name) => ({ businessId: c.bizId, name })));
   await db.insert(s.reasonCodes).values([
     { businessId: c.bizId, kind: "wastage", label: "Expired" }, { businessId: c.bizId, kind: "wastage", label: "Dropped / spoiled" }, { businessId: c.bizId, kind: "wastage", label: "Overcooked / burnt" },
     { businessId: c.bizId, kind: "wastage", label: "Staff meal" }, { businessId: c.bizId, kind: "wastage", label: "Wrong order remake" },
   ]);
-  void c.staffId;
 }
-
 
 /** 30 days of believable demo orders (completed, paid) + closed shifts + expenses so dashboards and reports are not empty. */
 async function seedHistory(db: Db) {

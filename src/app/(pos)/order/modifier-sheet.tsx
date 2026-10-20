@@ -36,6 +36,7 @@ export function ModifierSheet({ item, onAdd, onClose }: { item: PosItem; onAdd: 
 
   return (
     <Modal title={item.name} onClose={onClose} width="max-w-2xl">
+      {item.description && <p className="mb-4 rounded-xl bg-surface-2 p-3 text-sm text-muted">{item.description}</p>}
       <div className="space-y-6">
         {item.groups.map((g, gi) => (
           <section key={g.id}>

@@ -9,7 +9,7 @@ export type PosModifier = { id: string; name: string; priceDelta: number; isDefa
 export type PosGroup = { id: string; name: string; min: number; max: number; modifiers: PosModifier[] };
 export type PosItem = {
   id: string; categoryId: string; name: string; nameUr: string | null; price: number; image: string | null;
-  isFavourite: boolean; available: boolean; barcode: string | null; stationId: string | null; nutrition: Nutrition | null; groups: PosGroup[];
+  isFavourite: boolean; available: boolean; barcode: string | null; stationId: string | null; description: string | null; nutrition: Nutrition | null; groups: PosGroup[];
 };
 export type PosMenu = {
   categories: { id: string; name: string; nameUr: string | null; icon: string | null }[];
@@ -66,7 +66,7 @@ export async function loadPosMenu(branchId: string): Promise<PosMenu> {
       const o = override.get(i.id);
       return {
         id: i.id, categoryId: i.categoryId, name: i.name, nameUr: i.nameUr, price: o?.price ?? i.basePrice, image: i.imageUrl,
-        isFavourite: i.isFavourite, available: o ? o.isAvailable : true, barcode: i.barcode, stationId: i.kitchenStationId, nutrition: nut.items.get(i.id)?.value ?? null,
+        isFavourite: i.isFavourite, available: o ? o.isAvailable : true, barcode: i.barcode, stationId: i.kitchenStationId, description: i.description, nutrition: nut.items.get(i.id)?.value ?? null,
         groups: itemGroups.filter((g) => g.itemId === i.id).map((g) => groupMap.get(g.groupId)).filter((g): g is PosGroup => !!g),
       };
     }),
@@ -97,7 +97,7 @@ export async function loadPublicMenu(): Promise<PublicMenu> {
     categories: posMenu?.categories ?? [],
     items: (posMenu?.items ?? []).map((it) => ({
       ...it,
-      description: null,
+      description: it.description,
     })),
     zones: posMenu?.zones ?? [],
     branches: branchList.map((b) => ({ id: b.id, name: b.name, city: b.city, address: b.address, phone: b.phone })),

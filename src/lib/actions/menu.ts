@@ -8,8 +8,10 @@ import * as s from "@/lib/db/schema";
 import { audit } from "@/lib/auth/audit";
 import { PermissionError, requirePermission } from "@/lib/auth/session";
 import { publish } from "@/lib/realtime/bus";
+import { installMenu } from "@/lib/db/install-menu";
+import { ITEMS } from "@/lib/db/menu-data";
 
-type R = { ok: true } | { ok: false; error: string };
+type R = { ok: true; message?: string } | { ok: false; error: string };
 async function guard(fn: () => Promise<R>): Promise<R> {
   try { return await fn(); } catch (e) {
     if (e instanceof PermissionError) return { ok: false, error: e.message };
@@ -121,5 +123,24 @@ export async function saveModifierGroup(raw: unknown): Promise<R> {
     await audit(session, { action: "menu.modifier_group.save", entity: "modifier_group", entityId: id, after: v });
     revalidatePath("/admin/menu");
     return { ok: true };
+  });
+}
+
+/**
+ * Owner only: replace the menu with the CRSP menu card (src/lib/db/menu-data.ts). Orders, staff, stock and settings are kept; old items
+ * that past orders used are hidden instead of deleted. Any price or option you edited by hand on the old menu is replaced.
+ */
+export async function installCrspMenu(): Promise<R> {
+  return guard(async () => {
+    const session = await requirePermission("menu.manage");
+    if (session.roleKey !== "owner") throw new PermissionError("Only the owner can replace the whole menu");
+    const db = await getDb();
+    const [biz] = await db.select().from(s.business).limit(1);
+    const branches = await db.select().from(s.branches).where(eq(s.branches.businessId, biz.id));
+    const r = await installMenu(db, biz.id, branches.map((b) => b.id));
+    await audit(session, { action: "menu.install_card", entity: "menu", after: { items: r.items } });
+    publish(session.branchId, { type: "menu.changed" });
+    revalidatePath("/admin/menu"); revalidatePath("/admin/recipes"); revalidatePath("/admin/inventory"); revalidatePath("/admin/sadqa"); revalidatePath("/");
+    return { ok: true, message: `Menu replaced: ${r.items} items (${ITEMS.length} on the card).` };
   });
 }
