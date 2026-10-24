@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Monitor, UtensilsCrossed, Phone, Mail, MapPin } from "lucide-react";
+import { Monitor, LayoutDashboard, Phone, Mail } from "lucide-react";
 
 export function KfcFooter() {
   return (
@@ -10,23 +10,12 @@ export function KfcFooter() {
         
         {/* Top brand row */}
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 pb-12 border-b border-zinc-800">
-          <div className="flex items-center gap-3">
-            {/* KFC 3 Red Stripes Emblem */}
-            <div className="flex items-center gap-1">
-              <span className="w-2 h-10 bg-[#e30e1f] rounded-sm transform -skew-x-6" />
-              <span className="w-2 h-12 bg-white rounded-sm transform -skew-x-6" />
-              <span className="w-2 h-10 bg-[#e30e1f] rounded-sm transform -skew-x-6" />
-            </div>
-
-            <div>
-              <span className="text-4xl font-black tracking-tighter text-white uppercase italic leading-none block">
-                CRSP
-              </span>
-              <span className="text-[10px] font-bold tracking-widest text-[#e30e1f] uppercase">
-                PEAK CRUNCH & JUICINESS IN EVERY BITE
-              </span>
-            </div>
-          </div>
+          {/* Real CRSP logo */}
+          <img
+            src="/brand/crsp-logo.png"
+            alt="CRSP"
+            className="h-12 w-auto object-contain select-none"
+          />
 
           {/* Contact Numbers */}
           <div className="flex flex-wrap items-center gap-6 text-xs text-zinc-300">
@@ -83,33 +72,27 @@ export function KfcFooter() {
             </ul>
           </div>
 
-          {/* Col 4: Staff & Apps */}
+          {/* Col 4: Staff Access */}
           <div>
             <h4 className="text-xs font-black uppercase tracking-wider text-white mb-4">
-              Restaurant System
+              Staff Portals (2 Users)
             </h4>
-            <ul className="space-y-2.5 text-xs text-zinc-400">
+            <ul className="space-y-3 text-xs text-zinc-400">
               <li>
-                <Link href="/pin" className="hover:text-white flex items-center gap-1.5 transition">
-                  <Monitor size={14} className="text-[#e30e1f]" />
-                  <span>Cashier POS Login</span>
-                </Link>
+                <a href="/api/launch?module=admin" className="hover:text-white flex items-center gap-2 transition group">
+                  <span className="w-6 h-6 rounded-lg bg-zinc-800 group-hover:bg-blue-600 flex items-center justify-center transition">
+                    <LayoutDashboard size={13} className="text-blue-400 group-hover:text-white" />
+                  </span>
+                  <span>1. Main Admin (Dishes &amp; Store)</span>
+                </a>
               </li>
               <li>
-                <Link href="/kds" className="hover:text-white flex items-center gap-1.5 transition">
-                  <UtensilsCrossed size={14} className="text-amber-500" />
-                  <span>Kitchen Screen (KDS)</span>
-                </Link>
-              </li>
-              <li>
-                <Link href="/admin" className="hover:text-white flex items-center gap-1.5 transition">
-                  <span>Admin Backoffice</span>
-                </Link>
-              </li>
-              <li>
-                <Link href="/start" className="hover:text-white flex items-center gap-1.5 transition">
-                  <span>Module Selector Hub</span>
-                </Link>
+                <a href="/api/launch?module=counter" className="hover:text-white flex items-center gap-2 transition group">
+                  <span className="w-6 h-6 rounded-lg bg-zinc-800 group-hover:bg-[#e30e1f] flex items-center justify-center transition">
+                    <Monitor size={13} className="text-[#e30e1f] group-hover:text-white" />
+                  </span>
+                  <span>2. Counter (Cashier POS)</span>
+                </a>
               </li>
             </ul>
           </div>

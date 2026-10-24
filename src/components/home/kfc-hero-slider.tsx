@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Image from "next/image";
-import { ChevronLeft, ChevronRight, Sparkles, Award, ArrowRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Sparkles, ArrowRight } from "lucide-react";
 import { useCustomerBucket } from "@/lib/stores/bucket";
 
 const SLIDES = [
@@ -40,7 +40,7 @@ const SLIDES = [
 
 export function KfcHeroSlider() {
   const [current, setCurrent] = useState(0);
-  const { toggleCart, toggleLoginModal } = useCustomerBucket();
+  const { toggleCart } = useCustomerBucket();
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -71,27 +71,7 @@ export function KfcHeroSlider() {
             <div className="absolute inset-0 bg-gradient-to-t from-black via-black/30 to-black/10 md:bg-gradient-to-r md:from-black/90 md:via-black/50 md:to-transparent" />
           </div>
 
-          {/* Floating CRSP Rewards badge (matching screenshot) */}
-          <div className="absolute top-6 left-6 z-20 hidden sm:flex items-center gap-3 bg-black/85 backdrop-blur-md border border-zinc-700/80 rounded-2xl p-3 shadow-xl">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center text-black font-black shadow-md shadow-amber-500/20">
-              <Award size={22} />
-            </div>
-            <div>
-              <div className="flex items-center gap-1.5">
-                <span className="text-[10px] font-black uppercase text-[#e30e1f] tracking-widest">
-                  CRSP REWARDS
-                </span>
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
-              </div>
-              <button 
-                onClick={() => toggleLoginModal(true)}
-                className="text-xs font-bold text-white hover:text-amber-400 flex items-center gap-1 transition"
-              >
-                <span>SIGN UP & EARN POINTS</span>
-                <ArrowRight size={12} />
-              </button>
-            </div>
-          </div>
+
 
           {/* Banner Content (Headline, Description, CTA) */}
           <div className="absolute inset-0 z-10 flex flex-col justify-end md:justify-center p-6 sm:p-10 md:p-14 max-w-2xl">

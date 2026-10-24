@@ -9,8 +9,6 @@ import { KfcMenuCatalog } from "./kfc-menu-catalog";
 import { KfcItemModal } from "./kfc-item-modal";
 import { KfcBucketDrawer } from "./kfc-bucket-drawer";
 import { KfcCheckoutModal } from "./kfc-checkout-modal";
-import { KfcLocationModal } from "./kfc-location-modal";
-import { KfcLoginModal } from "./kfc-login-modal";
 import { KfcFooter } from "./kfc-footer";
 import type { PublicMenu } from "@/lib/queries/menu";
 
@@ -27,8 +25,9 @@ export function KfcHomeClient({ menu }: { menu: PublicMenu }) {
         {/* Cinematic Hero Promotional Slider */}
         <KfcHeroSlider />
 
-        {/* Explore Menu Circular Carousel (Matching Screenshot) */}
+        {/* Explore Menu Circular Carousel — real DB categories */}
         <KfcExploreMenu
+          menu={menu}
           selectedCategory={selectedCategory}
           onSelectCategory={setSelectedCategory}
         />
@@ -51,8 +50,6 @@ export function KfcHomeClient({ menu }: { menu: PublicMenu }) {
       <KfcItemModal />
       <KfcBucketDrawer />
       <KfcCheckoutModal />
-      <KfcLocationModal />
-      <KfcLoginModal />
     </div>
   );
 }

@@ -9,10 +9,18 @@ import {
 } from "@/lib/auth/session";
 import { eq, and } from "drizzle-orm";
 
+/**
+ * One-click sign-in for development ONLY. On a public site this would let anybody walk in as the owner, so in production it is
+ * off: the buttons that point here simply land on the normal sign-in page. (To force it on a private network: ALLOW_QUICK_LAUNCH=1. Not recommended.)
+ */
+const QUICK_LAUNCH = process.env.NODE_ENV !== "production" || process.env.ALLOW_QUICK_LAUNCH === "1";
+
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
-  const mod = searchParams.get("module") ?? "main";
-  const redirectTarget = mod === "kitchen" ? "/kds" : "/order";
+  if (!QUICK_LAUNCH) return NextResponse.redirect(new URL(searchParams.get("module") === "admin" ? "/login" : "/pin", req.url));
+  const mod = searchParams.get("module") ?? "counter";
+  const isAdmin = mod === "admin";
+  const redirectTarget = isAdmin ? "/admin" : "/order";
   const response = NextResponse.redirect(new URL(redirectTarget, req.url));
 
   try {
@@ -51,8 +59,8 @@ export async function GET(req: Request) {
         maxAge: 3650 * 86400,
       });
 
-      // 2. Staff resolution based on module
-      const targetRoleKey = mod === "kitchen" ? "kitchen" : "cashier";
+      // 2. Staff resolution (Only 2 user roles: Admin or Counter)
+      const targetRoleKey = isAdmin ? "owner" : "cashier";
       const [role] = await db
         .select()
         .from(s.roles)
@@ -89,18 +97,18 @@ export async function GET(req: Request) {
             sid: staffMember.id,
             bid: defaultTerm.branchId,
             tid: defaultTerm.id,
-            kind: "pos",
+            kind: isAdmin ? "admin" : "pos",
             role: targetRoleKey,
           },
-          "12h"
+          isAdmin ? "8h" : "12h"
         );
         response.cookies.set(SESSION, sessionToken, {
           ...cookieOpts,
-          maxAge: 12 * 3600,
+          maxAge: (isAdmin ? 8 : 12) * 3600,
         });
 
-        // 3. Ensure an open shift exists for the cashier so they go straight to POS
-        if (mod !== "kitchen") {
+        // 3. For Counter POS: Ensure an open shift exists so cashier goes straight to taking orders
+        if (!isAdmin) {
           const [existingShift] = await db
             .select()
             .from(s.shifts)

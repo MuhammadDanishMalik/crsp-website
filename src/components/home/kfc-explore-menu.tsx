@@ -1,80 +1,25 @@
 "use client";
 
 import { useRef } from "react";
-import Image from "next/image";
-import { ChevronLeft, ChevronRight, Flame, Sparkles } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import type { PublicMenu } from "@/lib/queries/menu";
 
-export type ExploreCategory = {
-  id: string;
-  name: string;
-  slug: string;
-  image: string;
-  badge?: string;
-};
-
-const CATEGORIES: ExploreCategory[] = [
-  {
-    id: "deals",
-    name: "Promotion",
-    slug: "deals",
-    image: "/images/hero-banner.jpg",
-    badge: "Hot Deals",
-  },
-  {
-    id: "everyday",
-    name: "Everyday Value",
-    slug: "everyday",
-    image: "/images/broast.jpg",
-    badge: "From Rs 220",
-  },
-  {
-    id: "combos",
-    name: "Ala-Carte-&-Combos",
-    slug: "combos",
-    image: "/images/burger.jpg",
-  },
-  {
-    id: "boxes",
-    name: "Signature-Boxes",
-    slug: "boxes",
-    image: "/images/hero-banner.jpg",
-  },
-  {
-    id: "chicken",
-    name: "Chicken",
-    slug: "chicken",
-    image: "/images/broast.jpg",
-  },
-  {
-    id: "wraps",
-    name: "Wraps",
-    slug: "wraps",
-    image: "/images/wrap.jpg",
-  },
-  {
-    id: "sando",
-    name: "Sando & Burgers",
-    slug: "sando",
-    image: "/images/burger.jpg",
-  },
-  {
-    id: "sides",
-    name: "Sides",
-    slug: "sides",
-    image: "/images/fries.jpg",
-  },
-  {
-    id: "sauce",
-    name: "Sauce & Dips",
-    slug: "sauce",
-    image: "/images/sauce.jpg",
-  },
-];
+function getImageForCategory(name: string): string {
+  const lower = name.toLowerCase();
+  if (lower.includes("chicken") || lower.includes("broast")) return "/images/broast.jpg";
+  if (lower.includes("sando") || lower.includes("burger")) return "/images/burger.jpg";
+  if (lower.includes("wrap")) return "/images/wrap.jpg";
+  if (lower.includes("side") || lower.includes("fries")) return "/images/fries.jpg";
+  if (lower.includes("sauce") || lower.includes("dip")) return "/images/sauce.jpg";
+  return "/images/hero-banner.jpg";
+}
 
 export function KfcExploreMenu({
+  menu,
   selectedCategory,
   onSelectCategory,
 }: {
+  menu: PublicMenu;
   selectedCategory: string;
   onSelectCategory: (id: string) => void;
 }) {
@@ -133,8 +78,46 @@ export function KfcExploreMenu({
             className="flex items-center gap-6 sm:gap-8 overflow-x-auto scroll-smooth py-4 px-2 no-scrollbar"
             style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
           >
-            {CATEGORIES.map((cat) => {
-              const isActive = selectedCategory === cat.id || (selectedCategory === "all" && cat.id === "deals");
+            {/* All Items first */}
+            <button
+              key="all"
+              onClick={() => {
+                onSelectCategory("all");
+                const catalogEl = document.getElementById("menu-catalog");
+                if (catalogEl) catalogEl.scrollIntoView({ behavior: "smooth" });
+              }}
+              className="flex flex-col items-center flex-shrink-0 group focus:outline-none"
+            >
+              <div className="relative mb-3">
+                <div
+                  className={`w-24 h-24 sm:w-28 sm:h-28 md:w-32 md:h-32 rounded-full overflow-hidden bg-white border-2 transition-all duration-300 relative p-1 shadow-lg ${
+                    selectedCategory === "all"
+                      ? "border-[#e30e1f] ring-4 ring-red-600/30 scale-105"
+                      : "border-zinc-700/80 group-hover:border-[#e30e1f] group-hover:scale-105"
+                  }`}
+                >
+                  <div className="w-full h-full rounded-full overflow-hidden relative bg-white flex items-center justify-center">
+                    <img
+                      src="/images/hero-banner.jpg"
+                      alt="All Items"
+                      className="w-full h-full object-cover object-center group-hover:scale-110 transition duration-500"
+                    />
+                  </div>
+                </div>
+              </div>
+              <div className={`h-0.5 rounded-full transition-all duration-300 mb-1.5 ${
+                selectedCategory === "all" ? "w-8 bg-[#e30e1f]" : "w-0 group-hover:w-6 group-hover:bg-[#e30e1f]"
+              }`} />
+              <span className={`text-xs sm:text-sm font-bold text-center max-w-[120px] transition line-clamp-1 ${
+                selectedCategory === "all" ? "text-[#e30e1f] font-black" : "text-zinc-300 group-hover:text-white"
+              }`}>
+                All Items
+              </span>
+            </button>
+
+            {menu.categories.map((cat) => {
+              const isActive = selectedCategory === cat.id;
+              const image = getImageForCategory(cat.name);
               return (
                 <button
                   key={cat.id}
@@ -147,7 +130,7 @@ export function KfcExploreMenu({
                   }}
                   className="flex flex-col items-center flex-shrink-0 group focus:outline-none"
                 >
-                  {/* Circular Item Container (Exact KFC circle style) */}
+                  {/* Circular Item Container */}
                   <div className="relative mb-3">
                     <div
                       className={`w-24 h-24 sm:w-28 sm:h-28 md:w-32 md:h-32 rounded-full overflow-hidden bg-white border-2 transition-all duration-300 relative p-1 shadow-lg ${
@@ -158,19 +141,12 @@ export function KfcExploreMenu({
                     >
                       <div className="w-full h-full rounded-full overflow-hidden relative bg-white flex items-center justify-center">
                         <img
-                          src={cat.image}
+                          src={image}
                           alt={cat.name}
                           className="w-full h-full object-cover object-center group-hover:scale-110 transition duration-500"
                         />
                       </div>
                     </div>
-
-                    {/* Small promo tag if available */}
-                    {cat.badge && (
-                      <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 bg-[#e30e1f] text-white text-[9px] font-black uppercase px-2 py-0.5 rounded-full shadow-md whitespace-nowrap">
-                        {cat.badge}
-                      </span>
-                    )}
                   </div>
 
                   {/* Red category line under circle */}

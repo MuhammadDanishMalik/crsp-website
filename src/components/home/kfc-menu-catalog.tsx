@@ -75,27 +75,11 @@ export function KfcMenuCatalog({
         if (!matchesName && !matchesUr) return false;
       }
 
-      // Category filter
-      if (selectedCategory === "all" || selectedCategory === "deals") {
-        return true;
-      }
-
-      const cat = menu.categories.find((c) => c.id === item.categoryId);
-      if (!cat) return true;
-
-      const catName = cat.name.toLowerCase();
-      if (selectedCategory === "chicken" && catName.includes("chicken")) return true;
-      if (selectedCategory === "wraps" && catName.includes("wrap")) return true;
-      if (selectedCategory === "sando" && (catName.includes("sando") || catName.includes("burger"))) return true;
-      if (selectedCategory === "sides" && catName.includes("side")) return true;
-      if (selectedCategory === "sauce" && catName.includes("sauce")) return true;
-      if (selectedCategory === "everyday" && (item.price <= 45000)) return true;
-      if (selectedCategory === "combos" && (item.isFavourite || item.name.includes("Double") || item.name.includes("Broast"))) return true;
-      if (selectedCategory === "boxes" && (item.name.includes("Broast") || item.name.includes("Double"))) return true;
-
-      return cat.id === selectedCategory;
+      // Category filter — "all" shows everything; otherwise match by real DB category ID
+      if (selectedCategory === "all") return true;
+      return item.categoryId === selectedCategory;
     });
-  }, [menu.items, menu.categories, search, selectedCategory]);
+  }, [menu.items, search, selectedCategory]);
 
   return (
     <section id="menu-catalog" className="py-12 bg-[#0d0d10] text-white">
@@ -118,7 +102,7 @@ export function KfcMenuCatalog({
             </button>
             {menu.categories.map((cat) => {
               const count = menu.items.filter((i) => i.categoryId === cat.id).length;
-              const isActive = selectedCategory === cat.id || selectedCategory === cat.name.toLowerCase();
+              const isActive = selectedCategory === cat.id;
               return (
                 <button
                   key={cat.id}

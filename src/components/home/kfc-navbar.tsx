@@ -2,18 +2,16 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { 
-  Menu, X, MapPin, ShoppingBag, ChevronDown, 
-  LogIn, User, Phone, Sparkles, UtensilsCrossed, 
-  Monitor, LayoutDashboard
+import {
+  Menu, X, ShoppingBag,
+  Sparkles, UtensilsCrossed, Monitor, LayoutDashboard,
 } from "lucide-react";
 import { useCustomerBucket } from "@/lib/stores/bucket";
 import { formatPKR } from "@/lib/domain/money";
 
 export function KfcNavbar() {
-  const { 
-    items, orderType, setOrderType, selectedBranch, selectedCity,
-    toggleCart, toggleLocationModal, toggleLoginModal 
+  const {
+    items, orderType, setOrderType, toggleCart,
   } = useCustomerBucket();
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -32,18 +30,27 @@ export function KfcNavbar() {
           <div className="flex items-center gap-2">
             <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
             <span className="font-semibold text-white">ORDER ONLINE:</span>
-            <span className="hidden sm:inline">Delivering hot & fresh in 30-40 mins | Open till 3:00 AM</span>
+            <span className="hidden sm:inline">Delivering hot &amp; fresh in 30-40 mins | Open till 3:00 AM</span>
             <span className="sm:hidden">Delivering till 3:00 AM</span>
           </div>
-          <div className="flex items-center gap-4">
-            <span className="hidden md:inline text-zinc-400">Call Us: <strong className="text-white">111-277-777</strong></span>
-            <Link 
-              href="/start" 
-              className="text-[#e30e1f] font-bold hover:underline flex items-center gap-1"
-            >
-              <Monitor size={12} />
-              <span>Staff / POS Launch</span>
-            </Link>
+          <div className="flex items-center gap-3">
+            <span className="hidden lg:inline text-zinc-400">Call Us: <strong className="text-white">111-277-777</strong></span>
+            <div className="flex items-center gap-2">
+              <a
+                href="/api/launch?module=admin"
+                className="text-blue-400 hover:text-blue-300 font-bold flex items-center gap-1 bg-zinc-900/80 px-2.5 py-0.5 rounded-md border border-zinc-700/60 transition"
+              >
+                <LayoutDashboard size={12} />
+                <span>Main Admin</span>
+              </a>
+              <a
+                href="/api/launch?module=counter"
+                className="text-[#e30e1f] hover:text-red-400 font-bold flex items-center gap-1 bg-zinc-900/80 px-2.5 py-0.5 rounded-md border border-zinc-700/60 transition"
+              >
+                <Monitor size={12} />
+                <span>Counter (POS)</span>
+              </a>
+            </div>
           </div>
         </div>
       </div>
@@ -51,8 +58,8 @@ export function KfcNavbar() {
       {/* Main sticky header */}
       <header className="sticky top-0 z-40 bg-black/95 backdrop-blur-md border-b border-zinc-800 shadow-lg">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 h-20 flex items-center justify-between gap-3">
-          
-          {/* Left: Mobile hamburger + CRSP KFC-styled Logo */}
+
+          {/* Left: Mobile hamburger + CRSP Logo */}
           <div className="flex items-center gap-3">
             <button
               onClick={() => setMobileMenuOpen(true)}
@@ -62,28 +69,18 @@ export function KfcNavbar() {
               <Menu size={26} />
             </button>
 
-            <Link href="/" className="flex items-center gap-3 group">
-              {/* KFC 3 red stripes emblem badge */}
-              <div className="flex items-center gap-1 px-1 py-1">
-                <span className="w-1.5 h-8 bg-[#e30e1f] rounded-sm transform -skew-x-6" />
-                <span className="w-1.5 h-9 bg-white rounded-sm transform -skew-x-6" />
-                <span className="w-1.5 h-8 bg-[#e30e1f] rounded-sm transform -skew-x-6" />
-              </div>
-
-              <div className="flex flex-col">
-                <span className="text-3xl font-black tracking-tighter text-white uppercase italic leading-none group-hover:text-[#e30e1f] transition">
-                  CRSP
-                </span>
-                <span className="text-[9px] font-bold tracking-widest text-[#e30e1f] uppercase -mt-0.5">
-                  CRUNCH & ROAST
-                </span>
-              </div>
+            <Link href="/" className="flex items-center group">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/brand/crsp-logo.png"
+                alt="CRSP"
+                className="h-12 w-auto object-contain group-hover:opacity-90 transition select-none"
+              />
             </Link>
           </div>
 
-          {/* Center: Delivery / Pickup pills & Location Selector */}
+          {/* Center: Delivery / Pickup switcher */}
           <div className="hidden md:flex items-center gap-4">
-            {/* Delivery / Pickup switcher */}
             <div className="bg-zinc-900 p-1 rounded-full border border-zinc-800 flex items-center">
               <button
                 onClick={() => setOrderType("delivery")}
@@ -106,31 +103,15 @@ export function KfcNavbar() {
                 Pick Up
               </button>
             </div>
-
-            {/* Location selector pill */}
-            <button
-              onClick={() => toggleLocationModal(true)}
-              className="flex items-center gap-2 bg-zinc-900 hover:bg-zinc-800/80 border border-zinc-700/80 rounded-full px-4 py-2 text-xs text-zinc-200 transition group"
-            >
-              <MapPin size={15} className="text-[#e30e1f] group-hover:scale-110 transition" />
-              <div className="text-left">
-                <span className="block font-bold text-white leading-tight">
-                  {selectedBranch}, {selectedCity}
-                </span>
-              </div>
-              <ChevronDown size={14} className="text-zinc-400 ml-1" />
-            </button>
           </div>
 
-          {/* Right: Bucket Cart & Login button */}
+          {/* Right: Bucket Cart only (no login) */}
           <div className="flex items-center gap-3">
-            {/* Cart / Bucket button */}
             <button
               onClick={() => toggleCart(true)}
               className="relative flex items-center gap-2.5 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 px-3.5 py-2 sm:px-4 sm:py-2.5 rounded-2xl transition group"
               aria-label="View bucket"
             >
-              {/* KFC style bucket icon */}
               <div className="relative">
                 <div className="w-9 h-9 rounded-xl bg-[#e30e1f] flex items-center justify-center text-white shadow-md shadow-red-600/30 group-hover:scale-105 transition">
                   <ShoppingBag size={18} />
@@ -151,15 +132,6 @@ export function KfcNavbar() {
                 </span>
               </div>
             </button>
-
-            {/* Red KFC LOGIN Button */}
-            <button
-              onClick={() => toggleLoginModal(true)}
-              className="bg-[#e30e1f] hover:bg-red-700 active:scale-95 text-white font-black text-xs sm:text-sm uppercase tracking-wider px-5 py-2.5 rounded-full shadow-lg shadow-red-600/30 transition flex items-center gap-1.5"
-            >
-              <User size={15} />
-              <span>Login</span>
-            </button>
           </div>
         </div>
       </header>
@@ -168,9 +140,9 @@ export function KfcNavbar() {
       {mobileMenuOpen && (
         <div className="fixed inset-0 z-50 lg:hidden">
           {/* Backdrop */}
-          <div 
+          <div
             onClick={() => setMobileMenuOpen(false)}
-            className="fixed inset-0 bg-black/80 backdrop-blur-sm transition-opacity" 
+            className="fixed inset-0 bg-black/80 backdrop-blur-sm transition-opacity"
           />
 
           {/* Side Drawer */}
@@ -178,14 +150,12 @@ export function KfcNavbar() {
             <div>
               {/* Header */}
               <div className="flex items-center justify-between pb-6 border-b border-zinc-800">
-                <div className="flex items-center gap-2">
-                  <div className="flex items-center gap-1">
-                    <span className="w-1.5 h-6 bg-[#e30e1f] rounded-sm transform -skew-x-6" />
-                    <span className="w-1.5 h-7 bg-white rounded-sm transform -skew-x-6" />
-                    <span className="w-1.5 h-6 bg-[#e30e1f] rounded-sm transform -skew-x-6" />
-                  </div>
-                  <span className="text-2xl font-black text-white tracking-tighter">CRSP</span>
-                </div>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src="/brand/crsp-logo.png"
+                  alt="CRSP"
+                  className="h-10 w-auto object-contain select-none"
+                />
                 <button
                   onClick={() => setMobileMenuOpen(false)}
                   className="p-2 text-zinc-400 hover:text-white rounded-full bg-zinc-900"
@@ -214,21 +184,6 @@ export function KfcNavbar() {
                 </button>
               </div>
 
-              {/* Location Selector */}
-              <button
-                onClick={() => { setMobileMenuOpen(false); toggleLocationModal(true); }}
-                className="w-full mt-3 flex items-center justify-between bg-zinc-900 border border-zinc-800 p-3 rounded-2xl text-left"
-              >
-                <div className="flex items-center gap-2.5">
-                  <MapPin size={18} className="text-[#e30e1f]" />
-                  <div>
-                    <span className="block text-[11px] text-zinc-400">Selected Location</span>
-                    <span className="text-xs font-bold text-white">{selectedBranch}, {selectedCity}</span>
-                  </div>
-                </div>
-                <ChevronDown size={14} className="text-zinc-400" />
-              </button>
-
               {/* Navigation Links */}
               <nav className="mt-6 flex flex-col gap-2">
                 <a
@@ -245,7 +200,7 @@ export function KfcNavbar() {
                   className="flex items-center gap-3 px-4 py-3 rounded-2xl text-zinc-200 hover:bg-zinc-900 hover:text-white font-bold text-sm transition"
                 >
                   <Sparkles size={18} className="text-[#e30e1f]" />
-                  <span>Best Sellers & Deals</span>
+                  <span>Best Sellers &amp; Deals</span>
                 </a>
                 <button
                   onClick={() => { setMobileMenuOpen(false); toggleCart(true); }}
@@ -263,46 +218,28 @@ export function KfcNavbar() {
                 </button>
               </nav>
 
-              {/* Staff Portal / Management Links */}
+              {/* Staff Access — only 2 links */}
               <div className="mt-6 pt-6 border-t border-zinc-800/80">
                 <span className="block text-[10px] font-black uppercase text-zinc-500 tracking-wider px-2 mb-2">
-                  Staff & Restaurant System
+                  System Portals (2 Users)
                 </span>
                 <div className="flex flex-col gap-1.5">
-                  <Link
-                    href="/order"
-                    className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-zinc-300 hover:bg-zinc-900 hover:text-white transition"
+                  <a
+                    href="/api/launch?module=admin"
+                    className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-bold text-zinc-200 hover:bg-zinc-800 hover:text-white transition"
                   >
-                    <Monitor size={15} className="text-[#e30e1f]" />
-                    <span>POS Terminal Screen</span>
-                  </Link>
-                  <Link
-                    href="/kds"
-                    className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-zinc-300 hover:bg-zinc-900 hover:text-white transition"
+                    <LayoutDashboard size={16} className="text-blue-400" />
+                    <span>1. Main Admin (Dishes &amp; Store)</span>
+                  </a>
+                  <a
+                    href="/api/launch?module=counter"
+                    className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-bold text-zinc-200 hover:bg-zinc-800 hover:text-white transition"
                   >
-                    <UtensilsCrossed size={15} className="text-amber-500" />
-                    <span>Kitchen KDS Display</span>
-                  </Link>
-                  <Link
-                    href="/admin"
-                    className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-zinc-300 hover:bg-zinc-900 hover:text-white transition"
-                  >
-                    <LayoutDashboard size={15} className="text-blue-500" />
-                    <span>Admin Backoffice</span>
-                  </Link>
+                    <Monitor size={16} className="text-[#e30e1f]" />
+                    <span>2. Counter (Cashier POS)</span>
+                  </a>
                 </div>
               </div>
-            </div>
-
-            {/* Bottom Login Button */}
-            <div className="pt-4 border-t border-zinc-800">
-              <button
-                onClick={() => { setMobileMenuOpen(false); toggleLoginModal(true); }}
-                className="w-full bg-[#e30e1f] text-white font-black py-3 rounded-2xl flex items-center justify-center gap-2 text-sm uppercase tracking-wider shadow-lg shadow-red-600/30"
-              >
-                <LogIn size={16} />
-                <span>Sign In / Register</span>
-              </button>
             </div>
           </div>
         </div>

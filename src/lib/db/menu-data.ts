@@ -3,7 +3,7 @@
  * One place for the menu: used by the first-run seed AND by `npm run update:menu` (which swaps the menu on an existing database).
  * Recipes and nutrition below are ESTIMATES so stock, food cost and calories work from day one; replace them with your real figures.
  */
-export type GroupKey = "spice" | "sauce" | "addons" | "drink" | "kid" | "kidDrink";
+export type GroupKey = "spice" | "sauce" | "addons" | "drink" | "kid" | "kidDrink" | "drinkFlavor";
 export type MenuItemDef = { cat: string; name: string; price: number; groups: GroupKey[]; emoji: string; fav: boolean; combo: boolean; desc: string | null };
 type Unit = "g" | "ml" | "pc";
 export type RecipeLine = [ingredient: string, qty: number, unit: Unit];
@@ -11,7 +11,7 @@ export type RecipeLine = [ingredient: string, qty: number, unit: Unit];
 export const CATEGORIES = [
   { name: "Broast", nameUr: "اسپائسی انجیکٹڈ بروسٹ", icon: "Drumstick" }, { name: "Burgers", nameUr: "برگرز", icon: "Sandwich" }, { name: "Wraps", nameUr: "ریپس", icon: "Wheat" },
   { name: "Wings", nameUr: "ونگز", icon: "Drumstick" }, { name: "Nuggets & Strips", nameUr: "نگٹس اور دیگر", icon: "UtensilsCrossed" }, { name: "Fries", nameUr: "فرائز", icon: "Soup" },
-  { name: "Beverages", nameUr: "مشروبات", icon: "CupSoda" }, { name: "Extras", nameUr: "ایکسٹراز اور ساس", icon: "Droplet" }, { name: "Deals", nameUr: "ڈیلز", icon: "BadgePercent" },
+  { name: "Beverages", nameUr: "مشروبات اور ڈرنکس", icon: "CupSoda" }, { name: "Extras", nameUr: "ایکسٹراز اور ساس", icon: "Droplet" }, { name: "Deals", nameUr: "ڈیلز", icon: "BadgePercent" },
 ];
 
 export const STATION_OF: Record<string, string> = { Broast: "Fryer", Wings: "Fryer", "Nuggets & Strips": "Fryer", Fries: "Fryer", Deals: "Fryer", Burgers: "Grill & Burgers", Wraps: "Grill & Burgers", Beverages: "Sides & Sauce", Extras: "Sides & Sauce" };
@@ -22,6 +22,7 @@ export const GROUPS: Record<GroupKey, { name: string; nameUr: string; min: numbe
   sauce: { name: "Extra Sauce", nameUr: "اضافی ساس", min: 0, max: 5, options: [{ name: "Chipotle Sauce", nameUr: "چپوٹلے ساس", price: 100 }, { name: "Garlic Sauce", nameUr: "گارلک ساس", price: 100 }, { name: "Honey Mustard", nameUr: "ہنی مسٹرڈ ساس", price: 100 }] },
   addons: { name: "Burger Add-ons", nameUr: "برگر ایڈ آنز", min: 0, max: 3, options: [{ name: "Extra beef patty", nameUr: "اضافی بیف پیٹی", price: 295 }, { name: "Make it meal (Fries + drink)", nameUr: "میک اٹ میل (فرائز + ڈرنک)", price: 300 }, { name: "Extra Cheese Slice", nameUr: "اضافی چیز سلائس", price: 80 }] },
   drink: { name: "Drink (deal)", nameUr: "ڈرنک (ڈیل)", min: 0, max: 4, options: [{ name: "Coca-Cola", nameUr: "کوکا کولا" }, { name: "Sprite", nameUr: "اسپرائٹ" }, { name: "Fanta", nameUr: "فینٹا" }] },
+  drinkFlavor: { name: "Drink Flavor", nameUr: "ڈرنک کا فلیور", min: 1, max: 1, options: [{ name: "Coca-Cola", nameUr: "کوکا کولا", isDefault: true }, { name: "Sprite", nameUr: "اسپرائٹ" }, { name: "Fanta", nameUr: "فینٹا" }, { name: "Diet Coke", nameUr: "ڈائیٹ کوک" }] },
   kid: { name: "Kid's burger", nameUr: "بچوں کا برگر", min: 1, max: 1, options: [{ name: "Krunch Burger", nameUr: "کرنچ برگر", isDefault: true }, { name: "Chicken Patty", nameUr: "چکن پیٹی" }] },
   kidDrink: { name: "Milo / Drink + Toy", nameUr: "ملو / ڈرنک + کھلونا", min: 1, max: 1, options: [{ name: "Milo", nameUr: "ملو", isDefault: true }, { name: "Drink", nameUr: "ڈرنک" }] },
 };
@@ -65,11 +66,11 @@ const ROWS: Row[] = [
     ["Fries", "CRSP Loaded Fries", 550, ["sauce"], "🍟", true, false, "Fries loaded with crispy chicken chunks, melted cheese & sauces"],
     ["Fries", "Grill Loaded Fries", 600, ["sauce"], "🍟", false, false, "Fries topped with grilled chicken, jalapenos & smoky sauce"],
     // Beverages
-    ["Beverages", "Soft Drink (Can 250 ml)", 120, [], "🥤"],
-    ["Beverages", "Soft Drink (Bottle 350 ml)", 100, [], "🥤"],
-    ["Beverages", "Soft Drink (Bottle 1 L)", 170, [], "🥤"],
-    ["Beverages", "Soft Drink (Bottle 1.5 L)", 200, [], "🥤"],
-    ["Beverages", "Mineral Water (500 ml)", 60, [], "💧"],
+    ["Beverages", "Soft Drink (Can 250 ml)", 120, ["drinkFlavor"], "🥤", true, false, "Chilled canned soft drink (Coca-Cola, Sprite, Fanta, Diet Coke)"],
+    ["Beverages", "Soft Drink (Bottle 350 ml)", 100, ["drinkFlavor"], "🥤", true, false, "Chilled bottle soft drink"],
+    ["Beverages", "Soft Drink (Bottle 1 L)", 170, ["drinkFlavor"], "🥤", false, false, "1 Litre sharing bottle"],
+    ["Beverages", "Soft Drink (Bottle 1.5 L)", 200, ["drinkFlavor"], "🥤", false, false, "1.5 Litre jumbo bottle"],
+    ["Beverages", "Mineral Water (500 ml)", 60, [], "💧", true, false, "500ml cold mineral water"],
     // Extras
     ["Extras", "Chipotle Sauce", 100, [], "🥫"],
     ["Extras", "Garlic Sauce", 100, [], "🥫"],

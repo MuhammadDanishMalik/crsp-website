@@ -28,19 +28,24 @@ export default async function ReceiptPage({ params, searchParams }: PageProps<"/
         {/* ========================================================= */}
         <section
           id="kitchen-slip"
-          className="w-[310px] rounded-lg border border-border bg-white p-5 font-mono text-[12px] leading-snug shadow-sm print:w-[302px] print:rounded-none print:border-none print:p-0 print:shadow-none print:break-after-page print:data-[hidden]:hidden"
+          className="w-[310px] rounded-lg border border-border bg-white p-5 font-mono text-[12px] leading-snug shadow-sm print:w-[302px] print:rounded-none print:border-none print:p-0 print:shadow-none"
         >
-          <div className="mb-2 rounded bg-black py-1 text-center font-black uppercase tracking-wider text-white print:bg-black print:text-white">
-            *** 1. KITCHEN ORDER TICKET ***
+          {/* Heavy header — easy to read across a kitchen */}
+          <div className="mb-3 rounded bg-black py-2 text-center text-white print:bg-black print:text-white">
+            <p className="text-[11px] font-black uppercase tracking-[0.2em]">★ KITCHEN ORDER TICKET ★</p>
           </div>
 
           <div className="text-center">
-            <p className="text-2xl font-black tracking-tight">ORDER #{r.orderNo}</p>
-            <p className="text-sm font-bold uppercase">
+            <p className="text-4xl font-black tracking-tight">#{r.orderNo}</p>
+            <p className="mt-1 text-base font-black uppercase tracking-wide">
               {r.type.replace("_", " ")}
-              {r.tableNo ? ` · TABLE ${r.tableNo}` : ""}
             </p>
-            <p className="text-[11px] text-zinc-600 print:text-black">{formattedDate}</p>
+            {r.tableNo && (
+              <div className="mt-2 rounded border-2 border-black px-2 py-1">
+                <p className="text-xl font-black">TABLE {r.tableNo}</p>
+              </div>
+            )}
+            <p className="mt-1 text-[11px] text-zinc-600 print:text-black">{formattedDate}</p>
           </div>
 
           <div className="my-2 border-b border-dashed border-black" />
@@ -62,8 +67,8 @@ export default async function ReceiptPage({ params, searchParams }: PageProps<"/
             {r.lines.map((l, i) => (
               <div key={i} className="leading-tight">
                 <div className="flex items-start justify-between font-bold">
-                  <span className="text-[14px]">
-                    <span className="inline-block min-w-7 rounded bg-zinc-200 px-1 py-0.5 text-center text-[12px] font-black print:bg-transparent print:border print:border-black">
+                  <span className="text-[15px]">
+                    <span className="inline-block min-w-7 rounded bg-zinc-200 px-1 py-0.5 text-center text-[13px] font-black print:bg-transparent print:border print:border-black">
                       {l.qty}x
                     </span>{" "}
                     {l.name}
@@ -75,27 +80,30 @@ export default async function ReceiptPage({ params, searchParams }: PageProps<"/
                   </p>
                 ))}
                 {l.note && (
-                  <p className="pl-8 text-[11px] font-bold text-red-600 print:text-black">
-                    * NOTE: {l.note}
+                  <p className="pl-8 text-[11px] font-black text-red-600 print:border print:border-black print:px-1 print:text-black">
+                    ★ NOTE: {l.note}
                   </p>
                 )}
               </div>
             ))}
           </div>
 
-          <div className="my-2 border-b border-dashed border-black" />
+          <div className="my-2 border-b-2 border-black" />
 
-          <div className="flex justify-between text-[11px] font-bold">
+          <div className="flex justify-between text-sm font-black">
             <span>TOTAL ITEMS:</span>
             <span>{r.lines.reduce((a, b) => a + b.qty, 0)}</span>
           </div>
 
           <div className="mt-3 text-center text-[10px] uppercase text-zinc-500 print:text-black">
-            -- End of Kitchen Ticket --
+            -- Kitchen Copy --
           </div>
+
+          {/* Thermal paper feed space so the cutter blade cuts after the text */}
+          <div className="hidden print:block print:h-20" aria-hidden="true" />
         </section>
 
-        {/* Paper Tear / Perforation Divider for Screen / Print */}
+        {/* Paper Tear / Perforation Divider for Screen */}
         <div className="my-2 flex w-[310px] items-center justify-center gap-2 text-xs font-mono text-zinc-400 print:hidden">
           <span>✂ - - - - - - - - - - - - - - - - - - - - - - ✂</span>
         </div>
@@ -197,12 +205,36 @@ export default async function ReceiptPage({ params, searchParams }: PageProps<"/
           <p className="mt-3 text-center text-[10px] text-zinc-400 print:text-black">
             Software powered by Orixto.com
           </p>
+
+          {/* Thermal paper feed space so the cutter blade cuts after the text */}
+          <div className="hidden print:block print:h-24" aria-hidden="true" />
         </section>
       </div>
 
       <style dangerouslySetInnerHTML={{ __html: `
         @media print {
-          @page { size: 80mm auto; margin: 0; } /* continuous roll: each slip is its own page, so the printer driver cuts after it */
+          @page {
+            size: 80mm auto;
+            margin: 0mm;
+          }
+
+          html, body {
+            margin: 0 !important;
+            padding: 0 !important;
+            background: #fff !important;
+          }
+
+          /* Force page-break and cut point between the 2 slips */
+          #kitchen-slip {
+            break-after: page !important;
+            page-break-after: always !important;
+          }
+          #customer-slip {
+            break-before: page !important;
+            page-break-before: always !important;
+          }
+
+          /* Mode-specific filtering for independent cutter print jobs */
           body[data-print-mode="kitchen"] #customer-slip {
             display: none !important;
           }

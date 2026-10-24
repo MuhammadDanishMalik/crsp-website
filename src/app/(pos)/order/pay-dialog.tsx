@@ -149,9 +149,14 @@ export function PayDialog({ menu, me, offline, online, onClose, onFinished }: { 
               href={`/receipt/${done.orderId}?print=1`}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-brand text-base font-bold text-brand-fg shadow-sm transition hover:opacity-95"
+              className="flex min-h-14 w-full flex-col items-center justify-center rounded-2xl bg-brand py-2 text-center text-brand-fg shadow-sm transition hover:opacity-95"
             >
-              <Printer size={20} /> Print 2 Slips (Xprinter) 🖨️
+              <div className="flex items-center gap-2 text-base font-bold">
+                <Printer size={20} /> Print 2 Slips (Kitchen + Customer)
+              </div>
+              <span className="text-[11px] font-medium opacity-90">
+                ✂️ Automatically prints &amp; cuts both slips separately
+              </span>
             </a>
             {!done.offline && (
               <Button

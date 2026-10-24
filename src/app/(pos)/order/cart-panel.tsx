@@ -6,11 +6,26 @@ import { useCart } from "@/lib/stores/cart";
 import { computeTotals, unitPrice, lineTotal } from "@/lib/domain/pricing";
 import { formatPKR } from "@/lib/domain/money";
 import { Button } from "@/components/ui/button";
-import type { PosMenu } from "@/lib/queries/menu";
+import type { PosItem, PosMenu } from "@/lib/queries/menu";
 import type { Me } from "./types";
 import { useLocale, useTranslations } from "next-intl";
+import { useMemo } from "react";
 
-export function CartPanel({ menu, me, onPay, onDiscount, onHold }: { menu: PosMenu; me: Me; onPay: () => void; onDiscount: () => void; onHold: () => void }) {
+export function CartPanel({
+  menu,
+  me,
+  onPay,
+  onDiscount,
+  onHold,
+  onPickItem,
+}: {
+  menu: PosMenu;
+  me: Me;
+  onPay: () => void;
+  onDiscount: () => void;
+  onHold: () => void;
+  onPickItem?: (item: PosItem) => void;
+}) {
   const cart = useCart();
   const t = useTranslations();
   const ur = useLocale() === "ur";
@@ -20,6 +35,21 @@ export function CartPanel({ menu, me, onPay, onDiscount, onHold }: { menu: PosMe
     serviceChargeBps: menu.serviceChargeBps, deliveryCharge: zone?.charge ?? 0,
   });
   const nLines = cart.lines.length;
+
+  const quickItems = useMemo(() => {
+    const targets = [
+      "Soft Drink (Can 250 ml)",
+      "Soft Drink (Bottle 350 ml)",
+      "Soft Drink (Bottle 1.5 L)",
+      "Mineral Water (500 ml)",
+      "Simple Fries (Small)",
+      "Garlic Sauce",
+      "Chipotle Sauce",
+    ];
+    return targets
+      .map((name) => menu.items.find((i) => i.name.toLowerCase() === name.toLowerCase()))
+      .filter((i): i is PosItem => !!i && i.available);
+  }, [menu.items]);
   useEffect(() => {
     broadcastCart({
       lines: cart.lines.map((l) => ({ name: l.name, qty: l.quantity, mods: l.modifiers.map((m) => m.name), total: lineTotal(l) })),
@@ -58,6 +88,40 @@ export function CartPanel({ menu, me, onPay, onDiscount, onHold }: { menu: PosMe
           </div>
         ))}
       </div>
+      {/* ⚡ Quick Add Drinks & Extras */}
+      {quickItems.length > 0 && onPickItem && (
+        <div className="border-t border-border/80 bg-surface-2/40 px-3 py-2">
+          <div className="mb-1.5 flex items-center justify-between text-[10px] font-black uppercase tracking-wider text-muted">
+            <span className="flex items-center gap-1">
+              <span>🥤 Quick Drinks &amp; Sides</span>
+            </span>
+            <span className="text-[9px] font-semibold text-brand">Tap to add</span>
+          </div>
+          <div className="grid grid-cols-3 gap-1.5">
+            {quickItems.slice(0, 6).map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => onPickItem(item)}
+                className="group flex flex-col items-center justify-center rounded-xl border border-border bg-surface px-1.5 py-1.5 text-center shadow-xs transition hover:border-brand hover:bg-brand/5 active:scale-95"
+                title={`Add ${item.name}`}
+              >
+                <span className="truncate text-[11px] font-bold text-foreground group-hover:text-brand max-w-full">
+                  {item.name
+                    .replace("Soft Drink ", "")
+                    .replace(" (500 ml)", "")
+                    .replace(" (Small)", "")
+                    .replace("Simple ", "")}
+                </span>
+                <span className="text-[10px] font-extrabold text-accent tabular-nums">
+                  {formatPKR(item.price)}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="space-y-1 border-t border-border p-4 text-base">
         <Row label={t("pos.subtotal")} v={tot.subtotal} />
         {tot.discountTotal > 0 && <Row label={t("pos.discount")} v={-tot.discountTotal} cls="text-success" />}

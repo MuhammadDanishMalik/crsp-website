@@ -51,24 +51,26 @@ export function PinForm() {
       </div>
       <p className="mb-3 min-h-6 text-center text-danger">{error}{info && <span className="text-success">{info}</span>}</p>
       <Numpad onDigit={push} onBackspace={() => setPin((p) => p.slice(0, -1))} onClear={() => setPin("")} />
+      {process.env.NODE_ENV !== "production" && ( // demo shortcuts: development only, the PINs are public
       <div className="mt-3 grid grid-cols-2 gap-2">
+        <button
+          type="button"
+          disabled={pending}
+          onClick={() => submit("1111")}
+          className="flex h-11 items-center justify-center rounded-xl border border-blue-500/40 bg-blue-500/10 text-xs font-bold text-blue-500 hover:bg-blue-500/20"
+        >
+          👑 Admin (1111)
+        </button>
         <button
           type="button"
           disabled={pending}
           onClick={() => submit("3333")}
           className="flex h-11 items-center justify-center rounded-xl border border-brand/40 bg-brand/10 text-xs font-bold text-brand hover:bg-brand/20"
         >
-          🖥️ Cashier (3333)
-        </button>
-        <button
-          type="button"
-          disabled={pending}
-          onClick={() => submit("5555")}
-          className="flex h-11 items-center justify-center rounded-xl border border-emerald-500/40 bg-emerald-500/10 text-xs font-bold text-emerald-500 hover:bg-emerald-500/20"
-        >
-          🍳 Kitchen (5555)
+          🖥️ Counter (3333)
         </button>
       </div>
+      )}
 
       <button
         type="button" disabled={pin.length < 4 || pending} onClick={() => submit(pin)}
@@ -76,9 +78,8 @@ export function PinForm() {
       >
         {tc("ok")}
       </button>
-      <button type="button" onClick={() => { setClock((c) => !c); setPin(""); setError(""); setInfo(""); }} className="mt-4 block w-full text-center text-sm text-muted underline">{clock ? t("backToSignIn") : t("clock")}</button>
-      <a href="/start" className="mt-2 block text-center text-sm text-muted underline">{t("entrances")}</a>
-      <a href="/login" className="mt-2 block text-center text-sm text-muted underline">{t("backOffice")}</a>
+      <a href="/login" className="mt-4 block text-center text-sm text-muted underline">Admin Email Login</a>
+      <a href="/start" className="mt-2 block text-center text-sm text-muted underline">Back to Portals</a>
       <div className="mt-3 flex justify-center"><LocaleToggle /></div>
     </AuthShell>
   );

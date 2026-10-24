@@ -147,7 +147,14 @@ export function PosScreen({ menu, me, shiftOpenedAt, offline }: PosProps) {
           </div>
         </main>
 
-        <CartPanel menu={menu} me={{ ...me, can: { ...me.can, discount: me.can.discount && online } }} onPay={startPay} onDiscount={() => setDiscounting(true)} onHold={hold} />
+        <CartPanel
+          menu={menu}
+          me={{ ...me, can: { ...me.can, discount: me.can.discount && online } }}
+          onPay={startPay}
+          onDiscount={() => setDiscounting(true)}
+          onHold={hold}
+          onPickItem={pick}
+        />
       </div>
 
       {sheet && (

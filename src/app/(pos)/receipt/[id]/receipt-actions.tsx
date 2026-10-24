@@ -10,10 +10,30 @@ export function ReceiptActions({ orderId }: { orderId: string }) {
   const handlePrint = (mode: "both" | "kitchen" | "customer") => {
     setFilter(mode);
     const body = document.body;
-    body.setAttribute("data-print-mode", mode);
-    setTimeout(() => {
+
+    if (mode === "both") {
+      // Job 1: Kitchen slip only (causes thermal cutter to cut after slip 1)
+      body.setAttribute("data-print-mode", "kitchen");
       window.print();
-    }, 100);
+
+      // Job 2: Customer receipt only (causes thermal cutter to cut after slip 2)
+      setTimeout(() => {
+        body.setAttribute("data-print-mode", "customer");
+        window.print();
+        setTimeout(() => {
+          body.removeAttribute("data-print-mode");
+          setFilter("both");
+        }, 600);
+      }, 700);
+    } else {
+      body.setAttribute("data-print-mode", mode);
+      setTimeout(() => {
+        window.print();
+        setTimeout(() => {
+          body.removeAttribute("data-print-mode");
+        }, 500);
+      }, 100);
+    }
   };
 
   return (
