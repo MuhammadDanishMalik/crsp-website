@@ -135,6 +135,7 @@ function BrowserPrinting({ onMsg }: { onMsg: (m: string) => void }) {
         </button>
       </div>
       <div className="mt-3 flex flex-wrap items-center gap-2">
+        <a href="/print-test" className="rounded-xl bg-surface-2 px-4 py-3 text-sm font-semibold">Fit &amp; paper size settings →</a>
         <Button onClick={() => printInBrowser(sample, { kitchen: true }).then(() => onMsg("Print window opened: choose the receipt printer and press Print")).catch(() => onMsg("Could not open the print window"))}>Test print (2 slips)</Button>
       </div>
       <details className="mt-3 text-sm text-muted"><summary className="cursor-pointer font-semibold text-foreground">Print without the dialog every time (Windows + Chrome)</summary>

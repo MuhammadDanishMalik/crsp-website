@@ -11,10 +11,24 @@ const esc = (s: string | null | undefined) => String(s ?? "").replace(/[&<>"]/g,
 const TYPE: Record<string, string> = { dine_in: "DINE-IN", takeaway: "TAKEAWAY", delivery: "DELIVERY", drive_thru: "DRIVE-THRU", online: "ONLINE" };
 const money = (p: number) => formatPKR(p, { symbol: false });
 
-const CSS = `@page{size:80mm auto;margin:0}*{box-sizing:border-box}html,body{margin:0;padding:0;background:#fff;color:#000}
-body{width:76mm;font:12px/1.35 "Courier New",monospace}.slip{padding:3mm 2mm 6mm;page-break-after:always}.slip:last-child{page-break-after:auto}
-.c{text-align:center}.b{font-weight:700}.big{font-size:26px;font-weight:900}.hr{border-top:1px dashed #000;margin:5px 0}.row{display:flex;justify-content:space-between;gap:6px}
-.tag{background:#000;color:#fff;padding:2px;font-weight:900;letter-spacing:1px}.item{font-size:15px;font-weight:700;margin-top:4px}.mod{padding-left:14px}.tot{font-size:15px;font-weight:900}svg{width:120px;height:120px}`;
+export type PrintSettings = { paper: 80 | 58; widthMm: number; fontPx: number };
+const DEFAULTS: Record<80 | 58, PrintSettings> = { 80: { paper: 80, widthMm: 72, fontPx: 12 }, 58: { paper: 58, widthMm: 48, fontPx: 11 } };
+/** Per computer. An 80 mm roll normally prints 72 mm wide (the printer cannot reach the edges); 58 mm prints 48 mm. */
+export function getPrintSettings(): PrintSettings {
+  try {
+    const v = JSON.parse(localStorage.getItem("crsp.print") ?? "null") as Partial<PrintSettings> | null;
+    const paper = v?.paper === 58 ? 58 : 80;
+    return { paper, widthMm: Math.min(paper, Math.max(40, Number(v?.widthMm) || DEFAULTS[paper].widthMm)), fontPx: Math.min(18, Math.max(9, Number(v?.fontPx) || DEFAULTS[paper].fontPx)) };
+  } catch { return DEFAULTS[80]; }
+}
+export function setPrintSettings(s: PrintSettings) { try { localStorage.setItem("crsp.print", JSON.stringify(s)); } catch { /* storage blocked */ } }
+export const defaultPrintSettings = (paper: 80 | 58) => DEFAULTS[paper];
+
+const css = (s: PrintSettings) => `@page{size:${s.paper}mm auto;margin:0}*{box-sizing:border-box}html,body{margin:0;padding:0;background:#fff;color:#000}
+body{width:${s.widthMm}mm;margin-left:${Math.max(0, (s.paper - s.widthMm) / 2)}mm;font:${s.fontPx}px/1.35 "Courier New",monospace;overflow-wrap:anywhere}.slip{padding:2mm 1mm 8mm;page-break-after:always}.slip:last-child{page-break-after:auto}.row span:first-child{min-width:0}.rule{border:1px solid #000;padding:2px;margin:4px 0;text-align:center}
+.c{text-align:center}.b{font-weight:700}.big{font-size:2.1em;font-weight:900}.hr{border-top:1px dashed #000;margin:5px 0}.row{display:flex;justify-content:space-between;gap:6px}
+.tag{background:#000;color:#fff;padding:2px;font-weight:900;letter-spacing:1px}.item{font-size:1.25em;font-weight:700;margin-top:4px}.mod{padding-left:14px}.tot{font-size:1.25em;font-weight:900}svg{width:28mm;height:28mm}`;
+
 
 const customerBlock = (r: ReceiptData) => [
   r.customer?.name || r.customer?.phone ? `<div>Customer: ${esc(r.customer?.name)} ${esc(r.customer?.phone)}</div>` : "",
@@ -34,9 +48,9 @@ function kitchenSlip(r: ReceiptData, changes?: { added: { name: string; qty: num
 
 function customerSlip(r: ReceiptData, qrSvg: string | null) {
   const when = new Date(r.createdAt).toLocaleString("en-GB", { timeZone: "Asia/Karachi" });
-  return `<section class="slip"><div class="c"><div class="b" style="font-size:18px">${esc(r.business.name)}</div><div class="b">${esc(r.branch.name)}</div>
+  return `<section class="slip"><div class="c"><div class="b" style="font-size:1.5em">${esc(r.business.name)}</div><div class="b">${esc(r.branch.name)}</div>
 ${r.branch.address ? `<div>${esc(r.branch.address)}</div>` : ""}${r.branch.phone ? `<div>Tel: ${esc(r.branch.phone)}</div>` : ""}${r.business.ntn ? `<div>NTN: ${esc(r.business.ntn)}</div>` : ""}${r.business.header ? `<div>${esc(r.business.header)}</div>` : ""}</div>
-<div class="hr"></div><div class="c b" style="font-size:18px">Order #${esc(r.orderNo)}</div><div class="c b">${TYPE[r.type] ?? esc(r.type)}${r.tableNo ? ` - Table ${esc(r.tableNo)}` : ""}</div>
+<div class="hr"></div><div class="c b" style="font-size:1.5em">Order #${esc(r.orderNo)}</div><div class="c b">${TYPE[r.type] ?? esc(r.type)}${r.tableNo ? ` - Table ${esc(r.tableNo)}` : ""}</div>
 <div>${esc(when)}</div><div>Cashier: ${esc(r.cashier)} - ${esc(r.terminal)}</div>${customerBlock(r)}<div class="hr"></div>
 ${r.lines.map((l) => `<div class="row b"><span>${l.qty} x ${esc(l.name)}</span><span>${money(l.total)}</span></div>${l.mods.map((m) => `<div class="mod">+ ${esc(m)}</div>`).join("")}${l.note ? `<div class="mod">* ${esc(l.note)}</div>` : ""}`).join("")}
 <div class="hr"></div><div class="row"><span>Subtotal</span><span>${money(r.subtotal)}</span></div>
@@ -49,13 +63,22 @@ ${r.taxInvoiceNo ? `<div class="c b">Tax invoice: ${esc(r.taxInvoiceNo)}</div>` 
 <div class="c" style="margin-top:6px;font-size:10px">Software powered by Orixto.com</div></section>`;
 }
 
-export type SlipOptions = { kitchen?: boolean; customer?: boolean; changes?: Parameters<typeof kitchenSlip>[1] };
+export type SlipOptions = { kitchen?: boolean; customer?: boolean; changes?: Parameters<typeof kitchenSlip>[1]; ruler?: boolean; settings?: PrintSettings };
+
+/** A page of rulers to check that the paper width and the text columns fit this printer. */
+function rulerSlip(s: PrintSettings) {
+  const cols = Math.floor((s.widthMm * 3.78) / (s.fontPx * 0.62));
+  return `<section class="slip"><div class="c b">PRINT TEST - ${s.paper} mm paper</div><div class="rule b">|&lt;--- ${s.widthMm} mm printable width ---&gt;|</div>
+<div>${"1234567890".repeat(6).slice(0, cols)}</div><div>${"ABCDEFGHIJ".repeat(6).slice(0, cols)}</div><div class="row"><span>left edge</span><span>right edge</span></div>
+<div class="row b"><span>${"Zinger Burger".slice(0, 14)}</span><span>Rs 450</span></div><div class="c">~ ${cols} characters per line ~</div></section>`;
+}
 
 export async function buildSlipsHtml(r: ReceiptData, o: SlipOptions = {}): Promise<string> {
   let qr: string | null = null;
   if (r.qr && o.customer !== false) { try { qr = await (await import("qrcode")).toString(r.qr, { type: "svg", margin: 0, width: 120 }); } catch { qr = null; } }
-  const body = [o.kitchen !== false || o.changes ? kitchenSlip(r, o.changes) : "", o.customer !== false ? customerSlip(r, qr) : ""].join("");
-  return `<!doctype html><html><head><meta charset="utf-8"><title>Order ${esc(r.orderNo)}</title><style>${CSS}</style></head><body>${body}</body></html>`;
+  const s = o.settings ?? getPrintSettings();
+  const body = [o.ruler ? rulerSlip(s) : "", o.kitchen !== false || o.changes ? kitchenSlip(r, o.changes) : "", o.customer !== false ? customerSlip(r, qr) : ""].join("");
+  return `<!doctype html><html><head><meta charset="utf-8"><title>Order ${esc(r.orderNo)}</title><style>${css(s)}</style></head><body>${body}</body></html>`;
 }
 
 /** Opens the print dialog for the slips without leaving the page. Resolves once the dialog was requested. */
@@ -63,7 +86,8 @@ export async function printInBrowser(r: ReceiptData, o: SlipOptions = {}): Promi
   const html = await buildSlipsHtml(r, o);
   const frame = document.createElement("iframe");
   frame.setAttribute("aria-hidden", "true");
-  frame.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden";
+  // Off-screen but with a real size: Chrome prints blank pages for 0x0 or hidden frames.
+  frame.style.cssText = "position:fixed;left:-10000px;top:0;width:80mm;height:1200px;border:0";
   document.body.appendChild(frame);
   const doc = frame.contentDocument!;
   doc.open(); doc.write(html); doc.close();
