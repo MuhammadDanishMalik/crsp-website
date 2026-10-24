@@ -1,40 +1,22 @@
 "use client";
 
 import { useState } from "react";
+import { getReceiptData } from "@/lib/actions/print";
+import { printInBrowser } from "@/lib/print/browser-print";
 import Link from "next/link";
 import { Printer, ChefHat, Receipt, ArrowLeft, ShoppingBag } from "lucide-react";
 
 export function ReceiptActions({ orderId }: { orderId: string }) {
   const [filter, setFilter] = useState<"both" | "kitchen" | "customer">("both");
 
-  const handlePrint = (mode: "both" | "kitchen" | "customer") => {
+  const handlePrint = async (mode: "both" | "kitchen" | "customer") => {
     setFilter(mode);
-    const body = document.body;
-
-    if (mode === "both") {
-      // Job 1: Kitchen slip only (causes thermal cutter to cut after slip 1)
-      body.setAttribute("data-print-mode", "kitchen");
-      window.print();
-
-      // Job 2: Customer receipt only (causes thermal cutter to cut after slip 2)
-      setTimeout(() => {
-        body.setAttribute("data-print-mode", "customer");
-        window.print();
-        setTimeout(() => {
-          body.removeAttribute("data-print-mode");
-          setFilter("both");
-        }, 600);
-      }, 700);
-    } else {
-      body.setAttribute("data-print-mode", mode);
-      setTimeout(() => {
-        window.print();
-        setTimeout(() => {
-          body.removeAttribute("data-print-mode");
-        }, 500);
-      }, 100);
-    }
+    try {
+      const data = await getReceiptData(orderId);
+      if (data) await printInBrowser(data, { kitchen: mode !== "customer", customer: mode !== "kitchen" });
+    } catch { /* print window blocked */ }
   };
+
 
   return (
     <div className="print:hidden sticky top-0 z-30 mb-6 border-b border-border bg-surface/95 backdrop-blur px-4 py-3 shadow-sm">

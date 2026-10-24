@@ -19,7 +19,7 @@ export default async function ReceiptPage({ params, searchParams }: PageProps<"/
   return (
     <div className="min-h-screen bg-surface-2/60 pb-12 pt-2 text-black print:h-auto print:bg-white print:p-0">
       <ReceiptActions orderId={id} />
-      {sp.print && <PrintOnLoad />}
+      {sp.print && <PrintOnLoad orderId={id} />}
 
       {/* Slip Container */}
       <div className="mx-auto flex flex-col items-center gap-8 print:block print:gap-0">

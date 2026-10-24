@@ -25,7 +25,7 @@ export function setPrintSettings(s: PrintSettings) { try { localStorage.setItem(
 export const defaultPrintSettings = (paper: 80 | 58) => DEFAULTS[paper];
 
 const css = (s: PrintSettings) => `@page{size:${s.paper}mm auto;margin:0}*{box-sizing:border-box}html,body{margin:0;padding:0;background:#fff;color:#000}
-body{width:${s.widthMm}mm;margin-left:${Math.max(0, (s.paper - s.widthMm) / 2)}mm;font:${s.fontPx}px/1.35 "Courier New",monospace;overflow-wrap:anywhere}.slip{padding:2mm 1mm 8mm;page-break-after:always}.slip:last-child{page-break-after:auto}.row span:first-child{min-width:0}.rule{border:1px solid #000;padding:2px;margin:4px 0;text-align:center}
+body{width:${s.widthMm}mm;margin-left:${Math.max(0, (s.paper - s.widthMm) / 2)}mm;font:${s.fontPx}px/1.35 "Courier New",monospace;overflow-wrap:anywhere}.slip{padding:2mm 1mm 6mm;page-break-after:always}.slip:last-child{page-break-after:auto}.row span:first-child{min-width:0}.rule{border:1px solid #000;padding:2px;margin:4px 0;text-align:center}
 .c{text-align:center}.b{font-weight:700}.big{font-size:2.1em;font-weight:900}.hr{border-top:1px dashed #000;margin:5px 0}.row{display:flex;justify-content:space-between;gap:6px}
 .tag{background:#000;color:#fff;padding:2px;font-weight:900;letter-spacing:1px}.item{font-size:1.25em;font-weight:700;margin-top:4px}.mod{padding-left:14px}.tot{font-size:1.25em;font-weight:900}svg{width:28mm;height:28mm}`;
 
@@ -81,18 +81,47 @@ export async function buildSlipsHtml(r: ReceiptData, o: SlipOptions = {}): Promi
   return `<!doctype html><html><head><meta charset="utf-8"><title>Order ${esc(r.orderNo)}</title><style>${css(s)}</style></head><body>${body}</body></html>`;
 }
 
-/** Opens the print dialog for the slips without leaving the page. Resolves once the dialog was requested. */
-export async function printInBrowser(r: ReceiptData, o: SlipOptions = {}): Promise<void> {
-  const html = await buildSlipsHtml(r, o);
+/** One complete HTML document per slip (ruler, kitchen, customer), so each can be printed as its own job with its own exact page length. */
+export async function buildSlipDocs(r: ReceiptData, o: SlipOptions = {}): Promise<string[]> {
+  const s = o.settings ?? getPrintSettings();
+  let qr: string | null = null;
+  if (r.qr && o.customer !== false) { try { qr = await (await import("qrcode")).toString(r.qr, { type: "svg", margin: 0, width: 120 }); } catch { qr = null; } }
+  const wrap = (body: string) => `<!doctype html><html><head><meta charset="utf-8"><title>Order ${esc(r.orderNo)}</title><style>${css(s)}</style></head><body>${body}</body></html>`;
+  const slips = [o.ruler ? rulerSlip(s) : "", o.kitchen !== false || o.changes ? kitchenSlip(r, o.changes) : "", o.customer !== false ? customerSlip(r, qr) : ""];
+  return slips.filter(Boolean).map(wrap);
+}
+
+/**
+ * Print ONE slip as its own job on a page exactly as long as the slip. Browsers ignore "page height: auto", and an 80 mm printer driver
+ * then feeds a whole A4-length (or longer) page: a very long receipt. So the real height is measured and written into @page.
+ */
+async function printSlip(html: string, paper: number): Promise<void> {
   const frame = document.createElement("iframe");
   frame.setAttribute("aria-hidden", "true");
   // Off-screen but with a real size: Chrome prints blank pages for 0x0 or hidden frames.
-  frame.style.cssText = "position:fixed;left:-10000px;top:0;width:80mm;height:1200px;border:0";
+  frame.style.cssText = `position:fixed;left:-10000px;top:0;width:${paper}mm;height:1500px;border:0`;
   document.body.appendChild(frame);
   const doc = frame.contentDocument!;
   doc.open(); doc.write(html); doc.close();
-  await new Promise((res) => setTimeout(res, 300)); // let fonts/QR lay out
-  frame.contentWindow?.focus();
-  frame.contentWindow?.print();
-  setTimeout(() => frame.remove(), 120_000);
+  await new Promise((res) => setTimeout(res, 350)); // let fonts / QR lay out
+  const px = Math.max(doc.body.scrollHeight, doc.body.getBoundingClientRect().height);
+  const mm = Math.ceil((px * 25.4) / 96) + 2; // +2 mm so rounding never spills a second (blank) page
+  const style = doc.createElement("style");
+  style.textContent = `@page{size:${paper}mm ${mm}mm;margin:0}html,body{height:${mm}mm;overflow:hidden}`;
+  doc.head.appendChild(style);
+  const win = frame.contentWindow!;
+  await new Promise<void>((done) => {
+    const finish = () => { win.removeEventListener("afterprint", finish); done(); };
+    win.addEventListener("afterprint", finish);
+    setTimeout(finish, 90_000); // no event (dialog left open): do not block forever
+    win.focus();
+    win.print();
+  });
+  frame.remove();
+}
+
+/** Prints the slips one after the other, each as its own job (so each is cut separately). Resolves after the last job was handed to the printer. */
+export async function printInBrowser(r: ReceiptData, o: SlipOptions = {}): Promise<void> {
+  const s = o.settings ?? getPrintSettings();
+  for (const html of await buildSlipDocs(r, o)) { await printSlip(html, s.paper); await new Promise((res) => setTimeout(res, 500)); }
 }
