@@ -4,6 +4,18 @@ export const BRIDGE_URL =
   process.env.NEXT_PUBLIC_PRINT_BRIDGE_URL ??
   "http://127.0.0.1:9101";
 
+/**
+ * How this computer prints: "browser" (default: the browser print dialog, any installed printer, works on the live website) or
+ * "bridge" (raw ESC/POS through the local print bridge / desktop app; needs the bridge running). The desktop app always uses its own printing.
+ * Chosen per computer in Admin → Printers. The bridge is never contacted in browser mode, so Chrome never asks for local-network access.
+ */
+export const printMode = (): "browser" | "bridge" => {
+  if (typeof window === "undefined") return "browser";
+  if ((window as unknown as { __TAURI__?: unknown }).__TAURI__) return "bridge";
+  try { return localStorage.getItem("crsp.printMode") === "bridge" ? "bridge" : "browser"; } catch { return "browser"; }
+};
+export const setPrintMode = (m: "browser" | "bridge") => { try { localStorage.setItem("crsp.printMode", m); } catch { /* storage blocked */ } };
+
 export type PrinterTarget = { connection: "lan" | "usb" | "bluetooth" | "serial"; address: string | null; port: number | null };
 
 const toBase64 = (b: Uint8Array) => { let s = ""; for (let i = 0; i < b.length; i += 0x8000) s += String.fromCharCode(...b.subarray(i, i + 0x8000)); return btoa(s); };

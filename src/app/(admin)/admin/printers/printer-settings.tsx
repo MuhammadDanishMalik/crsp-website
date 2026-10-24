@@ -3,7 +3,9 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { removePrinter, saveStation, savePrinter, setCategoryStation } from "@/lib/actions/printers";
 import { getTestPrintJob } from "@/lib/actions/print";
-import { bridgeAlive, sendToBridge } from "@/lib/adapters/printers/bridge-client";
+import { bridgeAlive, printMode, sendToBridge, setPrintMode } from "@/lib/adapters/printers/bridge-client";
+import { printInBrowser } from "@/lib/print/browser-print";
+import type { ReceiptData } from "@/lib/queries/receipt";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
@@ -33,6 +35,7 @@ export function PrinterSettings({ printers, stations, categories }: { printers: 
     <div className="max-w-4xl space-y-8">
       <h1 className="text-3xl font-bold">Printers & kitchen</h1>
       {msg && <p className="rounded-xl bg-accent/20 p-3">{msg}</p>}
+      <BrowserPrinting onMsg={setMsg} />
 
       <section>
         <div className="mb-2 flex items-center justify-between"><h2 className="text-lg font-semibold">Printers</h2><Button onClick={() => setEdit({ role: "kot", connection: "lan", port: 9100, paperWidthMm: 80, openDrawer: false })}>+ Add printer</Button></div>
@@ -107,5 +110,39 @@ function PrinterForm({ initial, onClose, onSaved }: { initial: Partial<Printer>;
         <Button size="lg" className="w-full" disabled={pending} onClick={save}>Save</Button>
       </div>
     </Modal>
+  );
+}
+
+/** Per computer: print through the browser (default) or through the local print bridge. */
+function BrowserPrinting({ onMsg }: { onMsg: (m: string) => void }) {
+  const [mode, setMode] = useState<"browser" | "bridge">(() => printMode());
+  const choose = (m: "browser" | "bridge") => { setPrintMode(m); setMode(m); };
+  const sample: ReceiptData = {
+    business: { name: "CRSP", ntn: null, header: "", footer: "Thank you!", footerUr: "" }, branch: { name: "Test print", address: null, phone: null }, orderNo: "TEST", type: "takeaway", tableNo: null, cashier: "—", terminal: "this PC",
+    createdAt: new Date().toISOString(), customer: { name: "Test Customer", phone: null }, deliveryAddress: null, lines: [{ name: "Zinger Burger", qty: 1, unit: 45000, total: 45000, mods: ["Spicy"], note: null }],
+    subtotal: 45000, discount: 0, serviceCharge: 0, deliveryCharge: 0, taxLines: [], total: 45000, payments: [{ method: "cash", amount: 45000, tendered: 50000, change: 5000, status: "confirmed", reference: null }], taxInvoiceNo: null, qr: null, taxPending: false,
+  };
+  return (
+    <section className="rounded-2xl border border-border bg-surface p-5">
+      <h2 className="mb-1 text-lg font-semibold">How THIS computer prints</h2>
+      <p className="mb-3 text-sm text-muted">Set this on the till computer itself (the choice is saved in this browser only).</p>
+      <div className="grid gap-2 sm:grid-cols-2">
+        <button onClick={() => choose("browser")} className={`rounded-xl border-2 p-3 text-left ${mode === "browser" ? "border-brand bg-brand/10" : "border-border"}`}>
+          <b>Browser print (recommended)</b><span className="block text-sm text-muted">Any printer installed in Windows (USB or network). Works on the live website. Kitchen slip then customer receipt, each cut separately.</span>
+        </button>
+        <button onClick={() => choose("bridge")} className={`rounded-xl border-2 p-3 text-left ${mode === "bridge" ? "border-brand bg-brand/10" : "border-border"}`}>
+          <b>Print bridge / desktop app</b><span className="block text-sm text-muted">Raw ESC/POS to a network (LAN) printer. Needs <code>npm run bridge</code> running on this PC. Not for USB printers.</span>
+        </button>
+      </div>
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <Button onClick={() => printInBrowser(sample, { kitchen: true }).then(() => onMsg("Print window opened: choose the receipt printer and press Print")).catch(() => onMsg("Could not open the print window"))}>Test print (2 slips)</Button>
+      </div>
+      <details className="mt-3 text-sm text-muted"><summary className="cursor-pointer font-semibold text-foreground">Print without the dialog every time (Windows + Chrome)</summary>
+        <ol className="ml-5 mt-2 list-decimal space-y-1">
+          <li>Install the printer in Windows (its driver or &quot;Generic / Text Only&quot;) and set it as the <b>default printer</b>.</li>
+          <li>In Printer Properties set paper to <b>80 mm</b> and enable <b>cut after each page / document</b> (names differ by driver).</li>
+          <li>Right-click the Chrome shortcut → Properties → Target: add <code>--kiosk-printing</code> at the end → OK. Always open the POS with that shortcut.</li>
+        </ol></details>
+    </section>
   );
 }

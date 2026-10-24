@@ -102,3 +102,13 @@ export async function getTestPrintJob(printerId: string) {
     .line(`Test print - ${p.name}`).line(new Date().toLocaleString("en-GB", { timeZone: "Asia/Karachi" })).feed(4).cut().bytes();
   return { ok: true as const, data: b64(data), target: { connection: p.connection, address: p.address, port: p.port } };
 }
+
+/** The data for one order's slips (kitchen + customer), so the browser can print them. Same branch only. */
+export async function getReceiptData(orderId: string) {
+  const session = await getSession();
+  if (!session) return null;
+  const db = await getDb();
+  const [o] = await db.select({ b: s.orders.branchId }).from(s.orders).where(eq(s.orders.id, orderId));
+  if (!o || o.b !== session.branchId) return null;
+  return loadReceipt(orderId);
+}

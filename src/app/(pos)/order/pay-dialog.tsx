@@ -4,8 +4,9 @@ import { useTranslations } from "next-intl";
 import { Banknote, CreditCard, Landmark, Smartphone, QrCode, Printer } from "lucide-react";
 import { createOrder } from "@/lib/actions/orders";
 import { lookupCustomer } from "@/lib/actions/customers";
-import { getKotJobs, getReceiptPrintJob } from "@/lib/actions/print";
-import { sendToBridge } from "@/lib/adapters/printers/bridge-client";
+import { getKotJobs, getReceiptData, getReceiptPrintJob } from "@/lib/actions/print";
+import { printInBrowser } from "@/lib/print/browser-print";
+import { printMode, sendToBridge } from "@/lib/adapters/printers/bridge-client";
 import { computeTotals } from "@/lib/domain/pricing";
 import { formatPKR } from "@/lib/domain/money";
 import { quickCashOptions, splitEqually } from "@/lib/domain/payments";
@@ -18,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Numpad } from "@/components/pos/numpad";
 import type { OfflineConfig } from "@/lib/offline/types";
+import type { ReceiptData } from "@/lib/queries/receipt";
 import { enqueue, nextLocalNo } from "@/lib/offline/outbox";
 import { localReceipt } from "@/lib/offline/local-receipt";
 import { printOffline } from "@/lib/offline/print-local";
@@ -51,7 +53,7 @@ export function PayDialog({ menu, me, offline, online, onClose, onFinished }: { 
   const [itemTarget, setItemTarget] = useState<number | null>(null);
   const [picked, setPicked] = useState<Record<string, number>>({});
   const [pending, start] = useTransition();
-  const [done, setDone] = useState<null | { orderId: string; orderNo: string; change: number; printMsg: string; offline?: boolean }>(null);
+  const [done, setDone] = useState<null | { orderId: string; orderNo: string; change: number; printMsg: string; offline?: boolean; receipt?: ReceiptData }>(null);
 
   const zone = menu.zones.find((z) => z.id === cart.deliveryZoneId);
   const dominant = entries.length ? [...entries].sort((a, b) => b.amount - a.amount)[0].method : method;
@@ -122,7 +124,7 @@ export function PayDialog({ menu, me, offline, online, onClose, onFinished }: { 
       await enqueue({ clientId: cart.clientId, localNo, createdAt, status: "queued", error: "", attempts: 0, payload: offlinePayload, total: lr.total, summary: cart.lines.map((l) => `${l.quantity}× ${l.name}`).join(", ") });
       const printMsg = await printOffline(offline, lr.receipt, cart.lines, menu.items, all.some((e) => e.method === "cash"));
       broadcastCart({ lines: [], subtotal: 0, discount: 0, tax: 0, total: lr.total, status: "paid", orderNo: localNo, change: lr.change });
-      setDone({ orderId: cart.clientId, orderNo: localNo, change: lr.change, printMsg, offline: true });
+      setDone({ orderId: cart.clientId, orderNo: localNo, change: lr.change, printMsg, offline: true, receipt: lr.receipt });
     };
     start(async () => {
       if (!navigator.onLine) return saveOffline();
@@ -142,23 +144,22 @@ export function PayDialog({ menu, me, offline, online, onClose, onFinished }: { 
           {done.change > 0 && (
             <div className="rounded-2xl bg-accent/20 p-5"><p className="text-sm uppercase tracking-wide text-muted">{t("changeDue")}</p><p className="text-5xl font-black tabular-nums">{formatPKR(done.change)}</p></div>
           )}
-          {done.offline && <p className="rounded-xl bg-warn/15 p-3 text-sm text-warn">No internet. This sale is saved on this device and will upload by itself when the connection returns. Card/wallet payments stay “pending verification” until a manager checks them.</p>}
+          {done.offline && <p className="rounded-xl bg-warn/15 p-3 text-sm text-warn">The server could not be reached, so this sale is saved on this device and will upload by itself as soon as the connection works. Card/wallet payments stay “pending verification” until a manager checks them.</p>}
           <p className="text-muted">{done.printMsg}</p>
           <div className="flex flex-col gap-2">
-            <a
-              href={`/receipt/${done.orderId}?print=1`}
-              target="_blank"
-              rel="noopener noreferrer"
+            <button
+              type="button"
+              onClick={async () => {
+                try { const data = done.receipt ?? (await getReceiptData(done.orderId)); if (data) await printInBrowser(data, { kitchen: true }); } catch { /* print window blocked */ }
+              }}
               className="flex min-h-14 w-full flex-col items-center justify-center rounded-2xl bg-brand py-2 text-center text-brand-fg shadow-sm transition hover:opacity-95"
             >
               <div className="flex items-center gap-2 text-base font-bold">
                 <Printer size={20} /> Print 2 Slips (Kitchen + Customer)
               </div>
-              <span className="text-[11px] font-medium opacity-90">
-                ✂️ Automatically prints &amp; cuts both slips separately
-              </span>
-            </a>
-            {!done.offline && (
+              <span className="text-[11px] font-medium opacity-90">Kitchen slip first, then the customer receipt</span>
+            </button>
+            {!done.offline && printMode() === "bridge" && (
               <Button
                 variant="secondary"
                 size="md"
@@ -289,7 +290,15 @@ export function PayDialog({ menu, me, offline, online, onClose, onFinished }: { 
 
 export async function printReceipt(orderId: string, reprint = false, changes?: { added: { name: string; qty: number; mods: string[]; note: string | null }[]; removed: { name: string; qty: number }[] }): Promise<string> {
   const msgs: string[] = [];
-  
+  if (printMode() === "browser") { // default: the browser's own print dialog, any printer installed on this PC
+    try {
+      const data = await getReceiptData(orderId);
+      if (!data) return "Could not load the receipt to print";
+      await printInBrowser(data, reprint ? { kitchen: false } : changes ? { changes } : { kitchen: true });
+      return "Print window opened: choose the receipt printer and press Print";
+    } catch { return "Could not open the print window"; }
+  }
+
   // 1st SLIP: Kitchen Order Ticket (KOT)
   if (!reprint && !changes) { // an edited order only needs the change slip + receipt, not every station ticket again
     const kots = await getKotJobs(orderId);

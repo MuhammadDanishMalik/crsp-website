@@ -10,6 +10,9 @@ const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
 const urdu = Noto_Naskh_Arabic({ variable: "--font-urdu", subsets: ["arabic"], weight: ["400", "600", "700"] });
 
+/** Server functions may run up to 60 s (taking an order writes many rows to the remote database; the default 10 s cut it off). */
+export const maxDuration = 60;
+
 export const metadata: Metadata = { title: "CRSP POS", description: "CRSP point of sale & restaurant management", manifest: "/manifest.webmanifest" };
 export const viewport: Viewport = { width: "device-width", initialScale: 1, maximumScale: 1 };
 
