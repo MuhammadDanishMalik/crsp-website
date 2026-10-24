@@ -6,6 +6,7 @@ import { createOrder } from "@/lib/actions/orders";
 import { lookupCustomer } from "@/lib/actions/customers";
 import { getKotJobs, getReceiptData, getReceiptPrintJob } from "@/lib/actions/print";
 import { printInBrowser } from "@/lib/print/browser-print";
+import { reloadClean } from "@/components/update-banner";
 import { printMode, sendToBridge } from "@/lib/adapters/printers/bridge-client";
 import { computeTotals } from "@/lib/domain/pricing";
 import { formatPKR } from "@/lib/domain/money";
@@ -129,7 +130,11 @@ export function PayDialog({ menu, me, offline, online, onClose, onFinished }: { 
     start(async () => {
       if (!navigator.onLine) return saveOffline();
       let r: Awaited<ReturnType<typeof createOrder>>;
-      try { r = await createOrder(payload); } catch { return saveOffline(); } // the request never reached the server: keep the sale on this device
+      try { r = await createOrder(payload); } catch (e) {
+        // This page is older than the server (a new version was deployed while it stayed open): it cannot talk to it any more. Reload instead of pretending to be offline.
+        if (e instanceof Error && /server action/i.test(`${e.name} ${e.message}`) && navigator.onLine) { setError("The app was updated. Reloading to the new version, then press Pay again."); setTimeout(() => void reloadClean(), 1500); return; }
+        return saveOffline(); // the request never reached the server: keep the sale on this device
+      }
       if (!r.ok) return setError(r.error);
       const printMsg = await printReceipt(r.orderId);
       broadcastCart({ lines: [], subtotal: 0, discount: 0, tax: 0, total: totals.total, status: "paid", orderNo: r.orderNo, change: r.change });

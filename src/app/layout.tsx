@@ -5,6 +5,7 @@ import { getLocale, getMessages } from "next-intl/server";
 import "./globals.css";
 import { Providers } from "./providers";
 import { ServiceWorker } from "@/components/service-worker";
+import { UpdateBanner } from "@/components/update-banner";
 
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
@@ -25,6 +26,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
       <body>
         <NextIntlClientProvider locale={locale} messages={messages}><Providers>{children}</Providers></NextIntlClientProvider>
         <ServiceWorker />
+        <UpdateBanner />
       </body>
     </html>
   );

@@ -1,9 +1,13 @@
-/* CRSP POS service worker — lets the cashier screen open and keep selling with no internet.
+/** The offline service worker, served dynamically so its cache name changes with every deployment (old pages are never served after an update). */
+export const dynamic = "force-dynamic";
+
+const BUILD = process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 10) ?? "dev";
+const SOURCE = `/* CRSP POS service worker — lets the cashier screen open and keep selling with no internet.
  *  - static files (JS/CSS/fonts/logo): cache first
  *  - the POS pages themselves: network first (3 s), fall back to the last copy we saw
  *  - never touches /api, server actions (POST) or anything outside this site
  * Bump VERSION to force every device to drop its old cache. */
-const VERSION = "crsp-v1";
+const VERSION = "crsp-__BUILD__";
 const PAGES = ["/order", "/pin", "/terminal", "/start", "/kds", "/status", "/customer", "/rider", "/shift", "/orders"];
 const isPage = (url) => PAGES.some((p) => url.pathname === p || url.pathname.startsWith(p + "/"));
 
@@ -46,3 +50,10 @@ self.addEventListener("fetch", (e) => {
   if (url.pathname.startsWith("/_next/static/") || url.pathname.startsWith("/brand/") || url.pathname === "/icon.png") return void e.respondWith(cacheFirst(req));
   if (isPage(url)) return void e.respondWith(networkFirst(req));
 });
+`;
+
+export function GET() {
+  return new Response(SOURCE.replace("__BUILD__", BUILD), {
+    headers: { "Content-Type": "application/javascript; charset=utf-8", "Cache-Control": "no-cache, no-store, must-revalidate", "Service-Worker-Allowed": "/" },
+  });
+}
