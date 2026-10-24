@@ -15,8 +15,6 @@ export function KfcBucketDrawer() {
     clearBucket,
     orderType,
     setOrderType,
-    selectedBranch,
-    selectedCity,
     toggleCheckoutModal,
   } = useCustomerBucket();
 
@@ -104,11 +102,6 @@ export function KfcBucketDrawer() {
                 <Store size={14} />
                 <span>Pick Up</span>
               </button>
-            </div>
-
-            <div className="mt-2 text-center text-[11px] text-zinc-400">
-              <span>Selected Branch: </span>
-              <strong className="text-zinc-200">{selectedBranch}, {selectedCity}</strong>
             </div>
           </div>
 

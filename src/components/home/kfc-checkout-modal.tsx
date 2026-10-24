@@ -12,8 +12,6 @@ export function KfcCheckoutModal() {
     toggleCheckoutModal,
     clearBucket,
     orderType,
-    selectedBranch,
-    selectedCity,
   } = useCustomerBucket();
 
   const [name, setName] = useState("");
@@ -49,7 +47,7 @@ export function KfcCheckoutModal() {
         orderNo,
         name,
         phone,
-        address: orderType === "delivery" ? address : `${selectedBranch}, ${selectedCity} (Pickup)`,
+        address: orderType === "delivery" ? address : "Counter Self Pick-Up",
         orderType,
         paymentMethod,
         items: [...items],
@@ -165,7 +163,7 @@ export function KfcCheckoutModal() {
                       {orderType === "delivery" ? "Home Delivery" : "Self Pick-Up"}
                     </span>
                     <span className="text-xs font-black text-white">
-                      From {selectedBranch}, {selectedCity}
+                      CRSP Restaurant
                     </span>
                   </div>
                 </div>
