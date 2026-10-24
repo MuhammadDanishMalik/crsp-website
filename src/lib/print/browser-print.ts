@@ -11,23 +11,26 @@ const esc = (s: string | null | undefined) => String(s ?? "").replace(/[&<>"]/g,
 const TYPE: Record<string, string> = { dine_in: "DINE-IN", takeaway: "TAKEAWAY", delivery: "DELIVERY", drive_thru: "DRIVE-THRU", online: "ONLINE" };
 const money = (p: number) => formatPKR(p, { symbol: false });
 
-export type PrintSettings = { paper: 80 | 58; widthMm: number; fontPx: number };
-const DEFAULTS: Record<80 | 58, PrintSettings> = { 80: { paper: 80, widthMm: 72, fontPx: 12 }, 58: { paper: 58, widthMm: 48, fontPx: 11 } };
+export type PrintSettings = { paper: 80 | 58; widthMm: number; fontPx: number; bold: boolean };
+// Thermal heads print in black dots only: thin or grey text comes out faint. So the defaults are big, black and heavy.
+const DEFAULTS: Record<80 | 58, PrintSettings> = { 80: { paper: 80, widthMm: 72, fontPx: 15, bold: true }, 58: { paper: 58, widthMm: 48, fontPx: 12, bold: true } };
+const KEY = "crsp.print.v2"; // v2: bigger, bolder defaults (older saved sizes are ignored)
 /** Per computer. An 80 mm roll normally prints 72 mm wide (the printer cannot reach the edges); 58 mm prints 48 mm. */
 export function getPrintSettings(): PrintSettings {
   try {
-    const v = JSON.parse(localStorage.getItem("crsp.print") ?? "null") as Partial<PrintSettings> | null;
+    const v = JSON.parse(localStorage.getItem(KEY) ?? "null") as Partial<PrintSettings> | null;
     const paper = v?.paper === 58 ? 58 : 80;
-    return { paper, widthMm: Math.min(paper, Math.max(40, Number(v?.widthMm) || DEFAULTS[paper].widthMm)), fontPx: Math.min(18, Math.max(9, Number(v?.fontPx) || DEFAULTS[paper].fontPx)) };
+    return { paper, widthMm: Math.min(paper, Math.max(40, Number(v?.widthMm) || DEFAULTS[paper].widthMm)), fontPx: Math.min(24, Math.max(9, Number(v?.fontPx) || DEFAULTS[paper].fontPx)), bold: v?.bold !== false };
   } catch { return DEFAULTS[80]; }
 }
-export function setPrintSettings(s: PrintSettings) { try { localStorage.setItem("crsp.print", JSON.stringify(s)); } catch { /* storage blocked */ } }
+export function setPrintSettings(s: PrintSettings) { try { localStorage.setItem(KEY, JSON.stringify(s)); } catch { /* storage blocked */ } }
 export const defaultPrintSettings = (paper: 80 | 58) => DEFAULTS[paper];
 
-const css = (s: PrintSettings) => `@page{size:${s.paper}mm auto;margin:0}*{box-sizing:border-box}html,body{margin:0;padding:0;background:#fff;color:#000}
-body{width:${s.widthMm}mm;margin-left:${Math.max(0, (s.paper - s.widthMm) / 2)}mm;font:${s.fontPx}px/1.35 "Courier New",monospace;overflow-wrap:anywhere}.slip{padding:2mm 1mm 6mm;page-break-after:always}.slip:last-child{page-break-after:auto}.row span:first-child{min-width:0}.rule{border:1px solid #000;padding:2px;margin:4px 0;text-align:center}
-.c{text-align:center}.b{font-weight:700}.big{font-size:2.1em;font-weight:900}.hr{border-top:1px dashed #000;margin:5px 0}.row{display:flex;justify-content:space-between;gap:6px}
-.tag{background:#000;color:#fff;padding:2px;font-weight:900;letter-spacing:1px}.item{font-size:1.25em;font-weight:700;margin-top:4px}.mod{padding-left:14px}.tot{font-size:1.25em;font-weight:900}svg{width:28mm;height:28mm}`;
+const css = (s: PrintSettings) => `@page{size:${s.paper}mm auto;margin:0}*{box-sizing:border-box;color:#000!important}html,body{margin:0;padding:0;background:#fff}
+body{width:${s.widthMm}mm;margin-left:${Math.max(0, (s.paper - s.widthMm) / 2)}mm;font:${s.bold ? 700 : 400} ${s.fontPx}px/1.3 Arial,Helvetica,sans-serif;${s.bold ? "-webkit-text-stroke:0.35px #000;" : ""}overflow-wrap:anywhere;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.slip{padding:2mm 1mm 6mm;page-break-after:always}.slip:last-child{page-break-after:auto}.row span:first-child{min-width:0}.rule{border:2px solid #000;padding:2px;margin:4px 0;text-align:center}
+.c{text-align:center}.b{font-weight:900}.big{font-size:2.3em;font-weight:900}.hr{border-top:2px dashed #000;margin:6px 0}.row{display:flex;justify-content:space-between;gap:6px}
+.tag{background:#000;color:#fff!important;padding:3px;font-weight:900;letter-spacing:1px}.tag *{color:#fff!important}.tag{-webkit-text-stroke:0}.item{font-size:1.2em;font-weight:900;margin-top:5px}.mod{padding-left:14px}.tot{font-size:1.35em;font-weight:900}svg{width:30mm;height:30mm}`;
 
 
 const customerBlock = (r: ReceiptData) => [
@@ -67,7 +70,7 @@ export type SlipOptions = { kitchen?: boolean; customer?: boolean; changes?: Par
 
 /** A page of rulers to check that the paper width and the text columns fit this printer. */
 function rulerSlip(s: PrintSettings) {
-  const cols = Math.floor((s.widthMm * 3.78) / (s.fontPx * 0.62));
+  const cols = Math.floor((s.widthMm * 3.78) / (s.fontPx * 0.68));
   return `<section class="slip"><div class="c b">PRINT TEST - ${s.paper} mm paper</div><div class="rule b">|&lt;--- ${s.widthMm} mm printable width ---&gt;|</div>
 <div>${"1234567890".repeat(6).slice(0, cols)}</div><div>${"ABCDEFGHIJ".repeat(6).slice(0, cols)}</div><div class="row"><span>left edge</span><span>right edge</span></div>
 <div class="row b"><span>${"Zinger Burger".slice(0, 14)}</span><span>Rs 450</span></div><div class="c">~ ${cols} characters per line ~</div></section>`;

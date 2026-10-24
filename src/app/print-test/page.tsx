@@ -32,7 +32,8 @@ export default function PrintTest() {
         <label className="block text-sm text-muted">Printable width: <b className="text-foreground">{s.widthMm} mm</b> (80 mm paper normally prints 72 mm)
           <input type="range" min={40} max={s.paper} value={s.widthMm} onChange={(e) => update({ widthMm: Number(e.target.value) })} className="w-full" /></label>
         <label className="block text-sm text-muted">Text size: <b className="text-foreground">{s.fontPx} px</b>
-          <input type="range" min={9} max={16} value={s.fontPx} onChange={(e) => update({ fontPx: Number(e.target.value) })} className="w-full" /></label>
+          <input type="range" min={10} max={22} value={s.fontPx} onChange={(e) => update({ fontPx: Number(e.target.value) })} className="w-full" /></label>
+        <label className="flex items-center gap-3 text-sm"><input type="checkbox" className="h-6 w-6" checked={s.bold} onChange={(e) => update({ bold: e.target.checked })} /><span><b>Extra bold text</b> (recommended: thin text prints faint on thermal paper)</span></label>
         <button className="min-h-14 w-full rounded-2xl bg-brand text-lg font-bold text-brand-fg" onClick={() => printInBrowser(SAMPLE, { ruler: true, kitchen: true, customer: true, settings: s })}>Print test (ruler + 2 slips)</button>
         <ul className="list-disc space-y-1 pl-5 text-sm text-muted">
           <li>In the print window choose your receipt printer. Paper size: <b>{s.paper} mm</b> (roll / receipt). Margins: <b>None</b>. Scale: <b>100%</b> (Default). Turn off &quot;Headers and footers&quot;.</li>
