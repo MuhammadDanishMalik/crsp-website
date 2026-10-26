@@ -76,7 +76,7 @@ export function Dashboard({ name, data, date, today, branch, branches }: Props) 
         <div className="flex flex-wrap items-center gap-2">
           <input
             type="date"
-            value={date}
+            value={date === "all" ? today : date}
             onChange={(e) => {
               const url = new URL(window.location.href);
               url.searchParams.set("date", e.target.value);
@@ -84,6 +84,17 @@ export function Dashboard({ name, data, date, today, branch, branches }: Props) 
             }}
             className="h-10 rounded-xl border border-border bg-surface px-3 text-xs font-semibold text-foreground focus:outline-none"
           />
+
+          <button
+            onClick={() => {
+              const url = new URL(window.location.href);
+              url.searchParams.set("date", date === "all" ? today : "all");
+              router.push(url.toString());
+            }}
+            className={`h-10 rounded-xl border px-3 text-xs font-bold ${date === "all" ? "border-brand bg-brand/15 text-brand" : "border-border bg-surface text-foreground hover:bg-surface-2"}`}
+          >
+            All time
+          </button>
 
           <Link
             href="/admin/orders"
@@ -112,7 +123,9 @@ export function Dashboard({ name, data, date, today, branch, branches }: Props) 
           </div>
           <div className="mt-2 text-2xl font-black tabular-nums">{formatPKR(data.sales)}</div>
           <div className="mt-2 flex items-center gap-1.5 text-xs text-muted">
-            {salesVsYesterday >= 0 ? (
+            {date === "all" ? (
+              <span>All orders ever taken, every day</span>
+            ) : salesVsYesterday >= 0 ? (
               <span className="flex items-center font-bold text-success">
                 <ArrowUpRight size={14} /> +{salesVsYesterday}%
               </span>
@@ -121,7 +134,7 @@ export function Dashboard({ name, data, date, today, branch, branches }: Props) 
                 <ArrowDownRight size={14} /> {salesVsYesterday}%
               </span>
             )}
-            <span>vs yesterday ({formatPKR(data.yesterday)})</span>
+            {date !== "all" && <span>vs yesterday ({formatPKR(data.yesterday)})</span>}
           </div>
         </div>
 
@@ -184,7 +197,7 @@ export function Dashboard({ name, data, date, today, branch, branches }: Props) 
 
         <div className="h-64 w-full">
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={data.hours} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+            <AreaChart data={data.hours} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
               <defs>
                 <linearGradient id="salesGrad" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="#f5b301" stopOpacity={0.4} />
@@ -194,10 +207,11 @@ export function Dashboard({ name, data, date, today, branch, branches }: Props) 
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" opacity={0.5} />
               <XAxis dataKey="label" stroke="var(--muted)" fontSize={11} tickLine={false} />
               <YAxis
+                width={64}
                 stroke="var(--muted)"
                 fontSize={11}
                 tickLine={false}
-                tickFormatter={(v) => `Rs ${Math.round(v / 1000)}k`}
+                tickFormatter={(v) => `Rs ${Math.round(v / 100).toLocaleString("en-PK")}`}
               />
               <Tooltip
                 contentStyle={{

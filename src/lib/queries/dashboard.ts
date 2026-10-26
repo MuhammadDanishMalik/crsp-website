@@ -9,8 +9,11 @@ export const addDays = (d: string, n: number) => { const x = new Date(`${d}T12:0
 
 export async function loadDashboard(branchIds: string[], date: string) {
   const db = await getDb();
-  const live = (d: string) => and(inArray(s.orders.branchId, branchIds), eq(s.orders.businessDate, d), ne(s.orders.status, "voided"), ne(s.orders.status, "held"));
-  const [today, yesterday, lastWeek] = await Promise.all([date, addDays(date, -1), addDays(date, -7)].map((d) => db.select().from(s.orders).where(live(d))));
+  const all = date === "all"; // every day since the first order
+  const live = (d: string) => and(inArray(s.orders.branchId, branchIds), all ? undefined : eq(s.orders.businessDate, d), ne(s.orders.status, "voided"), ne(s.orders.status, "held"));
+  const [today, yesterday, lastWeek] = all
+    ? [await db.select().from(s.orders).where(live("")), [], []]
+    : await Promise.all([date, addDays(date, -1), addDays(date, -7)].map((d) => db.select().from(s.orders).where(live(d))));
   const ids = today.map((o) => o.id);
   const [items, pays, stock, pendingPay, held, openDel] = await Promise.all([
     ids.length ? db.select().from(s.orderItems).where(and(inArray(s.orderItems.orderId, ids), eq(s.orderItems.isVoided, false))) : Promise.resolve([]),
