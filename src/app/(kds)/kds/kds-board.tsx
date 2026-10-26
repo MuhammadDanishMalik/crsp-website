@@ -1,7 +1,7 @@
 "use client";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Bell, BellOff, RotateCcw, LogOut } from "lucide-react";
+import { Bell, BellOff, RotateCcw, LogOut, CheckCircle2 } from "lucide-react";
 import { bumpItem, bumpOrder, fetchKds, recallLast, startTicket } from "@/lib/actions/kds";
 import { logout } from "@/lib/actions/auth";
 import { useBranchEvents } from "@/lib/realtime/use-events";
@@ -86,6 +86,7 @@ export function KdsBoard({ initial, stationId, who, canBump, canRecall, canPos }
 function Ticket({ t, elapsed, warn, late, canBump, onStart, onBumpItem, onBumpOrder }: { t: KdsTicket; elapsed: number; warn: number; late: number; canBump: boolean; onStart: () => void; onBumpItem: (id: string) => void; onBumpOrder: () => void }) {
   const level = elapsed >= late ? "late" : elapsed >= warn ? "warn" : "ok";
   const mm = `${Math.floor(elapsed / 60)}:${String(elapsed % 60).padStart(2, "0")}`;
+  const [busy, setBusy] = useState(false);
   return (
     <div className={cn("flex flex-col overflow-hidden rounded-2xl border-2 bg-surface", level === "late" ? "border-danger" : level === "warn" ? "border-warn" : "border-border")}>
       <button onClick={onStart} disabled={!canBump || t.started} className={cn("flex items-center justify-between px-4 py-3 text-left", level === "late" ? "bg-danger text-white" : level === "warn" ? "bg-warn text-black" : "bg-surface-2")}>
@@ -104,7 +105,11 @@ function Ticket({ t, elapsed, warn, late, canBump, onStart, onBumpItem, onBumpOr
           );
         })}
       </div>
-      {canBump && <button onClick={onBumpOrder} className="h-14 bg-success text-lg font-bold text-white">BUMP ORDER</button>}
+      {canBump && (
+        <button disabled={busy} onClick={() => { setBusy(true); onBumpOrder(); }} className="flex h-20 items-center justify-center gap-3 bg-success text-2xl font-black text-white active:brightness-90 disabled:opacity-60">
+          <CheckCircle2 size={32} />{busy ? "COMPLETING…" : "DONE"}
+        </button>
+      )}
     </div>
   );
 }
