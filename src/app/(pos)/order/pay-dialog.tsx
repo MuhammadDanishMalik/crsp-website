@@ -60,14 +60,16 @@ export function PayDialog({ menu, me, offline, online, onClose, onFinished }: { 
   const dominant = entries.length ? [...entries].sort((a, b) => b.amount - a.amount)[0].method : method;
   const redeem = useMemo(() => {
     if (!cart.redeem || !menu.loyalty) return { points: 0, value: 0 };
-    const base = computeTotals({ lines: cart.lines, discount: cart.discount, orderType: cart.orderType, taxRules: [] });
+    const base = computeTotals({ lines: cart.lines, discount: cart.discount ?? (online && menu.openingOfferBps ? { kind: "percent", value: menu.openingOfferBps } : null), orderType: cart.orderType, taxRules: [] });
     const payable = base.subtotal - base.discountTotal;
     const points = maxRedeemablePoints(cart.customerPoints, payable, menu.loyalty);
     return { points, value: redeemValue(points, payable, menu.loyalty) };
-  }, [cart.redeem, cart.lines, cart.discount, cart.orderType, cart.customerPoints, menu.loyalty]);
+  }, [cart.redeem, cart.lines, cart.discount, online, menu.openingOfferBps, cart.orderType, cart.customerPoints, menu.loyalty]);
+  // Opening-week offer: the server applies it when no other discount is set (not to offline sales).
+  const autoDiscount = online && !cart.discount && menu.openingOfferBps ? ({ kind: "percent", value: menu.openingOfferBps } as const) : null;
   const totals = useMemo(
-    () => computeTotals({ lines: cart.lines, discount: cart.discount, orderType: cart.orderType, paymentMethod: dominant, taxRules: menu.taxRules, serviceChargeBps: menu.serviceChargeBps, deliveryCharge: zone?.charge ?? 0, loyaltyDiscount: redeem.value }),
-    [cart.lines, cart.discount, cart.orderType, dominant, menu, zone, redeem.value],
+    () => computeTotals({ lines: cart.lines, discount: cart.discount ?? autoDiscount, orderType: cart.orderType, paymentMethod: dominant, taxRules: menu.taxRules, serviceChargeBps: menu.serviceChargeBps, deliveryCharge: zone?.charge ?? 0, loyaltyDiscount: redeem.value }),
+    [cart.lines, cart.discount, autoDiscount, cart.orderType, dominant, menu, zone, redeem.value],
   );
   const canRedeem = !!menu.loyalty && cart.customerPoints >= menu.loyalty.minRedeemPoints;
   const paid = entries.reduce((a, e) => a + e.amount, 0);

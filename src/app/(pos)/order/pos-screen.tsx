@@ -94,7 +94,7 @@ export function PosScreen({ menu, me, shiftOpenedAt, offline }: PosProps) {
 
   const subtotal = cart.lines.reduce((a, l) => a + (l.basePrice + l.modifiers.reduce((x, m) => x + m.priceDelta, 0)) * l.quantity, 0);
   const needsDetails = cart.orderType === "dine_in" || cart.orderType === "delivery" || cart.orderType === "online";
-  const detailsOk = cart.orderType === "dine_in" ? !!cart.tableNo : cart.orderType === "delivery" ? !!cart.deliveryAddress && !!cart.deliveryZoneId : true;
+  const detailsOk = cart.orderType === "dine_in" ? !!cart.tableNo : cart.orderType === "delivery" ? !!cart.deliveryAddress && (!menu.zones.length || !!cart.deliveryZoneId) : true;
   const startPay = () => (needsDetails && !detailsOk ? setDetails(true) : setPaying(true));
 
   return (

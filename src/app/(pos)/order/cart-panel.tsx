@@ -31,7 +31,7 @@ export function CartPanel({
   const ur = useLocale() === "ur";
   const zone = menu.zones.find((z) => z.id === cart.deliveryZoneId);
   const tot = computeTotals({
-    lines: cart.lines, discount: cart.discount, orderType: cart.orderType, paymentMethod: "cash", taxRules: menu.taxRules,
+    lines: cart.lines, discount: cart.discount ?? (menu.openingOfferBps ? { kind: "percent", value: menu.openingOfferBps } : null), orderType: cart.orderType, paymentMethod: "cash", taxRules: menu.taxRules,
     serviceChargeBps: menu.serviceChargeBps, deliveryCharge: zone?.charge ?? 0,
   });
   const nLines = cart.lines.length;

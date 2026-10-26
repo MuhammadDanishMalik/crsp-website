@@ -1,3 +1,4 @@
+import { openingOfferBps } from "@/lib/domain/opening-offer";
 import "server-only";
 import { and, asc, eq, inArray } from "drizzle-orm";
 import { getDb } from "@/lib/db/client";
@@ -18,11 +19,16 @@ export type PosMenu = {
   paymentMethods: string[];
   paymentProviders: Record<string, string>; // method → provider id ("manual" asks for an approval code)
   serviceChargeBps: number;
+  openingOfferBps: number; // automatic opening-week discount (0 = not running)
   zones: { id: string; name: string; charge: number }[];
   loyalty: { earnPerRupee: number; pointValuePaisa: number; minRedeemPoints: number } | null;
 };
 
+const TAX_DISABLED = true;
+
 export async function loadTaxRules(branchId: string) {
+  // Tax is switched off for every bill (owner's decision); old rules stay in the database but are never applied.
+  if (TAX_DISABLED) return [];
   const db = await getDb();
   const rows = await db.select().from(s.taxRules).where(eq(s.taxRules.isActive, true));
   return rows
@@ -74,6 +80,7 @@ export async function loadPosMenu(branchId: string): Promise<PosMenu> {
     paymentMethods: methods.map((m) => m.method),
     paymentProviders: Object.fromEntries(methods.map((m) => [m.method, m.provider])),
     serviceChargeBps: ((biz?.settings as { serviceChargeBps?: number } | null)?.serviceChargeBps) ?? 0,
+    openingOfferBps: openingOfferBps(),
     zones: zones.map((z) => ({ id: z.id, name: z.name, charge: z.charge })),
     loyalty: lr ? { earnPerRupee: Number(lr.earnPerRupee), pointValuePaisa: lr.pointValuePaisa, minRedeemPoints: lr.minRedeemPoints } : null,
   };

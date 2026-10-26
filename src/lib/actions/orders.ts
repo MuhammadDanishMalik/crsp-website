@@ -1,5 +1,6 @@
 "use server";
 
+import { openingOfferBps, OPENING_OFFER } from "@/lib/domain/opening-offer";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { getDb } from "@/lib/db/client";
 import * as s from "@/lib/db/schema";
@@ -167,6 +168,10 @@ async function createOrderInner(raw: unknown): Promise<Ok> {
     }
   }
 
+  // Opening-week offer: applies automatically when the cashier chose no other discount (offline sales are priced on the till and keep their own totals).
+  const offerBps = !off && !input.discount ? openingOfferBps(businessDate(new Date())) : 0;
+  if (offerBps) discount = { kind: "percent", value: offerBps };
+
   const zone = input.deliveryZoneId ? (await db.select().from(s.deliveryZones).where(eq(s.deliveryZones.id, input.deliveryZoneId)))[0] : null;
   const [biz] = await db.select().from(s.business).limit(1);
   const serviceChargeBps = ((biz?.settings as { serviceChargeBps?: number } | null)?.serviceChargeBps) ?? 0;
@@ -268,7 +273,7 @@ async function createOrderInner(raw: unknown): Promise<Ok> {
     const costs = await deductForOrder(tx, { branchId: session.branchId, orderId: input.clientId, staffId: session.staffId, lines: created });
     for (const [orderItemId, cost] of costs) await tx.update(s.orderItems).set({ costSnapshot: cost }).where(eq(s.orderItems.id, orderItemId));
     if (totals.taxLines.length) await tx.insert(s.orderTaxLines).values(totals.taxLines.map((t) => ({ orderId: input.clientId, taxRuleId: t.ruleId, name: t.name, rateBps: t.rateBps, amount: t.amount })));
-    if (discount) await tx.insert(s.orderDiscounts).values({ orderId: input.clientId, kind: discount.kind, value: discount.value, amount: totals.discountTotal - totals.loyaltyDiscount, reason: input.discount?.reason, discountId: promoId, appliedBy: session.staffId, approvedBy: approverId });
+    if (discount) await tx.insert(s.orderDiscounts).values({ orderId: input.clientId, kind: discount.kind, value: discount.value, amount: totals.discountTotal - totals.loyaltyDiscount, reason: offerBps ? OPENING_OFFER.label : input.discount?.reason, discountId: promoId, appliedBy: session.staffId, approvedBy: approverId });
 
     if (input.type === "delivery") {
       await tx.insert(s.deliveries).values({ orderId: input.clientId, branchId: session.branchId, cashToCollect: cod ? totals.total : 0 });

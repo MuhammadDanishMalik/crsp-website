@@ -108,8 +108,7 @@ export async function seedIfEmpty(db: Db) {
     if (roleKey !== "owner" && roleKey !== "accountant") await db.insert(s.shiftSchedules).values([0, 1, 2, 3, 4, 5, 6].map((weekday) => ({ branchId: branches[0].id, staffId: st.id, weekday, startsAt: "10:00", endsAt: "22:00" })));
   }
 
-  // Tax (placeholder rate — editable; replace with PRA/FBR rates)
-  await db.insert(s.taxRules).values({ name: "Sales Tax (placeholder)", rateBps: 1600, priority: 0 });
+  // No tax rule is seeded: bills carry no tax.
   for (const b of branches) {
     await db.insert(s.paymentMethodSettings).values(
       (["cash", "card", "jazzcash", "easypaisa", "raast", "bank_transfer"] as const).map((method) => ({ branchId: b.id, method, isEnabled: true })),

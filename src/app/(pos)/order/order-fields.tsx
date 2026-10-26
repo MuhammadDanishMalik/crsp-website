@@ -43,7 +43,7 @@ export function OrderFieldsDialog({ menu, onClose }: { menu: PosMenu; onClose: (
           <>
             <div><Label>Address</Label><Input value={cart.deliveryAddress} onChange={(e) => cart.set({ deliveryAddress: e.target.value })} /></div>
             <div>
-              <Label>Delivery zone</Label>
+              <Label>Delivery zone{menu.zones.length === 0 && " (none set up — no delivery charge)"}</Label>
               <div className="grid grid-cols-2 gap-2">
                 {menu.zones.map((z) => (
                   <button key={z.id} onClick={() => cart.set({ deliveryZoneId: z.id })} className={`min-h-14 rounded-xl border-2 px-3 text-left ${cart.deliveryZoneId === z.id ? "border-brand bg-brand/15" : "border-border bg-surface-2"}`}>
