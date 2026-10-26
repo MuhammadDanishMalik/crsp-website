@@ -45,6 +45,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
+import { businessDate } from "@/lib/domain/dates";
 import { voidOrder, refundOrder } from "@/lib/actions/refunds";
 import { setOrderStatus } from "@/lib/actions/order-edit";
 import { getKotJobs } from "@/lib/actions/print";
@@ -190,16 +191,18 @@ export function OrdersManager({ orders, can, reasons, context = "pos" }: Props) 
   };
 
   // Calculations: KPI summaries
+  // The summary cards and charts show today's business day only; the list below still holds every order.
+  const todays = useMemo(() => { const d = businessDate(); return orders.filter((o) => businessDate(new Date(o.at)) === d); }, [orders]);
   const stats = useMemo(() => {
-    const totalOrders = orders.length;
-    const completedOrders = orders.filter((o) => o.status === "completed" || o.status === "paid");
-    const activeOrders = orders.filter((o) => ["open", "preparing", "ready"].includes(o.status));
-    const pendingVerification = orders.filter((o) => o.pending);
-    const voidedOrRefunded = orders.filter((o) => o.status === "voided" || o.refunded > 0 || o.status === "refunded");
-    const deliveryOrders = orders.filter((o) => o.type === "delivery");
+    const totalOrders = todays.length;
+    const completedOrders = todays.filter((o) => o.status === "completed" || o.status === "paid");
+    const activeOrders = todays.filter((o) => ["open", "preparing", "ready"].includes(o.status));
+    const pendingVerification = todays.filter((o) => o.pending);
+    const voidedOrRefunded = todays.filter((o) => o.status === "voided" || o.refunded > 0 || o.status === "refunded");
+    const deliveryOrders = todays.filter((o) => o.type === "delivery");
 
-    const grossSales = orders.filter((o) => o.status !== "voided").reduce((acc, o) => acc + o.total, 0);
-    const totalRefunds = orders.reduce((acc, o) => acc + o.refunded, 0);
+    const grossSales = todays.filter((o) => o.status !== "voided").reduce((acc, o) => acc + o.total, 0);
+    const totalRefunds = todays.reduce((acc, o) => acc + o.refunded, 0);
     const netRevenue = grossSales - totalRefunds;
     const aov = completedOrders.length > 0 ? Math.round(grossSales / completedOrders.length) : 0;
 
@@ -213,7 +216,7 @@ export function OrdersManager({ orders, can, reasons, context = "pos" }: Props) 
       netRevenue,
       aov,
     };
-  }, [orders]);
+  }, [todays]);
 
   // Hourly Chart Data (9 AM to 11 PM or active bounds)
   const hourlyData = useMemo(() => {
@@ -223,7 +226,7 @@ export function OrdersManager({ orders, can, reasons, context = "pos" }: Props) 
       buckets[h] = { hour: h, label, revenue: 0, orders: 0, dineIn: 0, takeaway: 0, delivery: 0 };
     }
 
-    orders.forEach((o) => {
+    todays.forEach((o) => {
       const orderDate = new Date(o.at);
       const h = orderDate.getHours();
       if (!buckets[h]) {
@@ -240,11 +243,11 @@ export function OrdersManager({ orders, can, reasons, context = "pos" }: Props) 
     });
 
     return Object.values(buckets).sort((a, b) => a.hour - b.hour);
-  }, [orders]);
+  }, [todays]);
 
   // Channel distribution
   const channelData = useMemo(() => {
-    const valid = orders.filter((o) => o.status !== "voided");
+    const valid = todays.filter((o) => o.status !== "voided");
     const dineIn = valid.filter((o) => o.type === "dine_in").length;
     const takeaway = valid.filter((o) => o.type === "takeaway").length;
     const delivery = valid.filter((o) => o.type === "delivery").length;
@@ -253,7 +256,7 @@ export function OrdersManager({ orders, can, reasons, context = "pos" }: Props) 
       { name: "Takeaway", value: takeaway, color: CHANNEL_COLORS.takeaway },
       { name: "Delivery", value: delivery, color: CHANNEL_COLORS.delivery },
     ].filter((c) => c.value > 0);
-  }, [orders]);
+  }, [todays]);
 
   // Payment methods distribution
   const paymentData = useMemo(() => {
@@ -269,7 +272,7 @@ export function OrdersManager({ orders, can, reasons, context = "pos" }: Props) 
       name: name.replace("_", " "),
       amount: Math.round(amount),
     }));
-  }, [orders]);
+  }, [todays]);
 
   // Filtered & Sorted Orders
   const filteredOrders = useMemo(() => {
