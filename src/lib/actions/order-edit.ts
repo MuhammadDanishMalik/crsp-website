@@ -1,6 +1,7 @@
 "use server";
 
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
+import { publish } from "@/lib/realtime/bus";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getDb } from "@/lib/db/client";
@@ -36,5 +37,34 @@ export async function updateOrderCustomer(orderId: string, raw: unknown): Promis
     await audit(session, { action: "order.customer_edit", entity: "order", entityId: orderId, before: { name: o.customerName, address: o.deliveryAddress }, after: { name: v.name, phone, address: v.address } });
     revalidatePath("/orders"); revalidatePath("/admin/orders");
     return { ok: true };
+  });
+}
+
+const STATUS_STEPS = { preparing: "In kitchen", ready: "Ready", completed: "Completed" } as const;
+
+/** Move an order between kitchen / ready / completed from the orders page (voided and refunded orders are closed and cannot be moved). */
+export async function setOrderStatus(orderId: string, status: string): Promise<R> {
+  return guard(async () => {
+    const session = await requirePermission("kds.bump");
+    const to = z.enum(["preparing", "ready", "completed"]).parse(status);
+    const db = await getDb();
+    const [o] = await db.select().from(s.orders).where(and(eq(s.orders.id, orderId), eq(s.orders.branchId, session.branchId)));
+    if (!o) throw new UserError("Order not found");
+    if (o.status === "voided" || o.status === "refunded") throw new UserError("A voided or refunded order cannot change status");
+    const now = new Date();
+    await db.transaction(async (tx) => {
+      if (to === "preparing") {
+        await tx.update(s.orderItems).set({ kdsStatus: "recalled", bumpedAt: null }).where(eq(s.orderItems.orderId, orderId));
+        await tx.update(s.orders).set({ status: "preparing", readyAt: null, completedAt: null, updatedAt: now }).where(eq(s.orders.id, orderId));
+      } else {
+        await tx.update(s.orderItems).set({ kdsStatus: "bumped", bumpedAt: now }).where(and(eq(s.orderItems.orderId, orderId), eq(s.orderItems.isVoided, false), inArray(s.orderItems.kdsStatus, ["new", "preparing", "ready", "recalled"])));
+        await tx.update(s.orders).set(to === "ready" ? { status: "ready", readyAt: o.readyAt ?? now, completedAt: null, updatedAt: now } : { status: "completed", readyAt: o.readyAt ?? now, completedAt: now, updatedAt: now }).where(eq(s.orders.id, orderId));
+      }
+    });
+    await audit(session, { action: "order.status_edit", entity: "order", entityId: orderId, before: { status: o.status }, after: { status: to } });
+    publish(session.branchId, { type: "kds.changed" });
+    revalidatePath("/admin/orders");
+    revalidatePath("/orders");
+    return { ok: true, message: `Order #${o.orderNo} → ${STATUS_STEPS[to]}` };
   });
 }

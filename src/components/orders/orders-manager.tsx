@@ -46,6 +46,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { voidOrder, refundOrder } from "@/lib/actions/refunds";
+import { setOrderStatus } from "@/lib/actions/order-edit";
 import { getKotJobs } from "@/lib/actions/print";
 import { sendToBridge } from "@/lib/adapters/printers/bridge-client";
 import { printReceipt } from "@/app/(pos)/order/pay-dialog";
@@ -152,6 +153,13 @@ export function OrdersManager({ orders, can, reasons, context = "pos" }: Props) 
 
   const [editCustomer, setEditCustomer] = useState<ManageableOrder | null>(null);
   const [editItems, setEditItems] = useState<ManageableOrder | null>(null);
+  const changeStatus = (orderId: string, status: string) => {
+    startTransition(async () => {
+      const r = await setOrderStatus(orderId, status);
+      showToast(r.ok ? r.message || "Status updated" : r.error, r.ok ? "success" : "error");
+      if (r.ok) router.refresh();
+    });
+  };
   const handleReprintReceipt = (orderId: string) => {
     startTransition(async () => {
       try {
@@ -786,15 +794,18 @@ export function OrdersManager({ orders, can, reasons, context = "pos" }: Props) 
                             <span className="rounded-lg bg-amber-500/15 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">
                               Pending Verify
                             </span>
-                          ) : isPreparing ? (
-                            <span className="flex items-center gap-1 rounded-lg bg-amber-500/15 px-2 py-1 text-[11px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">
-                              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-amber-500" />
-                              Kitchen
-                            </span>
                           ) : (
-                            <span className="rounded-lg bg-emerald-500/15 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
-                              {o.status}
-                            </span>
+                            <select
+                              aria-label="Order status"
+                              value={["preparing", "ready", "completed"].includes(o.status) ? o.status : o.status === "paid" ? "completed" : "preparing"}
+                              disabled={pendingTransition}
+                              onChange={(e) => changeStatus(o.id, e.target.value)}
+                              className="rounded-lg border border-border bg-surface-2 px-2 py-1 text-[11px] font-bold uppercase tracking-wider"
+                            >
+                              <option value="preparing">Kitchen</option>
+                              <option value="ready">Ready</option>
+                              <option value="completed">Completed</option>
+                            </select>
                           )}
                         </div>
                       </div>
@@ -852,7 +863,7 @@ export function OrdersManager({ orders, can, reasons, context = "pos" }: Props) 
                       </div>
 
                       {/* Action Buttons */}
-                      <div className="grid grid-cols-4 gap-1.5">
+                      <div className="grid grid-cols-5 gap-1.5">
                         <Button
                           variant="secondary"
                           size="md"
@@ -884,6 +895,12 @@ export function OrdersManager({ orders, can, reasons, context = "pos" }: Props) 
                             onClick={() => handleReprintKOT(o.id)}
                           >
                             <ChefHat size={14} />
+                          </Button>
+                        )}
+
+                        {!isClosed && (
+                          <Button variant="secondary" size="md" className="h-10 px-2 text-xs font-bold" title="Edit order items" onClick={() => setEditItems(o)}>
+                            Edit
                           </Button>
                         )}
 
