@@ -1,4 +1,5 @@
 "use client";
+import { markNoDiscount } from "@/lib/domain/discount-scope";
 import { useMemo, useState, useTransition } from "react";
 import { useTranslations } from "next-intl";
 import { Banknote, CreditCard, Landmark, Smartphone, QrCode, Printer } from "lucide-react";
@@ -56,20 +57,23 @@ export function PayDialog({ menu, me, offline, online, onClose, onFinished }: { 
   const [pending, start] = useTransition();
   const [done, setDone] = useState<null | { orderId: string; orderNo: string; change: number; printMsg: string; offline?: boolean; receipt?: ReceiptData }>(null);
 
+  // Cold drinks (Beverages) are other companies' products: no discount applies to them.
+  const catName = useMemo(() => { const c = new Map(menu.categories.map((x) => [x.id, x.name])); const i = new Map(menu.items.map((x) => [x.id, c.get(x.categoryId)])); return (id: string) => i.get(id); }, [menu]);
+  const priced = useMemo(() => markNoDiscount(cart.lines, catName), [cart.lines, catName]);
   const zone = menu.zones.find((z) => z.id === cart.deliveryZoneId);
   const dominant = entries.length ? [...entries].sort((a, b) => b.amount - a.amount)[0].method : method;
   const redeem = useMemo(() => {
     if (!cart.redeem || !menu.loyalty) return { points: 0, value: 0 };
-    const base = computeTotals({ lines: cart.lines, discount: cart.discount ?? (online && menu.openingOfferBps ? { kind: "percent", value: menu.openingOfferBps } : null), orderType: cart.orderType, taxRules: [] });
+    const base = computeTotals({ lines: priced, discount: cart.discount ?? (online && menu.openingOfferBps ? { kind: "percent", value: menu.openingOfferBps } : null), orderType: cart.orderType, taxRules: [] });
     const payable = base.subtotal - base.discountTotal;
     const points = maxRedeemablePoints(cart.customerPoints, payable, menu.loyalty);
     return { points, value: redeemValue(points, payable, menu.loyalty) };
-  }, [cart.redeem, cart.lines, cart.discount, online, menu.openingOfferBps, cart.orderType, cart.customerPoints, menu.loyalty]);
+  }, [cart.redeem, priced, cart.discount, online, menu.openingOfferBps, cart.orderType, cart.customerPoints, menu.loyalty]);
   // Opening-week offer: the server applies it when no other discount is set (not to offline sales).
   const autoDiscount = online && !cart.discount && menu.openingOfferBps ? ({ kind: "percent", value: menu.openingOfferBps } as const) : null;
   const totals = useMemo(
-    () => computeTotals({ lines: cart.lines, discount: cart.discount ?? autoDiscount, orderType: cart.orderType, paymentMethod: dominant, taxRules: menu.taxRules, serviceChargeBps: menu.serviceChargeBps, deliveryCharge: zone?.charge ?? 0, loyaltyDiscount: redeem.value }),
-    [cart.lines, cart.discount, autoDiscount, cart.orderType, dominant, menu, zone, redeem.value],
+    () => computeTotals({ lines: priced, discount: cart.discount ?? autoDiscount, orderType: cart.orderType, paymentMethod: dominant, taxRules: menu.taxRules, serviceChargeBps: menu.serviceChargeBps, deliveryCharge: zone?.charge ?? 0, loyaltyDiscount: redeem.value }),
+    [priced, cart.discount, autoDiscount, cart.orderType, dominant, menu, zone, redeem.value],
   );
   const canRedeem = !!menu.loyalty && cart.customerPoints >= menu.loyalty.minRedeemPoints;
   const paid = entries.reduce((a, e) => a + e.amount, 0);
@@ -109,6 +113,7 @@ export function PayDialog({ menu, me, offline, online, onClose, onFinished }: { 
   const complete = (cod = false) => {
     const all = cod ? [] : current ? [...entries, current] : entries;
     if (!cod && current && !currentValid) return setError("Enter the approval / reference number");
+    if (cart.orderType === "delivery" && !cart.deliveryAddress.trim()) return setError("Enter the delivery address");
     setError("");
     const payload = {
       clientId: cart.clientId, type: cart.orderType, tableNo: cart.tableNo || undefined, customerPhone: cart.customerPhone || undefined,
@@ -193,15 +198,15 @@ export function PayDialog({ menu, me, offline, online, onClose, onFinished }: { 
 
   return (
     <Modal title={`${t("title")} · ${formatPKR(totals.total)}`} onClose={onClose} width="max-w-4xl">
-      <details className="mb-4 rounded-2xl border border-border bg-surface-2 p-3" open={!!(cart.customerName || cart.customerPhone || cart.deliveryAddress)}>
-        <summary className="cursor-pointer font-semibold">Customer name / number / address on receipt <span className="font-normal text-muted">(optional)</span></summary>
+      <details className="mb-4 rounded-2xl border border-border bg-surface-2 p-3" open={cart.orderType === "delivery" || !!(cart.customerName || cart.customerPhone || cart.deliveryAddress)}>
+        <summary className="cursor-pointer font-semibold">{cart.orderType === "delivery" ? "Delivery customer" : "Customer name / number / address on receipt"} <span className="font-normal text-muted">{cart.orderType === "delivery" ? "(address required)" : "(optional)"}</span></summary>
         <div className="mt-3 grid grid-cols-2 gap-2">
           <Input aria-label="Customer name" placeholder="Name" value={cart.customerName} maxLength={80} onChange={(e) => cart.set({ customerName: e.target.value })} />
           <Input aria-label="Customer phone" placeholder="Phone (03xx-xxxxxxx)" inputMode="tel" value={cart.customerPhone} maxLength={20}
             onChange={(e) => cart.set({ customerPhone: e.target.value })}
             onBlur={async () => { if (!online || cart.customerPhone.replace(/\D/g, "").length < 7) return; const c = await lookupCustomer(cart.customerPhone); if (c) cart.set({ customerName: cart.customerName || c.name, customerPoints: c.points }); }} />
         </div>
-        {cart.orderType !== "delivery" && <Input className="mt-2" aria-label="Customer address" placeholder="Address (optional)" value={cart.deliveryAddress} maxLength={300} onChange={(e) => cart.set({ deliveryAddress: e.target.value })} />}
+         <Input className="mt-2" aria-label="Customer address" placeholder={cart.orderType === "delivery" ? "Delivery address" : "Address (optional)"} value={cart.deliveryAddress} maxLength={300} onChange={(e) => cart.set({ deliveryAddress: e.target.value })} />
       </details>
       <div className="grid grid-cols-[220px_1fr] gap-6">
         <div className="space-y-2">

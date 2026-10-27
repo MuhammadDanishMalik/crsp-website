@@ -1,5 +1,6 @@
 "use server";
 
+import { markNoDiscount } from "@/lib/domain/discount-scope";
 import { openingOfferBps, OPENING_OFFER } from "@/lib/domain/opening-offer";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { getDb } from "@/lib/db/client";
@@ -10,7 +11,7 @@ import type { Permission } from "@/lib/domain/permissions";
 import { businessDate } from "@/lib/domain/dates";
 import { computeTotals, groupError, type CartLine } from "@/lib/domain/pricing";
 import { createOrderSchema } from "@/lib/validation/order";
-import { loadTaxRules } from "@/lib/queries/menu";
+import { loadTaxRules, categoryNamesOf } from "@/lib/queries/menu";
 import { getOpenShift } from "@/lib/queries/shift";
 import { publish } from "@/lib/realtime/bus";
 import { findPromo } from "@/lib/queries/promo";
@@ -172,6 +173,9 @@ async function createOrderInner(raw: unknown): Promise<Ok> {
   const offerBps = !off && !input.discount ? openingOfferBps(businessDate(new Date())) : 0;
   if (offerBps) discount = { kind: "percent", value: offerBps };
 
+  const catOf = await categoryNamesOf(itemIds);
+  const pricedLines = markNoDiscount(cartLines, catOf); // cold drinks are never discounted
+
   const zone = input.deliveryZoneId ? (await db.select().from(s.deliveryZones).where(eq(s.deliveryZones.id, input.deliveryZoneId)))[0] : null;
   const [biz] = await db.select().from(s.business).limit(1);
   const serviceChargeBps = ((biz?.settings as { serviceChargeBps?: number } | null)?.serviceChargeBps) ?? 0;
@@ -186,13 +190,13 @@ async function createOrderInner(raw: unknown): Promise<Ok> {
   if (input.redeemPoints && loyalty) {
     if (!input.customerPhone) throw new OrderError("Enter the customer phone to redeem points");
     const [cust] = await db.select().from(s.customers).where(and(eq(s.customers.businessId, biz.id), eq(s.customers.phone, input.customerPhone)));
-    const base = computeTotals({ lines: cartLines, discount, orderType: input.type, taxRules: [], deliveryCharge: 0 });
+    const base = computeTotals({ lines: pricedLines, discount, orderType: input.type, taxRules: [], deliveryCharge: 0 });
     const allowed = maxRedeemablePoints(cust?.loyaltyPoints ?? 0, base.subtotal - base.discountTotal, loyalty);
     if (!allowed) throw new OrderError(`Points can be redeemed from ${loyalty.minRedeemPoints} points`);
     redeemedPoints = Math.min(input.redeemPoints, allowed);
     loyaltyDiscount = redeemValue(redeemedPoints, base.subtotal - base.discountTotal, loyalty);
   }
-  const totals = computeTotals({ lines: cartLines, discount, orderType: input.type, paymentMethod: dominant, taxRules, serviceChargeBps, deliveryCharge: zone?.charge ?? 0, loyaltyDiscount });
+  const totals = computeTotals({ lines: pricedLines, discount, orderType: input.type, paymentMethod: dominant, taxRules, serviceChargeBps, deliveryCharge: zone?.charge ?? 0, loyaltyDiscount });
 
   const paid = input.payments.reduce((a, p) => a + p.amount, 0);
   if (!cod && paid < totals.total) throw new OrderError("Payments do not cover the total");

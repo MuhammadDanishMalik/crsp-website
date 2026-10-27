@@ -1,4 +1,5 @@
 "use client";
+import { markNoDiscount } from "@/lib/domain/discount-scope";
 import { useEffect } from "react";
 import { Minus, Plus, Percent, Trash2 } from "lucide-react";
 import { broadcastCart } from "@/lib/stores/cart-channel";
@@ -31,7 +32,7 @@ export function CartPanel({
   const ur = useLocale() === "ur";
   const zone = menu.zones.find((z) => z.id === cart.deliveryZoneId);
   const tot = computeTotals({
-    lines: cart.lines, discount: cart.discount ?? (menu.openingOfferBps ? { kind: "percent", value: menu.openingOfferBps } : null), orderType: cart.orderType, paymentMethod: "cash", taxRules: menu.taxRules,
+    lines: markNoDiscount(cart.lines, (id) => { const it = menu.items.find((x) => x.id === id); return it && menu.categories.find((c) => c.id === it.categoryId)?.name; }), discount: cart.discount ?? (menu.openingOfferBps ? { kind: "percent", value: menu.openingOfferBps } : null), orderType: cart.orderType, paymentMethod: "cash", taxRules: menu.taxRules,
     serviceChargeBps: menu.serviceChargeBps, deliveryCharge: zone?.charge ?? 0,
   });
   const nLines = cart.lines.length;

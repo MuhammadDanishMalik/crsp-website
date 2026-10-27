@@ -1,5 +1,6 @@
 "use server";
 
+import { markNoDiscount } from "@/lib/domain/discount-scope";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -11,7 +12,7 @@ import { computeTotals, groupError, type CartLine } from "@/lib/domain/pricing";
 import { pointsEarned } from "@/lib/domain/loyalty";
 import { sadqaFor } from "@/lib/domain/sadqa";
 import { applyMovement, deductForOrder } from "@/lib/inventory/stock";
-import { loadPosMenu, loadTaxRules, type PosMenu } from "@/lib/queries/menu";
+import { loadPosMenu, loadTaxRules, categoryNamesOf, type PosMenu } from "@/lib/queries/menu";
 import { getOpenShift } from "@/lib/queries/shift";
 import { cancelInvoiceFor, fiscalizeNow } from "@/lib/tax/fiscalize";
 import { publish } from "@/lib/realtime/bus";
@@ -113,7 +114,8 @@ async function plan(session: Session, orderId: string, raw: unknown) {
   const serviceChargeBps = ((biz?.settings as { serviceChargeBps?: number } | null)?.serviceChargeBps) ?? 0;
   const dominant = ctx.cod ? "cash" : [...ctx.pays].sort((a, b) => b.amount - a.amount)[0]?.method ?? "cash";
   const discount = ctx.discount ? { kind: ctx.discount.kind, value: ctx.discount.value } : null;
-  const totals = computeTotals({ lines, discount, orderType: o.type, paymentMethod: dominant, taxRules: await loadTaxRules(o.branchId), serviceChargeBps, deliveryCharge: o.deliveryCharge });
+  const catOf = await categoryNamesOf([...new Set(lines.map((l) => l.itemId))]);
+  const totals = computeTotals({ lines: markNoDiscount(lines, catOf), discount, orderType: o.type, paymentMethod: dominant, taxRules: await loadTaxRules(o.branchId), serviceChargeBps, deliveryCharge: o.deliveryCharge });
   const diff = ctx.cod ? 0 : totals.total - ctx.paidNet;
   return { edit, ctx, old, oldMods, kept, added, totals, diff, dominant, lines };
 }

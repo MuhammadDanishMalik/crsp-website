@@ -111,3 +111,12 @@ export async function loadPublicMenu(): Promise<PublicMenu> {
   };
 }
 
+
+/** Category name per menu item, for rules that depend on the category (e.g. no discount on cold drinks). */
+export async function categoryNamesOf(itemIds: string[]): Promise<(itemId: string) => string | undefined> {
+  if (!itemIds.length) return () => undefined;
+  const db = await getDb();
+  const rows = await db.select({ id: s.menuItems.id, cat: s.categories.name }).from(s.menuItems).innerJoin(s.categories, eq(s.categories.id, s.menuItems.categoryId)).where(inArray(s.menuItems.id, itemIds));
+  const map = new Map(rows.map((r) => [r.id, r.cat]));
+  return (id) => map.get(id);
+}

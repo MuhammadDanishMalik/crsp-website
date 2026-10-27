@@ -93,8 +93,8 @@ export function PosScreen({ menu, me, shiftOpenedAt, offline }: PosProps) {
   }, [cart.lines.length, me.can.discount]);
 
   const subtotal = cart.lines.reduce((a, l) => a + (l.basePrice + l.modifiers.reduce((x, m) => x + m.priceDelta, 0)) * l.quantity, 0);
-  const needsDetails = cart.orderType === "dine_in" || cart.orderType === "delivery" || cart.orderType === "online";
-  const detailsOk = cart.orderType === "dine_in" ? !!cart.tableNo : cart.orderType === "delivery" ? !!cart.deliveryAddress && (!menu.zones.length || !!cart.deliveryZoneId) : true;
+  const needsDetails = cart.orderType === "dine_in" || cart.orderType === "online"; // delivery works like takeaway: its address is typed in the pay window
+  const detailsOk = cart.orderType === "dine_in" ? !!cart.tableNo : true;
   const startPay = () => (needsDetails && !detailsOk ? setDetails(true) : setPaying(true));
 
   return (

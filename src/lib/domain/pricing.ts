@@ -9,6 +9,7 @@ export type CartLine = {
   quantity: number;
   modifiers: CartModifier[];
   note?: string;
+  noDiscount?: boolean; // other companies' products (cold drinks): never discounted
 };
 export type DiscountInput = { kind: "percent" | "fixed"; value: number }; // percent in bps, fixed in paisa
 export type TaxRuleInput = {
@@ -48,9 +49,10 @@ export function computeTotals(input: {
 }): Totals {
   const subtotal = input.lines.reduce((s, l) => s + lineTotal(l), 0);
   let discountTotal = 0;
+  const discountable = input.lines.reduce((s, l) => s + (l.noDiscount ? 0 : lineTotal(l)), 0);
   if (input.discount) {
     discountTotal =
-      input.discount.kind === "percent" ? bps(subtotal, input.discount.value) : Math.min(input.discount.value, subtotal);
+      input.discount.kind === "percent" ? bps(discountable, input.discount.value) : Math.min(input.discount.value, discountable);
   }
   const loyaltyDiscount = Math.min(Math.max(0, input.loyaltyDiscount ?? 0), subtotal - discountTotal);
   discountTotal += loyaltyDiscount;
