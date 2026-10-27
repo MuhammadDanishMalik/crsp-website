@@ -71,10 +71,10 @@ export function SiteHome({ menu }: { menu: PublicMenu }) {
           <h1 className="mt-2 text-4xl font-black tracking-tight sm:text-5xl">Crispy. Juicy. Spicy.</h1>
           <p className="mx-auto mt-3 max-w-xl text-zinc-600">Spicy injected broast, burgers, wraps, wings and deals — hot to your door. Pay cash on delivery.</p>
           {openingOfferBps() > 0 && (
-            <div className="mx-auto mt-5 flex max-w-md items-center gap-3 rounded-2xl border border-red-100 bg-white p-3 text-left shadow-sm">
+            <div className="mx-auto mt-6 flex max-w-xl flex-col items-center gap-2 rounded-3xl border border-red-100 bg-white p-4 text-center shadow-sm sm:flex-row sm:gap-5 sm:text-left">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/site/offer.png" alt="" width={72} height={72} className="h-[72px] w-[72px] shrink-0 object-contain" />
-              <p className="text-sm font-semibold"><span className="block text-lg font-black text-[#d62828]">Opening week: {OPENING_OFFER.bps / 100}% off</span>On your whole order (cold drinks excluded) · till {new Date(`${OPENING_OFFER.end}T12:00:00`).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}</p>
+              <img src="/site/offer.png" alt="" width={176} height={176} className="h-40 w-40 shrink-0 object-contain sm:h-44 sm:w-44" />
+              <p className="text-sm font-semibold"><span className="block text-2xl font-black text-[#d62828]">Opening week: {OPENING_OFFER.bps / 100}% off</span>On your whole order (cold drinks excluded) · till {new Date(`${OPENING_OFFER.end}T12:00:00`).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}</p>
             </div>
           )}
           <div className="mt-6"><a href="#menu" className="inline-block rounded-full bg-zinc-900 px-6 py-3 font-bold text-white hover:bg-zinc-700">See the menu</a></div>
@@ -147,7 +147,7 @@ export function SiteHome({ menu }: { menu: PublicMenu }) {
         <Overlay onClose={() => setDone(null)}>
           <div className="p-8 text-center">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/site/waiting.png" alt="" width={160} height={160} className="mx-auto h-40 w-40 object-contain" />
+            <img src="/site/waiting.png" alt="" width={288} height={288} className="mx-auto h-60 w-60 object-contain sm:h-72 sm:w-72" />
             <h2 className="mt-4 text-2xl font-black">Order #{done.orderNo} received!</h2>
             <p className="mt-2 text-zinc-600">Our kitchen will confirm your order shortly and call or WhatsApp you. Please keep your phone nearby.</p>
             <p className="mt-4 text-lg font-bold">Pay {formatPKR(done.total)} cash on delivery</p>
@@ -265,7 +265,13 @@ function Checkout({ lines, total, onClose, onDone }: { lines: Line[]; total: num
   return (
     <Overlay onClose={onClose}>
       <form onSubmit={submit}>
-        <div className="flex items-center justify-between border-b border-zinc-200 p-4"><h2 className="flex items-center gap-2 text-xl font-black">{/* eslint-disable-next-line @next/next/no-img-element */}<img src="/site/map.png" alt="" width={44} height={44} className="h-11 w-11 object-contain" />Delivery details</h2><button type="button" onClick={onClose} aria-label="Close" className="rounded-full p-2 hover:bg-zinc-100"><X /></button></div>
+        <div className="relative border-b border-zinc-200 bg-gradient-to-b from-red-50 to-white px-4 pb-4 pt-5 text-center">
+          <button type="button" onClick={onClose} aria-label="Close" className="absolute right-3 top-3 rounded-full p-2 hover:bg-zinc-100"><X /></button>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/site/map.png" alt="" width={200} height={200} className="mx-auto h-48 w-48 object-contain sm:h-56 sm:w-56" />
+          <h2 className="mt-1 text-2xl font-black">Delivery details</h2>
+          <p className="text-sm text-zinc-500">Tell us where to bring your order</p>
+        </div>
         <div className="space-y-3 p-4">
           <input className={input} placeholder="Your name" value={f.name} onChange={(e) => set("name", e.target.value)} required maxLength={80} autoComplete="name" />
           <input className={input} placeholder="Phone number (03xx xxxxxxx)" inputMode="tel" value={f.phone} onChange={(e) => set("phone", e.target.value)} required maxLength={20} autoComplete="tel" />
