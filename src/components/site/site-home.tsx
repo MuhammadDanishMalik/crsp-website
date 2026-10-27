@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
-import { LocateFixed, MapPin, Minus, Plus, ShoppingBag, X } from "lucide-react";
+import { LocateFixed, Plane, MapPin, Minus, Plus, ShoppingBag, X } from "lucide-react";
 import { Logo } from "@/components/brand/logo";
 import { formatPKR } from "@/lib/domain/money";
 import { computeTotals } from "@/lib/domain/pricing";
@@ -68,7 +68,7 @@ export function SiteHome({ menu }: { menu: PublicMenu }) {
           <Logo height={36} priority />
           <div className="flex items-center gap-2">
             <a href={`tel:${PHONE.replace(/\s/g, "")}`} className="hidden rounded-full px-3 py-2 text-sm font-semibold text-zinc-600 hover:bg-zinc-100 sm:block">Call {PHONE}</a>
-            <button onClick={() => setCartOpen(true)} className="relative flex h-11 items-center gap-2 rounded-full bg-[#d62828] px-4 text-sm font-bold text-white shadow-sm active:scale-95">
+            <button onClick={() => setCartOpen(true)} className="btn-shine relative flex h-11 items-center gap-2 rounded-full bg-[#d62828] px-4 text-sm font-bold text-white shadow-sm active:scale-95">
               <ShoppingBag size={18} /> My order
               {count > 0 && <span className="rounded-full bg-white px-2 text-xs font-black text-[#d62828]">{count}</span>}
             </button>
@@ -79,16 +79,25 @@ export function SiteHome({ menu }: { menu: PublicMenu }) {
       <section className="border-b border-zinc-100 bg-gradient-to-b from-red-50 to-white">
         <div className="mx-auto max-w-6xl px-4 py-10 text-center sm:py-14">
           <p className="text-sm font-bold uppercase tracking-widest text-[#d62828]">CRSP Watta Khail Chowk · Mianwali</p>
-          <h1 className="mt-2 text-4xl font-black tracking-tight sm:text-5xl">Crispy. Juicy. Spicy.</h1>
-          <p className="mx-auto mt-3 max-w-xl text-zinc-600">Spicy injected broast, burgers, wraps, wings and deals — hot to your door. Pay cash on delivery.</p>
+          <Tagline />
+          <FlightRoute />
           {openingOfferBps() > 0 && (
-            <div className="mx-auto mt-6 flex max-w-xl flex-col items-center gap-2 rounded-3xl border border-red-100 bg-white p-4 text-center shadow-sm sm:flex-row sm:gap-5 sm:text-left">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/site/offer.png" alt="" width={176} height={176} className="h-40 w-40 shrink-0 object-contain sm:h-44 sm:w-44" />
-              <p className="text-sm font-semibold"><span className="block text-2xl font-black text-[#d62828]">Opening week: {OPENING_OFFER.bps / 100}% off</span>On your whole order (cold drinks excluded)<Countdown /></p>
+            <div className="mx-auto mt-8 max-w-xl drop-shadow-[0_8px_18px_rgba(214,40,40,.22)]">
+              <div className="ticket flex items-stretch">
+                <div className="flex w-[7.5rem] shrink-0 items-center justify-center p-2 sm:w-44">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src="/site/offer.png" alt="" width={176} height={176} className="anim-bob h-28 w-28 object-contain sm:h-36 sm:w-36" style={{ animation: "crsp-bob 3s ease-in-out infinite" }} />
+                </div>
+                <div className="flex-1 border-l-2 border-dashed border-red-200 p-4 text-left sm:p-5">
+                  <p className="text-[11px] font-black uppercase tracking-widest text-zinc-400">Opening offer</p>
+                  <p className="text-shimmer text-2xl font-black leading-tight sm:text-3xl">{OPENING_OFFER.bps / 100}% off</p>
+                  <p className="mt-1 text-sm font-semibold">On your whole order <span className="font-normal text-zinc-500">(cold drinks excluded)</span></p>
+                  <Countdown />
+                </div>
+              </div>
             </div>
           )}
-          <div className="mt-6"><a href="#menu" className="inline-block rounded-full bg-zinc-900 px-6 py-3 font-bold text-white hover:bg-zinc-700">See the menu</a></div>
+          <div className="mt-6"><a href="#menu" className="btn-shine inline-block rounded-full bg-zinc-900 px-6 py-3 font-bold text-white hover:bg-zinc-700">See the menu</a></div>
         </div>
       </section>
 
@@ -143,7 +152,7 @@ export function SiteHome({ menu }: { menu: PublicMenu }) {
                 <div className="flex justify-between"><span>Subtotal</span><span>{formatPKR(totals.subtotal)}</span></div>
                 {totals.discountTotal > 0 && <div className="flex justify-between text-emerald-700"><span>Opening offer {OPENING_OFFER.bps / 100}%</span><span>− {formatPKR(totals.discountTotal)}</span></div>}
                 <div className="flex justify-between text-lg font-black"><span>Total (cash on delivery)</span><span>{formatPKR(totals.total)}</span></div>
-                <button onClick={() => { setCartOpen(false); setCheckout(true); }} className="mt-3 h-12 w-full rounded-full bg-[#d62828] font-bold text-white active:scale-[.99]">Checkout</button>
+                <button onClick={() => { setCartOpen(false); setCheckout(true); }} className="btn-shine mt-3 h-12 w-full rounded-full bg-[#d62828] font-bold text-white active:scale-[.99]">Checkout</button>
               </div>
             )}
           </aside>
@@ -166,12 +175,54 @@ export function SiteHome({ menu }: { menu: PublicMenu }) {
   );
 }
 
+const WORDS = [
+  { w: "Crispy.", line: "Golden crunch in every bite." },
+  { w: "Juicy.", line: "Spice injected deep inside the meat." },
+  { w: "Spicy.", line: "Real Saudi-style heat — pick your level." },
+];
+
+/** The three headline words: they take turns lighting up, and tapping one pops it and shows what it means. */
+function Tagline() {
+  const [active, setActive] = useState(0);
+  const [touched, setTouched] = useState(false);
+  const [pop, setPop] = useState(0);
+  useEffect(() => { if (touched) return; const t = setInterval(() => setActive((a) => (a + 1) % WORDS.length), 2200); return () => clearInterval(t); }, [touched]);
+  return (
+    <div className="mt-2">
+      <h1 className="flex flex-wrap items-center justify-center gap-x-3 text-4xl font-black tracking-tight sm:text-6xl">
+        {WORDS.map((x, i) => (
+          <button key={`${x.w}-${active === i ? pop : 0}`} onClick={() => { setTouched(true); setActive(i); setPop((n) => n + 1); }} onMouseEnter={() => { setActive(i); setTouched(true); }}
+            className={`inline-block rounded-xl px-1 transition-colors ${active === i ? "text-shimmer" : "text-zinc-900"}`} style={active === i ? { animation: `crsp-sweep 2.4s linear infinite${touched ? `, crsp-pop .45s ease-out` : ""}` } : undefined}>
+            {x.w}
+          </button>
+        ))}
+      </h1>
+      <p key={active} className="mx-auto mt-3 h-6 text-base font-semibold text-zinc-600" style={{ animation: "crsp-rise .4s ease-out" }}>{WORDS[active].line}</p>
+    </div>
+  );
+}
+
+/** "Straight from Saudi Arabia to Mianwali": a plane flies along a dashed route, over and over. */
+function FlightRoute() {
+  return (
+    <div className="mx-auto mt-5 flex max-w-xl items-center gap-3 text-xs font-bold sm:text-sm">
+      <span className="shrink-0 rounded-full bg-emerald-600 px-3 py-1.5 text-white">Saudi Arabia</span>
+      <div className="relative h-8 flex-1">
+        <div className="absolute left-0 right-0 top-1/2 border-t-2 border-dashed border-zinc-300" />
+        <Plane className="anim-fly absolute top-1/2 -translate-y-1/2 text-[#d62828]" style={{ animation: "crsp-fly 4s ease-in-out infinite" }} size={26} />
+      </div>
+      <span className="shrink-0 rounded-full bg-[#d62828] px-3 py-1.5 text-white">Mianwali</span>
+    </div>
+  );
+}
+
 /** "Offer ends in 5 days 4 h 12 m 30 s", ticking every second. */
 function Countdown() {
   const end = useMemo(() => new Date(`${OPENING_OFFER.end}T23:59:59+05:00`).getTime(), []); // end of the last day, Pakistan time
   const [now, setNow] = useState<number | null>(null);
   useEffect(() => { setNow(Date.now()); const t = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(t); }, []);
-  if (now === null || end <= now) return null;
+  if (now === null) return <span className="skeleton mt-2 block h-5 w-48 rounded" />;
+  if (end <= now) return null;
   const sec = Math.floor((end - now) / 1000);
   const d = Math.floor(sec / 86400), h = Math.floor((sec % 86400) / 3600), m = Math.floor((sec % 3600) / 60), x = sec % 60;
   return <span className="mt-1 block font-black tabular-nums text-zinc-900">Offer ends in {d > 0 ? `${d} day${d === 1 ? "" : "s"} ` : ""}{h} h {m} m {x} s</span>;
@@ -196,7 +247,7 @@ function ItemCard({ item, category, qty, onAdd, onChange }: { item: PosItem; cat
       <button onClick={() => onChange(1)} aria-label="More" className="flex h-9 w-9 items-center justify-center rounded-full bg-[#d62828] text-white active:scale-95"><Plus size={16} /></button>
     </div>
   ) : (
-    <button onClick={onAdd} className="h-10 rounded-full bg-[#d62828] px-5 text-sm font-bold text-white active:scale-95">{isDeal ? "Add to order" : "Add"}</button>
+    <button onClick={onAdd} className="btn-shine h-10 rounded-full bg-[#d62828] px-5 text-sm font-bold text-white active:scale-95">{isDeal ? "Add to order" : "Add"}</button>
   );
   return isDeal && img ? (
     <div className="flex flex-col overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
@@ -255,7 +306,7 @@ function PickModal({ item, onClose, onAdd }: { item: PosItem; onClose: () => voi
         {err && <p className="text-sm font-semibold text-red-600">{err}</p>}
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3"><button onClick={() => setQty((q) => Math.max(1, q - 1))} className="flex h-10 w-10 items-center justify-center rounded-full border border-zinc-300"><Minus size={16} /></button><span className="w-6 text-center text-lg font-bold">{qty}</span><button onClick={() => setQty((q) => Math.min(20, q + 1))} className="flex h-10 w-10 items-center justify-center rounded-full border border-zinc-300"><Plus size={16} /></button></div>
-          <button onClick={submit} className="h-12 flex-1 rounded-full bg-[#d62828] font-bold text-white">Add · {formatPKR(unit * qty)}</button>
+          <button onClick={submit} className="btn-shine h-12 flex-1 rounded-full bg-[#d62828] font-bold text-white">Add · {formatPKR(unit * qty)}</button>
         </div>
       </div>
     </Overlay>
@@ -318,7 +369,7 @@ function Checkout({ lines, total, onClose, onDone }: { lines: Line[]; total: num
           <input className={input} placeholder="Note for the kitchen (optional)" value={f.note} onChange={(e) => set("note", e.target.value)} maxLength={200} />
           <input tabIndex={-1} autoComplete="off" aria-hidden className="hidden" value={f.company} onChange={(e) => set("company", e.target.value)} />
           {err && <p className="rounded-xl bg-red-50 p-3 text-sm font-semibold text-red-700">{err}</p>}
-          <button disabled={busy} className="h-12 w-full rounded-full bg-[#d62828] font-bold text-white disabled:opacity-60">{busy ? "Placing order…" : `Place order · ${formatPKR(total)} cash on delivery`}</button>
+          <button disabled={busy} className={`h-12 w-full rounded-full bg-[#d62828] font-bold text-white ${busy ? "shimmer-busy" : "btn-shine"}`}>{busy ? "Placing order…" : `Place order · ${formatPKR(total)} cash on delivery`}</button>
           <p className="text-center text-xs text-zinc-500">The final amount is confirmed by our kitchen.</p>
         </div>
       </form>

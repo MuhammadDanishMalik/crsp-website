@@ -54,3 +54,27 @@ button { cursor: pointer; }
 button:disabled { cursor: not-allowed; opacity: .5; }
 .scroll-thin::-webkit-scrollbar { width: 8px; }
 .scroll-thin::-webkit-scrollbar-thumb { background: var(--border); border-radius: 8px; }
+
+/* ---- public website: shimmer, ticket and hero animations ---- */
+@keyframes crsp-shine { 0% { transform: translateX(-160%) skewX(-20deg); } 55%, 100% { transform: translateX(380%) skewX(-20deg); } }
+@keyframes crsp-sweep { to { background-position: -200% center; } }
+@keyframes crsp-fly { 0% { left: 0; opacity: 0; } 8% { opacity: 1; } 92% { opacity: 1; } 100% { left: calc(100% - 28px); opacity: 0; } }
+@keyframes crsp-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
+@keyframes crsp-pop { 0% { transform: scale(1); } 40% { transform: scale(1.18) rotate(-2deg); } 100% { transform: scale(1); } }
+@keyframes crsp-rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+/* a light streak that glides across a button every few seconds */
+.btn-shine { position: relative; overflow: hidden; }
+.btn-shine::after { content: ""; position: absolute; top: 0; bottom: 0; left: 0; width: 35%; pointer-events: none; background: linear-gradient(90deg, transparent, rgba(255,255,255,.6), transparent); animation: crsp-shine 3.2s ease-in-out infinite; }
+/* shimmering text */
+.text-shimmer { background: linear-gradient(90deg, #d62828 0%, #d62828 35%, #ff9a9a 50%, #d62828 65%, #d62828 100%); background-size: 200% auto; -webkit-background-clip: text; background-clip: text; color: transparent; animation: crsp-sweep 2.4s linear infinite; }
+/* loading: a button or bar that pulses with a moving gradient */
+.shimmer-busy { background-image: linear-gradient(90deg, #d62828 25%, #f08a8a 50%, #d62828 75%) !important; background-size: 200% 100%; animation: crsp-sweep 1.1s linear infinite; }
+.skeleton { background: linear-gradient(90deg, #ececec 25%, #f8f8f8 50%, #ececec 75%); background-size: 200% 100%; animation: crsp-sweep 1.3s linear infinite; }
+/* coupon / ticket shape: round bites on both sides and above and below the dashed tear line */
+.ticket { --r: 15px; --stub: 7.5rem; background: #fff;
+  -webkit-mask: radial-gradient(circle var(--r) at 0 50%, #0000 97%, #000), radial-gradient(circle var(--r) at 100% 50%, #0000 97%, #000), radial-gradient(circle var(--r) at var(--stub) 0, #0000 97%, #000), radial-gradient(circle var(--r) at var(--stub) 100%, #0000 97%, #000);
+  -webkit-mask-composite: source-in;
+  mask: radial-gradient(circle var(--r) at 0 50%, #0000 97%, #000), radial-gradient(circle var(--r) at 100% 50%, #0000 97%, #000), radial-gradient(circle var(--r) at var(--stub) 0, #0000 97%, #000), radial-gradient(circle var(--r) at var(--stub) 100%, #0000 97%, #000);
+  mask-composite: intersect; }
+@media (min-width: 640px) { .ticket { --stub: 11rem; } }
+@media (prefers-reduced-motion: reduce) { .btn-shine::after, .text-shimmer, .shimmer-busy, .skeleton { animation: none; } .anim-fly, .anim-bob { animation: none !important; } }
