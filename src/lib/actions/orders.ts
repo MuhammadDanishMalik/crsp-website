@@ -261,7 +261,7 @@ async function createOrderInner(raw: unknown, ctx?: { session: Session; website:
     const awaiting = input.payments.some((p, i) => stateOf(i, p.method) === "pending_verification");
     await tx.insert(s.orders).values({
       id: input.clientId, branchId: session.branchId, terminalId: off ? shift.terminalId : (termId || session.terminalId!), shiftId: shift.id, businessDate: date, orderNo,
-      type: input.type, status: off ? "completed" : website ? "open" : "sent", // website orders stay "open" (off the kitchen screen) until the kitchen accepts them tableNo: input.tableNo, customerName: input.customerName?.trim() || null, customerId, deliveryAddress: input.deliveryAddress, deliveryZoneId: input.deliveryZoneId,
+      type: input.type, status: off ? "completed" : website ? "open" /* website orders stay off the kitchen screen until accepted */ : "sent", tableNo: input.tableNo, customerName: input.customerName?.trim() || null, customerId, deliveryAddress: input.deliveryAddress, deliveryZoneId: input.deliveryZoneId,
       aggregatorName: website ? "Website" : input.aggregatorName, subtotal: totals.subtotal, discountTotal: totals.discountTotal, serviceCharge: totals.serviceCharge,
       deliveryCharge: totals.deliveryCharge, taxTotal: totals.taxTotal, total: totals.total, amountPaid: cod ? 0 : awaiting ? paid - input.payments.filter((p, i) => stateOf(i, p.method) === "pending_verification").reduce((a, p) => a + p.amount, 0) : totals.total,
       loyaltyPointsRedeemed: redeemedPoints, loyaltyPointsEarned: customerId && loyalty ? pointsEarned(totals.total, loyalty) : 0,

@@ -1,7 +1,8 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
-import { Check, LocateFixed, MapPin, MessageCircle, Minus, Plus, ShoppingBag, X } from "lucide-react";
+import { Check, LocateFixed, MapPin, Minus, Plus, ShoppingBag, X } from "lucide-react";
 import { Logo } from "@/components/brand/logo";
+import { WhatsAppIcon } from "@/components/brand/whatsapp-icon";
 import { formatPKR } from "@/lib/domain/money";
 import { computeTotals } from "@/lib/domain/pricing";
 import { markNoDiscount } from "@/lib/domain/discount-scope";
@@ -109,7 +110,7 @@ export function SiteHome({ menu }: { menu: PublicMenu }) {
 
       <a href={`https://wa.me/${WHATSAPP}?text=${encodeURIComponent("Hello CRSP, I want to order")}`} target="_blank" rel="noreferrer" aria-label="Chat on WhatsApp"
         className="fixed bottom-5 right-5 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-[#25D366] text-white shadow-lg ring-4 ring-white hover:scale-105 active:scale-95">
-        <MessageCircle size={28} fill="currentColor" />
+        <WhatsAppIcon size={34} />
       </a>
 
       {pick && <PickModal item={pick} onClose={() => setPick(null)} onAdd={(mods, qty) => { add(pick, mods, qty); setPick(null); setCartOpen(true); }} />}

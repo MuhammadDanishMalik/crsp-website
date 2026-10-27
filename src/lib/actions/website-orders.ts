@@ -14,7 +14,7 @@ export type WebsiteOrderRow = {
   orderId: string; orderNo: string; state: "new" | "accepted" | "rejected"; createdAt: string; total: number;
   customerName: string; address: string; mapsUrl: string | null; note: string | null;
   items: { name: string; qty: number; mods: string[]; note: string | null }[];
-  phone: string | null; whatsapp: string | null; // shown once the kitchen has accepted
+  phone: string; whatsapp: string;
 };
 
 async function kitchenSession() {
@@ -37,12 +37,11 @@ export async function listWebsiteOrders(): Promise<{ ok: true; rows: WebsiteOrde
     const mods = items.length ? await db.select().from(s.orderItemModifiers).where(inArray(s.orderItemModifiers.orderItemId, items.map((i) => i.id))) : [];
     const rank = { new: 0, accepted: 1, rejected: 2 } as const;
     const rows: WebsiteOrderRow[] = w.map(({ w: x, o }) => {
-      const accepted = x.state === "accepted";
       return {
         orderId: o.id, orderNo: o.orderNo, state: x.state as WebsiteOrderRow["state"], createdAt: o.createdAt.toISOString(), total: o.total,
         customerName: o.customerName ?? "", address: o.deliveryAddress ?? "", mapsUrl: x.lat != null && x.lng != null ? `https://www.google.com/maps?q=${x.lat},${x.lng}` : null, note: x.note,
         items: items.filter((i) => i.orderId === o.id).map((i) => ({ name: i.nameSnapshot, qty: i.quantity, note: i.note, mods: mods.filter((m) => m.orderItemId === i.id).map((m) => m.nameSnapshot) })),
-        phone: accepted ? x.phone : null, whatsapp: accepted ? x.whatsapp ?? x.phone : null,
+        phone: x.phone, whatsapp: x.whatsapp ?? x.phone,
       };
     }).sort((a, b) => rank[a.state] - rank[b.state]);
     return { ok: true, rows, newCount: rows.filter((r) => r.state === "new").length };

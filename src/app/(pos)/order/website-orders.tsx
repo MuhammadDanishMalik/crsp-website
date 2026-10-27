@@ -1,6 +1,7 @@
 "use client";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
-import { BellRing, MapPin, MessageCircle, Phone, Printer } from "lucide-react";
+import { BellRing, MapPin, Phone, Printer, User } from "lucide-react";
+import { WhatsAppIcon } from "@/components/brand/whatsapp-icon";
 import { decideWebsiteOrder, listWebsiteOrders, type WebsiteOrderRow } from "@/lib/actions/website-orders";
 import { useBranchEvents } from "@/lib/realtime/use-events";
 import { Modal } from "@/components/ui/modal";
@@ -76,18 +77,16 @@ export function WebsiteTab() {
                     <li key={k}><span className="font-bold">{i.qty}× {i.name}</span>{i.mods.length > 0 && <span className="text-sm text-muted"> — {i.mods.join(", ")}</span>}{i.note && <span className="block pl-4 text-sm font-semibold text-accent">“{i.note}”</span>}</li>
                   ))}
                 </ul>
-                <div className="mt-3 rounded-xl bg-surface-2 p-3 text-sm">
-                  <p><b>{o.customerName}</b></p>
-                  <p className="mt-1 flex items-start gap-1.5"><MapPin size={16} className="mt-0.5 shrink-0" />{o.address}</p>
-                  {o.mapsUrl && <a href={o.mapsUrl} target="_blank" rel="noreferrer" className="mt-1 inline-block font-semibold text-brand underline">Open customer location on map</a>}
-                  {o.note && <p className="mt-1 text-muted">Note: {o.note}</p>}
-                  {o.phone && (
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      <a href={`tel:${o.phone}`} className="inline-flex h-10 items-center gap-2 rounded-xl bg-surface px-3 font-semibold"><Phone size={16} />{o.phone}</a>
-                      <a href={`https://wa.me/${phoneForWa(o.whatsapp ?? o.phone)}`} target="_blank" rel="noreferrer" className="inline-flex h-10 items-center gap-2 rounded-xl bg-success/20 px-3 font-semibold text-success"><MessageCircle size={16} />WhatsApp {o.whatsapp}</a>
-                    </div>
-                  )}
-                  {o.state === "new" && <p className="mt-2 text-xs text-muted">Phone and WhatsApp numbers show after you accept.</p>}
+                <div className="mt-3 space-y-2 rounded-xl bg-surface-2 p-3 text-sm">
+                  <p className="flex items-center gap-1.5 text-base"><User size={16} className="shrink-0" /><b>{o.customerName || "Name not saved"}</b></p>
+                  <p className="flex items-start gap-1.5"><MapPin size={16} className="mt-0.5 shrink-0" />{o.address || "Address not saved"}</p>
+                  {o.mapsUrl && <a href={o.mapsUrl} target="_blank" rel="noreferrer" className="inline-block font-semibold text-brand underline">Open customer location on map</a>}
+                  {o.note && <p className="text-muted">Note: {o.note}</p>}
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    <a href={`tel:${o.phone}`} className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-surface font-semibold"><Phone size={18} />Call {o.phone}</a>
+                    <a href={`https://wa.me/${phoneForWa(o.whatsapp)}?text=${encodeURIComponent(`Assalam o Alaikum ${o.customerName || ""}, CRSP se aap ka website order #${o.orderNo} mila hai.`)}`} target="_blank" rel="noreferrer"
+                      className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-[#25D366] font-bold text-white"><WhatsAppIcon size={22} />Chat on WhatsApp · {o.whatsapp}</a>
+                  </div>
                 </div>
                 {o.state === "new" && (
                   <div className="mt-3 grid grid-cols-[1fr_auto] gap-2">
