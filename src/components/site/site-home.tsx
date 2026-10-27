@@ -15,20 +15,7 @@ type Line = { key: string; itemId: string; name: string; price: number; qty: num
 
 /** Clean photo of a deal from the menu card (Deal 1–9). */
 const dealImage = (name: string) => { const m = /^deal\s*(\d+)/i.exec(name); return m && Number(m[1]) <= 9 ? `/deals/deal-${m[1]}.jpg` : null; };
-/** Clean product photos: deals use the menu-card photos, the rest are matched by category / name. */
-const FOOD: [RegExp, string][] = [
-  [/bottle 1(\.5)? l/i, "cola-big"], [/soft drink/i, "cola-bottle"],
-  [/^chicken piece$/i, "chicken"],
-];
-const CATEGORY_FOOD: Record<string, string> = { Burgers: "burger", Wraps: "wrap", Wings: "wings", Fries: "fries", Broast: "chicken", "Nuggets & Strips": "chicken" };
-const imageOf = (i: PosItem, category?: string) => {
-  const d = dealImage(i.name);
-  if (d) return d;
-  const byName = FOOD.find(([re]) => re.test(i.name));
-  const f = byName?.[1] ?? (category ? CATEGORY_FOOD[category] : undefined);
-  return f ? `/site/food/${f}.png` : null;
-};
-
+const imageOf = (i: PosItem) => dealImage(i.name); // only the deal photos from the menu card; regular items show no picture
 export function SiteHome({ menu }: { menu: PublicMenu }) {
   const [cat, setCat] = useState<string>("all");
   const [lines, setLines] = useState<Line[]>([]);
@@ -76,21 +63,22 @@ export function SiteHome({ menu }: { menu: PublicMenu }) {
         </div>
       </header>
 
-      <section className="border-b border-zinc-100 bg-gradient-to-b from-red-50 to-white">
+      <section className="border-b border-zinc-100 bg-white">
         <div className="mx-auto max-w-6xl px-4 py-10 text-center sm:py-14">
           <p className="text-sm font-bold uppercase tracking-widest text-[#d62828]">CRSP Watta Khail Chowk · Mianwali</p>
-          <Tagline />
+          <h1 className="mt-2 text-4xl font-black tracking-tight sm:text-6xl">Crispy. Juicy. Spicy.</h1>
+          <p className="mx-auto mt-3 max-w-xl text-zinc-600">Real Saudi-style spicy injected broast, burgers, wraps, wings and deals — hot to your door. Pay cash on delivery.</p>
           <FlightRoute />
           {openingOfferBps() > 0 && (
-            <div className="mx-auto mt-8 max-w-xl drop-shadow-[0_8px_18px_rgba(214,40,40,.22)]">
+            <div className="mx-auto mt-8 max-w-xl drop-shadow-[0_2px_10px_rgba(0,0,0,.14)]">
               <div className="ticket flex items-stretch">
                 <div className="flex w-[7.5rem] shrink-0 items-center justify-center p-2 sm:w-44">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src="/site/offer.png" alt="" width={176} height={176} className="anim-bob h-28 w-28 object-contain sm:h-36 sm:w-36" style={{ animation: "crsp-bob 3s ease-in-out infinite" }} />
+                  <img src="/site/offer.png" alt="" width={176} height={176} className="h-28 w-28 object-contain sm:h-36 sm:w-36" />
                 </div>
                 <div className="flex-1 border-l-2 border-dashed border-red-200 p-4 text-left sm:p-5">
                   <p className="text-[11px] font-black uppercase tracking-widest text-zinc-400">Opening offer</p>
-                  <p className="text-shimmer text-2xl font-black leading-tight sm:text-3xl">{OPENING_OFFER.bps / 100}% off</p>
+                  <p className="text-2xl font-black leading-tight text-[#d62828] sm:text-3xl">{OPENING_OFFER.bps / 100}% off</p>
                   <p className="mt-1 text-sm font-semibold">On your whole order <span className="font-normal text-zinc-500">(cold drinks excluded)</span></p>
                   <Countdown />
                 </div>
@@ -105,7 +93,7 @@ export function SiteHome({ menu }: { menu: PublicMenu }) {
         <section className="mx-auto max-w-6xl px-4 pt-10">
           <h2 className="text-2xl font-black">Deals</h2>
           <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {deals.map((d) => <ItemCard key={d.id} item={d} category="Deals" qty={qtyOf(d)} onChange={(n) => change(`${d.id}|`, n)} onAdd={() => (d.groups.length ? setPick(d) : add(d, []))} />)}
+            {deals.map((d) => <ItemCard key={d.id} item={d} qty={qtyOf(d)} onChange={(n) => change(`${d.id}|`, n)} onAdd={() => (d.groups.length ? setPick(d) : add(d, []))} />)}
           </div>
         </section>
       )}
@@ -120,7 +108,7 @@ export function SiteHome({ menu }: { menu: PublicMenu }) {
           <div key={c.id} className="pt-8">
             <h2 className="text-2xl font-black">{c.name}</h2>
             <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {menu.items.filter((i) => i.categoryId === c.id).map((i) => <ItemCard key={i.id} item={i} category={c.name} qty={qtyOf(i)} onChange={(n) => change(`${i.id}|`, n)} onAdd={() => (i.groups.length ? setPick(i) : add(i, []))} />)}
+              {menu.items.filter((i) => i.categoryId === c.id).map((i) => <ItemCard key={i.id} item={i} qty={qtyOf(i)} onChange={(n) => change(`${i.id}|`, n)} onAdd={() => (i.groups.length ? setPick(i) : add(i, []))} />)}
             </div>
           </div>
         ))}
@@ -175,41 +163,14 @@ export function SiteHome({ menu }: { menu: PublicMenu }) {
   );
 }
 
-const WORDS = [
-  { w: "Crispy.", line: "Golden crunch in every bite." },
-  { w: "Juicy.", line: "Spice injected deep inside the meat." },
-  { w: "Spicy.", line: "Real Saudi-style heat — pick your level." },
-];
-
-/** The three headline words: they take turns lighting up, and tapping one pops it and shows what it means. */
-function Tagline() {
-  const [active, setActive] = useState(0);
-  const [touched, setTouched] = useState(false);
-  const [pop, setPop] = useState(0);
-  useEffect(() => { if (touched) return; const t = setInterval(() => setActive((a) => (a + 1) % WORDS.length), 2200); return () => clearInterval(t); }, [touched]);
-  return (
-    <div className="mt-2">
-      <h1 className="flex flex-wrap items-center justify-center gap-x-3 text-4xl font-black tracking-tight sm:text-6xl">
-        {WORDS.map((x, i) => (
-          <button key={`${x.w}-${active === i ? pop : 0}`} onClick={() => { setTouched(true); setActive(i); setPop((n) => n + 1); }} onMouseEnter={() => { setActive(i); setTouched(true); }}
-            className={`inline-block rounded-xl px-1 transition-colors ${active === i ? "text-shimmer" : "text-zinc-900"}`} style={active === i ? { animation: `crsp-sweep 2.4s linear infinite${touched ? `, crsp-pop .45s ease-out` : ""}` } : undefined}>
-            {x.w}
-          </button>
-        ))}
-      </h1>
-      <p key={active} className="mx-auto mt-3 h-6 text-base font-semibold text-zinc-600" style={{ animation: "crsp-rise .4s ease-out" }}>{WORDS[active].line}</p>
-    </div>
-  );
-}
-
-/** "Straight from Saudi Arabia to Mianwali": a plane flies along a dashed route, over and over. */
+/** "Straight from Saudi Arabia to Mianwali" route. */
 function FlightRoute() {
   return (
     <div className="mx-auto mt-5 flex max-w-xl items-center gap-3 text-xs font-bold sm:text-sm">
       <span className="shrink-0 rounded-full bg-emerald-600 px-3 py-1.5 text-white">Saudi Arabia</span>
       <div className="relative h-8 flex-1">
         <div className="absolute left-0 right-0 top-1/2 border-t-2 border-dashed border-zinc-300" />
-        <Plane className="anim-fly absolute top-1/2 -translate-y-1/2 text-[#d62828]" style={{ animation: "crsp-fly 4s ease-in-out infinite" }} size={26} />
+        <Plane className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white p-0.5 text-[#d62828]" size={28} />
       </div>
       <span className="shrink-0 rounded-full bg-[#d62828] px-3 py-1.5 text-white">Mianwali</span>
     </div>
@@ -236,8 +197,8 @@ function Overlay({ children, onClose }: { children: React.ReactNode; onClose: ()
   );
 }
 
-function ItemCard({ item, category, qty, onAdd, onChange }: { item: PosItem; category?: string; qty: number; onAdd: () => void; onChange: (d: number) => void }) {
-  const img = imageOf(item, category);
+function ItemCard({ item, qty, onAdd, onChange }: { item: PosItem; qty: number; onAdd: () => void; onChange: (d: number) => void }) {
+  const img = imageOf(item);
   const isDeal = !!dealImage(item.name);
   const simple = item.groups.length === 0;
   const control = simple && qty > 0 ? (
@@ -352,7 +313,7 @@ function Checkout({ lines, total, onClose, onDone }: { lines: Line[]; total: num
   return (
     <Overlay onClose={onClose}>
       <form onSubmit={submit}>
-        <div className="relative border-b border-zinc-200 bg-gradient-to-b from-red-50 to-white px-4 pb-4 pt-5 text-center">
+        <div className="relative border-b border-zinc-200 bg-white px-4 pb-4 pt-5 text-center">
           <button type="button" onClick={onClose} aria-label="Close" className="absolute right-3 top-3 rounded-full p-2 hover:bg-zinc-100"><X /></button>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/site/map.png" alt="" width={200} height={200} className="mx-auto h-48 w-48 object-contain sm:h-56 sm:w-56" />
