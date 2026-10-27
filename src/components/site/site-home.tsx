@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
-import { Clock, LocateFixed, MapPin, Minus, Plus, ShoppingBag, X } from "lucide-react";
+import { Clock, LocateFixed, Star, MapPin, Minus, Plus, ShoppingBag, X } from "lucide-react";
 import { Logo } from "@/components/brand/logo";
 import { formatPKR } from "@/lib/domain/money";
 import { computeTotals } from "@/lib/domain/pricing";
@@ -10,6 +10,7 @@ import { placeWebsiteOrder } from "@/lib/actions/orders";
 import type { PublicMenu, PosItem } from "@/lib/queries/menu";
 
 const PHONE = "0309 0135353";
+const RATE_URL = "https://www.google.com/search?kgmid=/g/11nw2dlqx_&hl=en-PK&q=CRSP&shem=epsd1,esd2e,ltae,rimspwouoe,sdpie&shndl=30&source=sh/x/loc/osrp/m5/1&kgs=b0f0058efcc035ea&utm_source=epsd1,esd2e,ltae,rimspwouoe,sdpie,sh/x/loc/osrp/m5/1&zx=1793112095256#lrd=0x39271980f6068057:0x776594746f9f7093,3,,,,";
 
 type Line = { key: string; itemId: string; name: string; price: number; qty: number; mods: { id: string; name: string; priceDelta: number }[] };
 
@@ -55,6 +56,7 @@ export function SiteHome({ menu }: { menu: PublicMenu }) {
           <Logo height={36} priority />
           <div className="flex items-center gap-2">
             <a href={`tel:${PHONE.replace(/\s/g, "")}`} className="hidden rounded-full px-3 py-2 text-sm font-semibold text-zinc-600 hover:bg-zinc-100 sm:block">Call {PHONE}</a>
+            <a href={RATE_URL} target="_blank" rel="noreferrer" className="btn-shine hidden h-11 items-center gap-1.5 rounded-full border border-amber-300 bg-amber-50 px-4 text-sm font-bold text-amber-800 sm:flex"><Star size={16} fill="currentColor" />Rate us</a>
             <button onClick={() => setCartOpen(true)} className="btn-shine relative flex h-11 items-center gap-2 rounded-full bg-[#d62828] px-4 text-sm font-bold text-white shadow-sm active:scale-95">
               <ShoppingBag size={18} /> My order
               {count > 0 && <span className="rounded-full bg-white px-2 text-xs font-black text-[#d62828]">{count}</span>}
@@ -117,6 +119,7 @@ export function SiteHome({ menu }: { menu: PublicMenu }) {
       <footer className="mt-16 border-t border-zinc-200 bg-zinc-50 py-8 text-center text-sm text-zinc-500">
         <p className="font-semibold text-zinc-700">CRSP · Watta Khail Chowk, Mianwali</p>
         <p className="mt-1">Call {PHONE}</p>
+        <p className="mt-4"><a href={RATE_URL} target="_blank" rel="noreferrer" className="btn-shine inline-flex h-11 items-center gap-2 rounded-full border border-amber-300 bg-amber-50 px-5 font-bold text-amber-800"><Star size={16} fill="currentColor" />Rate us on Google</a></p>
         <p className="mt-3">Developed by <a href="https://orixto.com" target="_blank" rel="noreferrer" className="font-bold text-[#d62828] underline-offset-2 hover:underline">Orixto</a></p>
         <p className="mt-2"><a href="/?portal=1" className="text-xs text-zinc-400 hover:text-zinc-600">Staff login</a></p>
       </footer>
@@ -155,7 +158,8 @@ export function SiteHome({ menu }: { menu: PublicMenu }) {
             <h2 className="mt-4 text-2xl font-black">Order #{done.orderNo} received!</h2>
             <p className="mt-2 text-zinc-600">Our kitchen will confirm your order shortly and call or WhatsApp you. Please keep your phone nearby.</p>
             <p className="mt-4 text-lg font-bold">Pay {formatPKR(done.total)} cash on delivery</p>
-            <button onClick={() => setDone(null)} className="mt-6 h-12 w-full rounded-full bg-zinc-900 font-bold text-white">Done</button>
+            <a href={RATE_URL} target="_blank" rel="noreferrer" className="btn-shine mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-full border border-amber-300 bg-amber-50 font-bold text-amber-800"><Star size={18} fill="currentColor" />Rate us on Google</a>
+            <button onClick={() => setDone(null)} className="mt-3 h-12 w-full rounded-full bg-zinc-900 font-bold text-white">Done</button>
           </div>
         </Overlay>
       )}
