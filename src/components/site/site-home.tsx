@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
-import { LocateFixed, Plane, MapPin, Minus, Plus, ShoppingBag, X } from "lucide-react";
+import { Clock, LocateFixed, MapPin, Minus, Plus, ShoppingBag, X } from "lucide-react";
 import { Logo } from "@/components/brand/logo";
 import { formatPKR } from "@/lib/domain/money";
 import { computeTotals } from "@/lib/domain/pricing";
@@ -68,7 +68,7 @@ export function SiteHome({ menu }: { menu: PublicMenu }) {
           <p className="text-sm font-bold uppercase tracking-widest text-[#d62828]">CRSP Watta Khail Chowk · Mianwali</p>
           <h1 className="mt-2 text-4xl font-black tracking-tight sm:text-6xl">Crispy. Juicy. Spicy.</h1>
           <p className="mx-auto mt-3 max-w-xl text-zinc-600">Real Saudi-style spicy injected broast, burgers, wraps, wings and deals — hot to your door. Pay cash on delivery.</p>
-          <FlightRoute />
+          <BusyNotice />
           {openingOfferBps() > 0 && (
             <div className="mx-auto mt-8 max-w-xl drop-shadow-[0_2px_10px_rgba(0,0,0,.14)]">
               <div className="ticket flex items-stretch">
@@ -163,16 +163,12 @@ export function SiteHome({ menu }: { menu: PublicMenu }) {
   );
 }
 
-/** "Straight from Saudi Arabia to Mianwali" route. */
-function FlightRoute() {
+/** Shown at the top while the kitchen is flooded with opening-week orders. */
+function BusyNotice() {
   return (
-    <div className="mx-auto mt-5 flex max-w-xl items-center gap-3 text-xs font-bold sm:text-sm">
-      <span className="shrink-0 rounded-full bg-emerald-600 px-3 py-1.5 text-white">Saudi Arabia</span>
-      <div className="relative h-8 flex-1">
-        <div className="absolute left-0 right-0 top-1/2 border-t-2 border-dashed border-zinc-300" />
-        <Plane className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white p-0.5 text-[#d62828]" size={28} />
-      </div>
-      <span className="shrink-0 rounded-full bg-[#d62828] px-3 py-1.5 text-white">Mianwali</span>
+    <div role="status" className="mx-auto mt-5 flex max-w-xl items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-left text-sm text-amber-900">
+      <Clock size={22} className="mt-0.5 shrink-0" />
+      <p><b>We are very busy right now.</b> Because of our grand opening, replies and deliveries may take a little longer than usual. Thank you for your patience — we are working on it.</p>
     </div>
   );
 }
