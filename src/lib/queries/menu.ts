@@ -120,3 +120,13 @@ export async function categoryNamesOf(itemIds: string[]): Promise<(itemId: strin
   const map = new Map(rows.map((r) => [r.id, r.cat]));
   return (id) => map.get(id);
 }
+
+export const DEFAULT_CLOSED_MESSAGE = "We are not taking website orders right now. You are welcome to visit us at the shop for takeaway, or call us.";
+
+/** Whether the website takes orders (off until the owner switches it on in Admin → Settings), and the note shown while it is off. */
+export async function websiteOrderStatus(): Promise<{ open: boolean; message: string }> {
+  const db = await getDb();
+  const [b] = await db.select().from(s.business).limit(1);
+  const st = (b?.settings ?? {}) as { websiteOrdersOpen?: boolean; websiteClosedMessage?: string };
+  return { open: st.websiteOrdersOpen === true, message: st.websiteClosedMessage?.trim() || DEFAULT_CLOSED_MESSAGE };
+}

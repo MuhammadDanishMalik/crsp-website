@@ -21,6 +21,7 @@ export default async function SettingsPage() {
     <SettingsPanel
       can={{ payments: session.can("settings.payment_methods"), tax: session.can("settings.tax"), terminals: session.can("settings.terminals"), loyalty: session.can("settings.loyalty"), business: session.can("settings.business") }}
       receipt={session.can("settings.receipt") ? { header: bs.receiptHeader ?? "", footer: bs.receiptFooter ?? "", footerUr: bs.receiptFooterUr ?? "" } : null}
+      website={session.can("settings.business") ? { open: (bs as { websiteOrdersOpen?: boolean }).websiteOrdersOpen === true, message: (bs as { websiteClosedMessage?: string }).websiteClosedMessage ?? "" } : null}
       business={session.can("settings.business") ? { name: biz?.name ?? "", ntn: biz?.ntn ?? "", strn: biz?.strn ?? "", serviceChargePercent: (bs.serviceChargeBps ?? 0) / 100, lockMinutes: bs.lockMinutes ?? 5 } : null}
       loyalty={loyalty ? { earnPer100: Number(loyalty.earnPerRupee) * 100, pointValueRupees: loyalty.pointValuePaisa / 100, minRedeem: loyalty.minRedeemPoints, active: loyalty.isActive } : { earnPer100: 1, pointValueRupees: 1, minRedeem: 100, active: false }}
       reports={reports.map((r) => ({ id: r.id, channel: r.channel, recipient: r.recipient, sendAt: String(r.sendAt).slice(0, 5), lastSentOn: r.lastSentOn ?? "" }))}

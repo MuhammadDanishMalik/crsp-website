@@ -2,7 +2,7 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { createTerminal, saveTaxRule, setPaymentMethodEnabled, setPaymentMethodProvider } from "@/lib/actions/settings";
-import { saveBusiness, saveReceiptText } from "@/lib/actions/settings";
+import { saveBusiness, saveReceiptText, setWebsiteOrdering } from "@/lib/actions/settings";
 import { saveLoyaltyRules } from "@/lib/actions/customers-admin";
 import { removeScheduledReport, saveScheduledReport, sendSummaryNow } from "@/lib/actions/notify";
 import { Button } from "@/components/ui/button";
@@ -17,7 +17,7 @@ type Rep = { id: string; channel: string; recipient: string; sendAt: string; las
 type Biz = { name: string; ntn: string; strn: string; serviceChargePercent: number; lockMinutes: number };
 type Rcpt = { header: string; footer: string; footerUr: string };
 
-export function SettingsPanel({ can, methods, taxes, terminals, loyalty, reports, business, receipt }: { can: { payments: boolean; tax: boolean; terminals: boolean; loyalty: boolean; business: boolean }; methods: { method: string; enabled: boolean; provider: string; options: { id: string; label: string }[] }[]; taxes: Tax[]; terminals: { id: string; name: string; lastSeen: string | null }[]; loyalty: Loyalty; reports: Rep[]; business: Biz | null; receipt: Rcpt | null }) {
+export function SettingsPanel({ can, methods, taxes, terminals, loyalty, reports, business, receipt, website }: { can: { payments: boolean; tax: boolean; terminals: boolean; loyalty: boolean; business: boolean }; methods: { method: string; enabled: boolean; provider: string; options: { id: string; label: string }[] }[]; taxes: Tax[]; terminals: { id: string; name: string; lastSeen: string | null }[]; loyalty: Loyalty; reports: Rep[]; business: Biz | null; receipt: Rcpt | null; website: { open: boolean; message: string } | null }) {
   const router = useRouter();
   const [, start] = useTransition();
   const [msg, setMsg] = useState("");
@@ -27,6 +27,7 @@ export function SettingsPanel({ can, methods, taxes, terminals, loyalty, reports
     <div className="max-w-3xl space-y-8">
       <h1 className="text-3xl font-bold">Settings</h1>
       {msg && <p className="rounded-xl bg-accent/20 p-3">{msg}</p>}
+      {website && <WebsiteSection value={website} onSave={(v) => run(() => setWebsiteOrdering(v))} />}
       {business && <BusinessSection value={business} onSave={(v) => run(() => saveBusiness(v), "Business details saved")} />}
       {receipt && <ReceiptSection value={receipt} onSave={(v) => run(() => saveReceiptText(v), "Receipt text saved")} />}
 
@@ -149,6 +150,22 @@ function ReceiptSection({ value, onSave }: { value: Rcpt; onSave: (v: unknown) =
         <label className="block text-sm text-muted">Thank-you message (English)<Input value={v.footer} onChange={(e) => setV({ ...v, footer: e.target.value })} /></label>
         <label className="block text-sm text-muted">Thank-you message (Urdu)<Input dir="rtl" value={v.footerUr} onChange={(e) => setV({ ...v, footerUr: e.target.value })} /></label>
         <Button onClick={() => onSave(v)}>Save</Button>
+      </div>
+    </section>
+  );
+}
+
+function WebsiteSection({ value, onSave }: { value: { open: boolean; message: string }; onSave: (v: { open: boolean; message: string }) => void }) {
+  const [message, setMessage] = useState(value.message);
+  return (
+    <section className={`rounded-2xl border-2 p-4 ${value.open ? "border-success/50" : "border-danger/50"}`}>
+      <h2 className="text-lg font-semibold">Website orders</h2>
+      <p className="mt-1 text-sm">{value.open ? "The website is taking orders." : "The website is NOT taking orders. Visitors can read the menu only."}</p>
+      <label className="mt-3 block text-sm font-medium">Message shown to visitors while orders are off</label>
+      <Input value={message} maxLength={240} placeholder="We are not taking website orders right now. Takeaway only." onChange={(e) => setMessage(e.target.value)} />
+      <div className="mt-3 flex gap-2">
+        <Button variant={value.open ? "danger" : "success"} onClick={() => onSave({ open: !value.open, message })}>{value.open ? "Stop taking website orders" : "Start taking website orders"}</Button>
+        {!value.open && <Button variant="secondary" onClick={() => onSave({ open: false, message })}>Save message</Button>}
       </div>
     </section>
   );

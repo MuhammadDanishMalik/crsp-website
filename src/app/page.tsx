@@ -1,4 +1,4 @@
-import { loadPublicMenu } from "@/lib/queries/menu";
+import { loadPublicMenu, websiteOrderStatus } from "@/lib/queries/menu";
 import { SiteHome } from "@/components/site/site-home";
 import { redirect } from "next/navigation";
 import { getSession, getTerminalClaims } from "@/lib/auth/session";
@@ -21,7 +21,7 @@ export default async function HomePage(props: {
   }
 
   // Load public menu from database
-  const menu = await loadPublicMenu();
+  const [menu, status] = await Promise.all([loadPublicMenu(), websiteOrderStatus()]);
 
-  return <SiteHome menu={menu} />;
+  return <SiteHome menu={menu} orders={status} />;
 }

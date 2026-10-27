@@ -130,6 +130,18 @@ export async function saveBusiness(raw: unknown): Promise<R> {
   });
 }
 
+export async function setWebsiteOrdering(raw: unknown): Promise<R> {
+  return guard(async () => {
+    const session = await requirePermission("settings.business");
+    const v = z.object({ open: z.boolean(), message: z.string().trim().max(240) }).parse(raw);
+    await mergeBusinessSettings({ websiteOrdersOpen: v.open, websiteClosedMessage: v.message });
+    await audit(session, { action: "settings.website_ordering", entity: "business", after: v });
+    revalidatePath("/admin/settings");
+    revalidatePath("/");
+    return { ok: true, message: v.open ? "Website is now taking orders" : "Website orders are switched off" };
+  });
+}
+
 export async function saveReceiptText(raw: unknown): Promise<R> {
   return guard(async () => {
     const session = await requirePermission("settings.receipt");

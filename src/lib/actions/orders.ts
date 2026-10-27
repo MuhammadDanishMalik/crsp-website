@@ -12,7 +12,7 @@ import type { Permission } from "@/lib/domain/permissions";
 import { businessDate } from "@/lib/domain/dates";
 import { computeTotals, groupError, type CartLine } from "@/lib/domain/pricing";
 import { createOrderSchema } from "@/lib/validation/order";
-import { loadTaxRules, categoryNamesOf } from "@/lib/queries/menu";
+import { loadTaxRules, categoryNamesOf, websiteOrderStatus } from "@/lib/queries/menu";
 import { getOpenShift } from "@/lib/queries/shift";
 import { publish } from "@/lib/realtime/bus";
 import { findPromo } from "@/lib/queries/promo";
@@ -349,6 +349,8 @@ const websiteOrderSchema = z.object({
 export async function placeWebsiteOrder(raw: unknown): Promise<Ok | Err> {
   try {
     const v = websiteOrderSchema.parse(raw);
+    const status = await websiteOrderStatus();
+    if (!status.open) return { ok: false, error: status.message };
     const db = await getDb();
     const [b] = await db.select().from(s.branches).where(eq(s.branches.isActive, true)).limit(1);
     if (!b) return { ok: false, error: "Ordering is closed right now. Please call us." };

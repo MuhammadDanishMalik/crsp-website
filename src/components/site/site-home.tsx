@@ -17,7 +17,8 @@ type Line = { key: string; itemId: string; name: string; price: number; qty: num
 /** Clean photo of a deal from the menu card (Deal 1–9). */
 const dealImage = (name: string) => { const m = /^deal\s*(\d+)/i.exec(name); return m && Number(m[1]) <= 9 ? `/deals/deal-${m[1]}.jpg` : null; };
 const imageOf = (i: PosItem) => dealImage(i.name); // only the deal photos from the menu card; regular items show no picture
-export function SiteHome({ menu }: { menu: PublicMenu }) {
+export function SiteHome({ menu, orders }: { menu: PublicMenu; orders: { open: boolean; message: string } }) {
+  const closed = !orders.open;
   const [cat, setCat] = useState<string>("all");
   const [lines, setLines] = useState<Line[]>([]);
   const [pick, setPick] = useState<PosItem | null>(null);
@@ -57,10 +58,10 @@ export function SiteHome({ menu }: { menu: PublicMenu }) {
           <div className="flex items-center gap-2">
             <a href={`tel:${PHONE.replace(/\s/g, "")}`} className="hidden rounded-full px-3 py-2 text-sm font-semibold text-zinc-600 hover:bg-zinc-100 sm:block">Call {PHONE}</a>
             <a href={RATE_URL} target="_blank" rel="noreferrer" className="btn-shine hidden h-11 items-center gap-1.5 rounded-full border border-amber-300 bg-amber-50 px-4 text-sm font-bold text-amber-800 sm:flex"><Star size={16} fill="currentColor" />Rate us</a>
-            <button onClick={() => setCartOpen(true)} className="btn-shine relative flex h-11 items-center gap-2 rounded-full bg-[#d62828] px-4 text-sm font-bold text-white shadow-sm active:scale-95">
+            {!closed && <button onClick={() => setCartOpen(true)} className="btn-shine relative flex h-11 items-center gap-2 rounded-full bg-[#d62828] px-4 text-sm font-bold text-white shadow-sm active:scale-95">
               <ShoppingBag size={18} /> My order
               {count > 0 && <span className="rounded-full bg-white px-2 text-xs font-black text-[#d62828]">{count}</span>}
-            </button>
+            </button>}
           </div>
         </div>
       </header>
@@ -70,8 +71,8 @@ export function SiteHome({ menu }: { menu: PublicMenu }) {
           <p className="text-sm font-bold uppercase tracking-widest text-[#d62828]">CRSP Watta Khail Chowk · Mianwali</p>
           <h1 className="mt-2 text-4xl font-black tracking-tight sm:text-6xl">Crispy. Juicy. Spicy.</h1>
           <p className="mx-auto mt-3 max-w-xl text-zinc-600">Real Saudi-style spicy injected broast, burgers, wraps, wings and deals — hot to your door. Pay cash on delivery.</p>
-          <BusyNotice />
-          {openingOfferBps() > 0 && (
+          {closed ? <ClosedNotice message={orders.message} /> : <BusyNotice />}
+          {!closed && openingOfferBps() > 0 && (
             <div className="mx-auto mt-8 max-w-xl drop-shadow-[0_2px_10px_rgba(0,0,0,.14)]">
               <div className="ticket flex items-stretch">
                 <div className="flex w-[7.5rem] shrink-0 items-center justify-center p-2 sm:w-44">
@@ -95,7 +96,7 @@ export function SiteHome({ menu }: { menu: PublicMenu }) {
         <section className="mx-auto max-w-6xl px-4 pt-10">
           <h2 className="text-2xl font-black">Deals</h2>
           <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {deals.map((d) => <ItemCard key={d.id} item={d} qty={qtyOf(d)} onChange={(n) => change(`${d.id}|`, n)} onAdd={() => (d.groups.length ? setPick(d) : add(d, []))} />)}
+            {deals.map((d) => <ItemCard key={d.id} closed={closed} item={d} qty={qtyOf(d)} onChange={(n) => change(`${d.id}|`, n)} onAdd={() => (d.groups.length ? setPick(d) : add(d, []))} />)}
           </div>
         </section>
       )}
@@ -110,7 +111,7 @@ export function SiteHome({ menu }: { menu: PublicMenu }) {
           <div key={c.id} className="pt-8">
             <h2 className="text-2xl font-black">{c.name}</h2>
             <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {menu.items.filter((i) => i.categoryId === c.id).map((i) => <ItemCard key={i.id} item={i} qty={qtyOf(i)} onChange={(n) => change(`${i.id}|`, n)} onAdd={() => (i.groups.length ? setPick(i) : add(i, []))} />)}
+              {menu.items.filter((i) => i.categoryId === c.id).map((i) => <ItemCard key={i.id} closed={closed} item={i} qty={qtyOf(i)} onChange={(n) => change(`${i.id}|`, n)} onAdd={() => (i.groups.length ? setPick(i) : add(i, []))} />)}
             </div>
           </div>
         ))}
@@ -168,6 +169,15 @@ export function SiteHome({ menu }: { menu: PublicMenu }) {
 }
 
 /** Shown at the top while the kitchen is flooded with opening-week orders. */
+function ClosedNotice({ message }: { message: string }) {
+  return (
+    <div role="status" className="mx-auto mt-5 max-w-xl rounded-2xl border border-red-200 bg-red-50 p-4 text-left text-sm text-red-900">
+      <p className="text-base font-black">Website orders are closed right now</p>
+      <p className="mt-1">{message}</p>
+    </div>
+  );
+}
+
 function BusyNotice() {
   return (
     <div role="status" className="mx-auto mt-5 flex max-w-xl items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-left text-sm text-amber-900">
@@ -197,11 +207,11 @@ function Overlay({ children, onClose }: { children: React.ReactNode; onClose: ()
   );
 }
 
-function ItemCard({ item, qty, onAdd, onChange }: { item: PosItem; qty: number; onAdd: () => void; onChange: (d: number) => void }) {
+function ItemCard({ item, qty, closed, onAdd, onChange }: { item: PosItem; qty: number; closed: boolean; onAdd: () => void; onChange: (d: number) => void }) {
   const img = imageOf(item);
   const isDeal = !!dealImage(item.name);
   const simple = item.groups.length === 0;
-  const control = simple && qty > 0 ? (
+  const control = closed ? null : simple && qty > 0 ? (
     <div className="flex items-center gap-1.5">
       <button onClick={() => onChange(-1)} aria-label="Less" className="flex h-9 w-9 items-center justify-center rounded-full border border-zinc-300 active:scale-95"><Minus size={16} /></button>
       <span className="w-6 text-center font-black">{qty}</span>
