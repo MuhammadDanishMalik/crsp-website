@@ -15,7 +15,19 @@ type Line = { key: string; itemId: string; name: string; price: number; qty: num
 
 /** Clean photo of a deal from the menu card (Deal 1–9). */
 const dealImage = (name: string) => { const m = /^deal\s*(\d+)/i.exec(name); return m && Number(m[1]) <= 9 ? `/deals/deal-${m[1]}.jpg` : null; };
-const imageOf = (i: PosItem) => dealImage(i.name); // only the clean menu-card photos are used
+/** Clean product photos: deals use the menu-card photos, the rest are matched by category / name. */
+const FOOD: [RegExp, string][] = [
+  [/bottle 1(\.5)? l/i, "cola-big"], [/soft drink/i, "cola-bottle"],
+  [/^chicken piece$/i, "chicken"],
+];
+const CATEGORY_FOOD: Record<string, string> = { Burgers: "burger", Wraps: "wrap", Wings: "wings", Fries: "fries", Broast: "chicken", "Nuggets & Strips": "chicken" };
+const imageOf = (i: PosItem, category?: string) => {
+  const d = dealImage(i.name);
+  if (d) return d;
+  const byName = FOOD.find(([re]) => re.test(i.name));
+  const f = byName?.[1] ?? (category ? CATEGORY_FOOD[category] : undefined);
+  return f ? `/site/food/${f}.png` : null;
+};
 
 export function SiteHome({ menu }: { menu: PublicMenu }) {
   const [cat, setCat] = useState<string>("all");
@@ -44,6 +56,7 @@ export function SiteHome({ menu }: { menu: PublicMenu }) {
   });
   const change = (key: string, d: number) => setLines((ls) => ls.map((l) => (l.key === key ? { ...l, qty: l.qty + d } : l)).filter((l) => l.qty > 0));
 
+  const qtyOf = (i: PosItem) => lines.find((l) => l.key === `${i.id}|`)?.qty ?? 0;
   const visibleCats = menu.categories.filter((c) => menu.items.some((i) => i.categoryId === c.id && i.available));
   const sections = visibleCats.filter((c) => cat === "all" || c.id === cat);
   const deals = menu.items.filter((i) => catName(i.id) === "Deals" && i.available);
@@ -72,7 +85,7 @@ export function SiteHome({ menu }: { menu: PublicMenu }) {
             <div className="mx-auto mt-6 flex max-w-xl flex-col items-center gap-2 rounded-3xl border border-red-100 bg-white p-4 text-center shadow-sm sm:flex-row sm:gap-5 sm:text-left">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src="/site/offer.png" alt="" width={176} height={176} className="h-40 w-40 shrink-0 object-contain sm:h-44 sm:w-44" />
-              <p className="text-sm font-semibold"><span className="block text-2xl font-black text-[#d62828]">Opening week: {OPENING_OFFER.bps / 100}% off</span>On your whole order (cold drinks excluded) · till {new Date(`${OPENING_OFFER.end}T12:00:00`).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}</p>
+              <p className="text-sm font-semibold"><span className="block text-2xl font-black text-[#d62828]">Opening week: {OPENING_OFFER.bps / 100}% off</span>On your whole order (cold drinks excluded)<Countdown /></p>
             </div>
           )}
           <div className="mt-6"><a href="#menu" className="inline-block rounded-full bg-zinc-900 px-6 py-3 font-bold text-white hover:bg-zinc-700">See the menu</a></div>
@@ -83,7 +96,7 @@ export function SiteHome({ menu }: { menu: PublicMenu }) {
         <section className="mx-auto max-w-6xl px-4 pt-10">
           <h2 className="text-2xl font-black">Deals</h2>
           <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {deals.map((d) => <ItemCard key={d.id} item={d} onAdd={() => (d.groups.length ? setPick(d) : add(d, []))} big />)}
+            {deals.map((d) => <ItemCard key={d.id} item={d} category="Deals" qty={qtyOf(d)} onChange={(n) => change(`${d.id}|`, n)} onAdd={() => (d.groups.length ? setPick(d) : add(d, []))} />)}
           </div>
         </section>
       )}
@@ -98,7 +111,7 @@ export function SiteHome({ menu }: { menu: PublicMenu }) {
           <div key={c.id} className="pt-8">
             <h2 className="text-2xl font-black">{c.name}</h2>
             <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {menu.items.filter((i) => i.categoryId === c.id).map((i) => <ItemCard key={i.id} item={i} onAdd={() => (i.groups.length ? setPick(i) : add(i, []))} big={!!imageOf(i)} />)}
+              {menu.items.filter((i) => i.categoryId === c.id).map((i) => <ItemCard key={i.id} item={i} category={c.name} qty={qtyOf(i)} onChange={(n) => change(`${i.id}|`, n)} onAdd={() => (i.groups.length ? setPick(i) : add(i, []))} />)}
             </div>
           </div>
         ))}
@@ -107,7 +120,8 @@ export function SiteHome({ menu }: { menu: PublicMenu }) {
       <footer className="mt-16 border-t border-zinc-200 bg-zinc-50 py-8 text-center text-sm text-zinc-500">
         <p className="font-semibold text-zinc-700">CRSP · Watta Khail Chowk, Mianwali</p>
         <p className="mt-1">Call {PHONE}</p>
-        <p className="mt-3"><a href="/?portal=1" className="text-zinc-400 hover:text-zinc-600">Staff login</a></p>
+        <p className="mt-3">Developed by <a href="https://orixto.com" target="_blank" rel="noreferrer" className="font-bold text-[#d62828] underline-offset-2 hover:underline">Orixto</a></p>
+        <p className="mt-2"><a href="/?portal=1" className="text-xs text-zinc-400 hover:text-zinc-600">Staff login</a></p>
       </footer>
 
       {pick && <PickModal item={pick} onClose={() => setPick(null)} onAdd={(mods, qty) => { add(pick, mods, qty); setPick(null); setCartOpen(true); }} />}
@@ -140,7 +154,7 @@ export function SiteHome({ menu }: { menu: PublicMenu }) {
         <Overlay onClose={() => setDone(null)}>
           <div className="p-8 text-center">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/site/waiting.png" alt="" width={288} height={288} className="mx-auto h-60 w-60 object-contain sm:h-72 sm:w-72" />
+            <img src="/site/thankyou.png" alt="Thank you" width={420} height={358} className="mx-auto h-auto w-full max-w-sm object-contain" />
             <h2 className="mt-4 text-2xl font-black">Order #{done.orderNo} received!</h2>
             <p className="mt-2 text-zinc-600">Our kitchen will confirm your order shortly and call or WhatsApp you. Please keep your phone nearby.</p>
             <p className="mt-4 text-lg font-bold">Pay {formatPKR(done.total)} cash on delivery</p>
@@ -152,6 +166,17 @@ export function SiteHome({ menu }: { menu: PublicMenu }) {
   );
 }
 
+/** "Offer ends in 5 days 4 h 12 m 30 s", ticking every second. */
+function Countdown() {
+  const end = useMemo(() => new Date(`${OPENING_OFFER.end}T23:59:59+05:00`).getTime(), []); // end of the last day, Pakistan time
+  const [now, setNow] = useState<number | null>(null);
+  useEffect(() => { setNow(Date.now()); const t = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(t); }, []);
+  if (now === null || end <= now) return null;
+  const sec = Math.floor((end - now) / 1000);
+  const d = Math.floor(sec / 86400), h = Math.floor((sec % 86400) / 3600), m = Math.floor((sec % 3600) / 60), x = sec % 60;
+  return <span className="mt-1 block font-black tabular-nums text-zinc-900">Offer ends in {d > 0 ? `${d} day${d === 1 ? "" : "s"} ` : ""}{h} h {m} m {x} s</span>;
+}
+
 function Overlay({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
@@ -160,21 +185,39 @@ function Overlay({ children, onClose }: { children: React.ReactNode; onClose: ()
   );
 }
 
-function ItemCard({ item, onAdd, big }: { item: PosItem; onAdd: () => void; big?: boolean }) {
-  const img = imageOf(item);
-  return (
-    <div className={`flex overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm ${big && img ? "flex-col" : "items-center justify-between gap-3 p-4"}`}>
-      {big && img && (
+function ItemCard({ item, category, qty, onAdd, onChange }: { item: PosItem; category?: string; qty: number; onAdd: () => void; onChange: (d: number) => void }) {
+  const img = imageOf(item, category);
+  const isDeal = !!dealImage(item.name);
+  const simple = item.groups.length === 0;
+  const control = simple && qty > 0 ? (
+    <div className="flex items-center gap-1.5">
+      <button onClick={() => onChange(-1)} aria-label="Less" className="flex h-9 w-9 items-center justify-center rounded-full border border-zinc-300 active:scale-95"><Minus size={16} /></button>
+      <span className="w-6 text-center font-black">{qty}</span>
+      <button onClick={() => onChange(1)} aria-label="More" className="flex h-9 w-9 items-center justify-center rounded-full bg-[#d62828] text-white active:scale-95"><Plus size={16} /></button>
+    </div>
+  ) : (
+    <button onClick={onAdd} className="h-10 rounded-full bg-[#d62828] px-5 text-sm font-bold text-white active:scale-95">{isDeal ? "Add to order" : "Add"}</button>
+  );
+  return isDeal && img ? (
+    <div className="flex flex-col overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={img} alt={item.name} loading="lazy" className="aspect-[2/1] w-full bg-white object-contain" />
+      <div className="flex items-end justify-between gap-3 p-4 pt-1">
+        <div className="min-w-0"><p className="font-bold leading-tight">{item.name}</p>{item.description && <p className="mt-1 line-clamp-2 text-xs text-zinc-500">{item.description}</p>}<p className="mt-1 text-lg font-black text-[#d62828]">{formatPKR(item.price)}</p></div>
+        {control}
+      </div>
+    </div>
+  ) : (
+    <div className="flex items-center gap-3 rounded-2xl border border-zinc-200 bg-white p-3 shadow-sm">
+      {img && (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={img} alt={item.name} loading="lazy" className="aspect-[2/1] w-full bg-white object-contain" />
+        <img src={img} alt="" loading="lazy" width={96} height={96} className="h-24 w-24 shrink-0 object-contain" />
       )}
-      <div className={`min-w-0 ${big && img ? "p-4 pt-1" : ""}`}>
+      <div className="min-w-0 flex-1">
         <p className="font-bold leading-tight">{item.name}</p>
         {item.description && <p className="mt-1 line-clamp-2 text-xs text-zinc-500">{item.description}</p>}
-        <p className="mt-1 font-black text-[#d62828]">{formatPKR(item.price)}</p>
-        {big && img && <button onClick={onAdd} className="mt-3 h-10 w-full rounded-full bg-[#d62828] text-sm font-bold text-white active:scale-[.98]">Add to order</button>}
+        <div className="mt-2 flex items-center justify-between gap-2"><p className="font-black text-[#d62828]">{formatPKR(item.price)}</p>{control}</div>
       </div>
-      {!(big && img) && <button onClick={onAdd} aria-label={`Add ${item.name}`} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#d62828] text-white active:scale-95"><Plus size={20} /></button>}
     </div>
   );
 }
