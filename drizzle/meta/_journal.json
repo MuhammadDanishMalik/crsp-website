@@ -43,6 +43,13 @@
       "when": 1792143674507,
       "tag": "0005_tiresome_firebird",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1793080260767,
+      "tag": "0006_solid_quasar",
+      "breakpoints": true
     }
   ]
 }

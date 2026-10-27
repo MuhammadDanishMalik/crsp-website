@@ -3,10 +3,11 @@
 import { markNoDiscount } from "@/lib/domain/discount-scope";
 import { openingOfferBps, OPENING_OFFER } from "@/lib/domain/opening-offer";
 import { and, eq, inArray, sql } from "drizzle-orm";
+import { z } from "zod";
 import { getDb } from "@/lib/db/client";
 import * as s from "@/lib/db/schema";
 import { audit } from "@/lib/auth/audit";
-import { PermissionError, readOverride, requirePermission } from "@/lib/auth/session";
+import { PermissionError, readOverride, requirePermission, type Session } from "@/lib/auth/session";
 import type { Permission } from "@/lib/domain/permissions";
 import { businessDate } from "@/lib/domain/dates";
 import { computeTotals, groupError, type CartLine } from "@/lib/domain/pricing";
@@ -40,8 +41,11 @@ export async function createOrder(raw: unknown): Promise<Ok | Err> {
 }
 class OrderError extends Error {}
 
-async function createOrderInner(raw: unknown): Promise<Ok> {
-  const session = await requirePermission("order.create");
+type WebsiteMeta = { whatsapp?: string; lat?: number; lng?: number; locationText?: string; note?: string };
+
+async function createOrderInner(raw: unknown, ctx?: { session: Session; website: WebsiteMeta }): Promise<Ok> {
+  const session = ctx?.session ?? (await requirePermission("order.create"));
+  const website = ctx?.website;
   const input = createOrderSchema.parse(raw);
   const db = await getDb();
 
@@ -58,7 +62,7 @@ async function createOrderInner(raw: unknown): Promise<Ok> {
   if (input.type === "online" && !session.can("order.aggregator.create")) throw new PermissionError("Missing permission: order.aggregator.create");
   if (input.type === "delivery" && !input.deliveryAddress) throw new OrderError("Delivery address is required");
   const cod = !!input.cod;
-  if (cod && input.type !== "delivery") throw new OrderError("Cash on delivery is only for delivery orders");
+  if (cod && input.type !== "delivery" && !website) throw new OrderError("Cash on delivery is only for delivery orders");
   if (cod && !input.customerPhone) throw new OrderError("Enter the customer phone for cash on delivery");
   if (!cod && !input.payments.length) throw new OrderError("Add a payment");
   if (input.payments.length > 1 && !session.can("payment.split")) throw new PermissionError("Missing permission: payment.split");
@@ -70,7 +74,9 @@ async function createOrderInner(raw: unknown): Promise<Ok> {
   const termId = session.terminalId ?? (await db.select({ id: s.terminals.id }).from(s.terminals).limit(1))[0]?.id;
   let shift = off
     ? (await db.select().from(s.shifts).where(and(eq(s.shifts.id, off.shiftId), eq(s.shifts.branchId, session.branchId))))[0]
-    : await getOpenShift(termId, session.staffId);
+    : website
+      ? (await db.select().from(s.shifts).where(and(eq(s.shifts.branchId, session.branchId), eq(s.shifts.status, "open"))).limit(1))[0] ?? (await getOpenShift(termId, session.staffId)) // any cashier's open shift
+      : await getOpenShift(termId, session.staffId);
 
   if (!shift && termId) {
     const [autoShift] = await db.insert(s.shifts).values({
@@ -255,8 +261,8 @@ async function createOrderInner(raw: unknown): Promise<Ok> {
     const awaiting = input.payments.some((p, i) => stateOf(i, p.method) === "pending_verification");
     await tx.insert(s.orders).values({
       id: input.clientId, branchId: session.branchId, terminalId: off ? shift.terminalId : (termId || session.terminalId!), shiftId: shift.id, businessDate: date, orderNo,
-      type: input.type, status: off ? "completed" : "sent", tableNo: input.tableNo, customerName: input.customerName?.trim() || null, customerId, deliveryAddress: input.deliveryAddress, deliveryZoneId: input.deliveryZoneId,
-      aggregatorName: input.aggregatorName, subtotal: totals.subtotal, discountTotal: totals.discountTotal, serviceCharge: totals.serviceCharge,
+      type: input.type, status: off ? "completed" : website ? "open" : "sent", // website orders stay "open" (off the kitchen screen) until the kitchen accepts them tableNo: input.tableNo, customerName: input.customerName?.trim() || null, customerId, deliveryAddress: input.deliveryAddress, deliveryZoneId: input.deliveryZoneId,
+      aggregatorName: website ? "Website" : input.aggregatorName, subtotal: totals.subtotal, discountTotal: totals.discountTotal, serviceCharge: totals.serviceCharge,
       deliveryCharge: totals.deliveryCharge, taxTotal: totals.taxTotal, total: totals.total, amountPaid: cod ? 0 : awaiting ? paid - input.payments.filter((p, i) => stateOf(i, p.method) === "pending_verification").reduce((a, p) => a + p.amount, 0) : totals.total,
       loyaltyPointsRedeemed: redeemedPoints, loyaltyPointsEarned: customerId && loyalty ? pointsEarned(totals.total, loyalty) : 0,
       createdBy: attributedTo, completedAt: awaiting || cod ? null : placedAt, createdAt: placedAt, updatedAt: placedAt, offlineCreated: !!off,
@@ -279,7 +285,10 @@ async function createOrderInner(raw: unknown): Promise<Ok> {
     if (totals.taxLines.length) await tx.insert(s.orderTaxLines).values(totals.taxLines.map((t) => ({ orderId: input.clientId, taxRuleId: t.ruleId, name: t.name, rateBps: t.rateBps, amount: t.amount })));
     if (discount) await tx.insert(s.orderDiscounts).values({ orderId: input.clientId, kind: discount.kind, value: discount.value, amount: totals.discountTotal - totals.loyaltyDiscount, reason: offerBps ? OPENING_OFFER.label : input.discount?.reason, discountId: promoId, appliedBy: session.staffId, approvedBy: approverId });
 
-    if (input.type === "delivery") {
+    if (website) {
+      await tx.insert(s.websiteOrders).values({ orderId: input.clientId, branchId: session.branchId, phone: input.customerPhone!, whatsapp: website.whatsapp, lat: website.lat, lng: website.lng, locationText: website.locationText, note: website.note });
+    }
+    if (input.type === "delivery" && !website) { // website deliveries are created when the kitchen accepts
       await tx.insert(s.deliveries).values({ orderId: input.clientId, branchId: session.branchId, cashToCollect: cod ? totals.total : 0 });
     }
     if (cod) {
@@ -309,7 +318,7 @@ async function createOrderInner(raw: unknown): Promise<Ok> {
 
   if (approverId) await audit(session, { action: "discount.override", entity: "order", entityId: input.clientId, after: discount, approverId, reason: input.discount?.reason });
   await fiscalizeNow(input.clientId, session.branchId); // authority invoice number + QR for the receipt; queued if the authority is down
-  publish(session.branchId, { type: "order.created", orderId: input.clientId });
+  publish(session.branchId, { type: website ? "website.order" : "order.created", orderId: input.clientId });
   return { ok: true, orderId: input.clientId, orderNo: result.orderNo, total: totals.total, change };
 }
 
@@ -320,4 +329,49 @@ export async function previewPromo(code: string) {
   if (!p.ok) return p;
   if (p.isStaffMeal ? !session.can("discount.staff_meal") : !session.can("discount.promo_code")) return { ok: false as const, error: "You cannot use this code" };
   return { ok: true as const, name: p.name, kind: p.kind, value: p.value };
+}
+
+
+const websiteOrderSchema = z.object({
+  clientId: z.string().uuid(),
+  name: z.string().trim().min(2, "Enter your name").max(80),
+  phone: z.string().trim().min(7, "Enter your phone number").max(20),
+  whatsapp: z.string().trim().max(20).optional(),
+  address: z.string().trim().min(8, "Enter your full delivery address").max(300),
+  lat: z.number().min(-90).max(90).optional(),
+  lng: z.number().min(-180).max(180).optional(),
+  note: z.string().trim().max(200).optional(),
+  lines: z.array(z.object({ itemId: z.string().uuid(), quantity: z.number().int().min(1).max(20), modifierIds: z.array(z.string().uuid()).max(30), note: z.string().max(200).optional() })).min(1).max(40),
+  company: z.string().max(0).optional(), // honeypot: real visitors leave it empty
+});
+
+/** Public (no login): an order from the website. Priced on the server like any sale, then waits for the kitchen to accept it. */
+export async function placeWebsiteOrder(raw: unknown): Promise<Ok | Err> {
+  try {
+    const v = websiteOrderSchema.parse(raw);
+    const db = await getDb();
+    const [b] = await db.select().from(s.branches).where(eq(s.branches.isActive, true)).limit(1);
+    if (!b) return { ok: false, error: "Ordering is closed right now. Please call us." };
+    const phone = v.phone.replace(/[^\d+]/g, "");
+    if (phone.length < 7 || phone.length > 15) return { ok: false, error: "Phone number looks wrong" };
+    const open = await db.select({ id: s.websiteOrders.orderId }).from(s.websiteOrders).where(and(eq(s.websiteOrders.branchId, b.id), eq(s.websiteOrders.phone, phone), eq(s.websiteOrders.state, "new")));
+    if (open.length >= 3) return { ok: false, error: "You already have orders waiting for confirmation. Please wait for our call." };
+    const [owner] = await db.select({ id: s.staff.id }).from(s.staff).innerJoin(s.roles, eq(s.roles.id, s.staff.roleId)).where(eq(s.roles.key, "owner")).limit(1);
+    if (!owner) return { ok: false, error: "Ordering is closed right now. Please call us." };
+    const allowed = new Set<Permission>(["order.create", "order.delivery.create"]);
+    const session: Session = {
+      staffId: owner.id, name: "Website", roleKey: "owner", roleName: "Website", discountLimitBps: 0, branchId: b.id, branchName: b.name,
+      terminalId: null, terminalName: null, kind: "pos", permissions: allowed, can: (p) => allowed.has(p),
+    };
+    const loc = v.lat != null && v.lng != null ? `https://www.google.com/maps?q=${v.lat},${v.lng}` : undefined;
+    return await createOrderInner({
+      clientId: v.clientId, type: "delivery", customerPhone: phone, customerName: v.name, deliveryAddress: v.address,
+      lines: v.lines.map((l) => ({ ...l, modifierIds: l.modifierIds })), discount: null, payments: [], cod: true,
+    }, { session, website: { whatsapp: v.whatsapp?.replace(/[^\d+]/g, "") || phone, lat: v.lat, lng: v.lng, locationText: loc, note: v.note } });
+  } catch (e) {
+    if (e instanceof z.ZodError) return { ok: false, error: e.issues[0]?.message ?? "Please check your details" };
+    if (e instanceof OrderError || e instanceof PermissionError) return { ok: false, error: e.message };
+    console.error(e);
+    return { ok: false, error: "Could not place the order. Please try again or call us." };
+  }
 }

@@ -6,7 +6,7 @@ import "server-only";
  * For multiple instances swap `publish` to Supabase Realtime / Postgres NOTIFY — callers don't change.
  * Clients also poll as a fallback, so a missed event only delays a screen, never loses data.
  */
-export type BranchEvent = { type: "order.created" | "order.updated" | "order.voided" | "menu.changed" | "kds.changed"; orderId?: string };
+export type BranchEvent = { type: "order.created" | "order.updated" | "order.voided" | "menu.changed" | "kds.changed" | "website.order"; orderId?: string };
 type Listener = (e: BranchEvent) => void;
 
 const g = globalThis as unknown as { __crspBus?: Map<string, Set<Listener>> };

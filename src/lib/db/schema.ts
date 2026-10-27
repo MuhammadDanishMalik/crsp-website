@@ -7,7 +7,7 @@
  */
 import {
   pgTable, pgEnum, uuid, text, integer, boolean, timestamp, date, time, jsonb, numeric,
-  uniqueIndex, index, primaryKey, smallint,
+  uniqueIndex, index, primaryKey, smallint, doublePrecision,
 } from "drizzle-orm/pg-core";
 
 const id = () => uuid("id").primaryKey().defaultRandom();
@@ -469,6 +469,13 @@ export const supplierPayments = pgTable("supplier_payments", {
 });
 
 /* ───────────── Delivery ops ───────────── */
+/** Orders placed on the public website: wait here until the kitchen accepts or rejects them. */
+export const websiteOrders = pgTable("website_orders", {
+  orderId: uuid("order_id").primaryKey().references(() => orders.id), branchId: uuid("branch_id").notNull().references(() => branches.id),
+  state: text("state").notNull().default("new"), // new | accepted | rejected
+  phone: text("phone").notNull(), whatsapp: text("whatsapp"), lat: doublePrecision("lat"), lng: doublePrecision("lng"), locationText: text("location_text"), note: text("note"),
+  createdAt: createdAt(), decidedAt: timestamp("decided_at", { withTimezone: true }), decidedBy: uuid("decided_by").references(() => staff.id),
+}, (t) => [index("website_orders_state_idx").on(t.branchId, t.state)]);
 export const deliveries = pgTable("deliveries", {
   id: id(), orderId: uuid("order_id").notNull().unique().references(() => orders.id), branchId: uuid("branch_id").notNull().references(() => branches.id),
   riderId: uuid("rider_id").references(() => staff.id), status: deliveryStatus("status").notNull().default("unassigned"),

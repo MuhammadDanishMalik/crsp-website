@@ -15,6 +15,7 @@ import { PayDialog } from "./pay-dialog";
 import { DiscountDialog } from "./discount-dialog";
 import { OrderFieldsDialog } from "./order-fields";
 import { HeldDialog } from "./held-dialog";
+import { WebsiteTab } from "./website-orders";
 import { SyncStatus } from "./sync-status";
 import { holdOrder, listHeld } from "@/lib/actions/hold";
 import type { PosProps } from "./types";
@@ -22,7 +23,7 @@ import { Logo } from "@/components/brand/logo";
 import { useLocale, useTranslations } from "next-intl";
 import { LocaleToggle } from "@/components/locale-toggle";
 
-const TYPES: { id: OrderType }[] = [{ id: "dine_in" }, { id: "takeaway" }, { id: "delivery" }, { id: "drive_thru" }, { id: "online" }];
+const TYPES: { id: OrderType }[] = [{ id: "dine_in" }, { id: "takeaway" }, { id: "delivery" }, { id: "drive_thru" }]; // website orders have their own tab (see WebsiteTab)
 const FAV = "__fav";
 
 export function PosScreen({ menu, me, shiftOpenedAt, offline }: PosProps) {
@@ -59,7 +60,7 @@ export function PosScreen({ menu, me, shiftOpenedAt, offline }: PosProps) {
     setTimeout(() => setToast(""), 3000);
   };
 
-  const types = TYPES.filter((x) => (x.id !== "delivery" || me.can.delivery) && (x.id !== "online" || me.can.aggregator));
+  const types = TYPES.filter((x) => (x.id !== "delivery" || me.can.delivery));
   const favs = useMemo(() => menu.items.filter((i) => i.isFavourite), [menu.items]);
   const visible = useMemo(() => {
     const term = q.trim().toLowerCase();
@@ -108,6 +109,7 @@ export function PosScreen({ menu, me, shiftOpenedAt, offline }: PosProps) {
             <button key={tp.id} onClick={() => cart.set({ orderType: tp.id })}
               className={cn("h-12 rounded-xl px-4 font-semibold transition", cart.orderType === tp.id ? "bg-brand text-brand-fg" : "text-muted hover:text-foreground")}>{t(`types.${tp.id}`)}</button>
           ))}
+          <WebsiteTab />
         </div>
         {needsDetails && (
           <button onClick={() => setDetails(true)} className={cn("h-12 rounded-xl border px-4 text-sm font-semibold", detailsOk ? "border-border" : "border-warn text-warn")}>

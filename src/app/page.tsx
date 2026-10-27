@@ -1,5 +1,5 @@
 import { loadPublicMenu } from "@/lib/queries/menu";
-import { KfcHomeClient } from "@/components/home/kfc-home-client";
+import { SiteHome } from "@/components/site/site-home";
 import { redirect } from "next/navigation";
 import { getSession, getTerminalClaims } from "@/lib/auth/session";
 
@@ -23,5 +23,5 @@ export default async function HomePage(props: {
   // Load public menu from database
   const menu = await loadPublicMenu();
 
-  return <KfcHomeClient menu={menu} />;
+  return <SiteHome menu={menu} />;
 }
