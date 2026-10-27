@@ -1,6 +1,6 @@
 "use server";
 
-import { and, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { getDb } from "@/lib/db/client";
 import * as s from "@/lib/db/schema";
@@ -31,7 +31,7 @@ export async function listWebsiteOrders(): Promise<{ ok: true; rows: WebsiteOrde
     const db = await getDb();
     const since = new Date(Date.now() - 24 * 3600_000);
     const w = await db.select({ w: s.websiteOrders, o: s.orders }).from(s.websiteOrders).innerJoin(s.orders, eq(s.orders.id, s.websiteOrders.orderId))
-      .where(and(eq(s.websiteOrders.branchId, session.branchId), sql`${s.websiteOrders.createdAt} >= ${since}`)).orderBy(desc(s.websiteOrders.createdAt)).limit(100);
+      .where(and(eq(s.websiteOrders.branchId, session.branchId), gte(s.websiteOrders.createdAt, since))).orderBy(desc(s.websiteOrders.createdAt)).limit(100);
     const ids = w.map((r) => r.o.id);
     const items = ids.length ? await db.select().from(s.orderItems).where(and(inArray(s.orderItems.orderId, ids), eq(s.orderItems.isVoided, false))) : [];
     const mods = items.length ? await db.select().from(s.orderItemModifiers).where(inArray(s.orderItemModifiers.orderItemId, items.map((i) => i.id))) : [];
