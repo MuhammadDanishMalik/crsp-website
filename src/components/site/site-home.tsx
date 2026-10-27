@@ -2,7 +2,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { LocateFixed, MapPin, Minus, Plus, ShoppingBag, X } from "lucide-react";
 import { Logo } from "@/components/brand/logo";
-import { WhatsAppIcon } from "@/components/brand/whatsapp-icon";
 import { formatPKR } from "@/lib/domain/money";
 import { computeTotals } from "@/lib/domain/pricing";
 import { markNoDiscount } from "@/lib/domain/discount-scope";
@@ -10,7 +9,6 @@ import { openingOfferBps, OPENING_OFFER } from "@/lib/domain/opening-offer";
 import { placeWebsiteOrder } from "@/lib/actions/orders";
 import type { PublicMenu, PosItem } from "@/lib/queries/menu";
 
-const WHATSAPP = "923090135353"; // 0309 0135353
 const PHONE = "0309 0135353";
 
 type Line = { key: string; itemId: string; name: string; price: number; qty: number; mods: { id: string; name: string; priceDelta: number }[] };
@@ -108,14 +106,9 @@ export function SiteHome({ menu }: { menu: PublicMenu }) {
 
       <footer className="mt-16 border-t border-zinc-200 bg-zinc-50 py-8 text-center text-sm text-zinc-500">
         <p className="font-semibold text-zinc-700">CRSP · Watta Khail Chowk, Mianwali</p>
-        <p className="mt-1">Call or WhatsApp {PHONE}</p>
+        <p className="mt-1">Call {PHONE}</p>
         <p className="mt-3"><a href="/?portal=1" className="text-zinc-400 hover:text-zinc-600">Staff login</a></p>
       </footer>
-
-      <a href={`https://wa.me/${WHATSAPP}?text=${encodeURIComponent("Hello CRSP, I want to order")}`} target="_blank" rel="noreferrer" aria-label="Chat on WhatsApp"
-        className="fixed bottom-5 right-5 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-[#25D366] text-white shadow-lg ring-4 ring-white hover:scale-105 active:scale-95">
-        <WhatsAppIcon size={34} />
-      </a>
 
       {pick && <PickModal item={pick} onClose={() => setPick(null)} onAdd={(mods, qty) => { add(pick, mods, qty); setPick(null); setCartOpen(true); }} />}
       {cartOpen && (
