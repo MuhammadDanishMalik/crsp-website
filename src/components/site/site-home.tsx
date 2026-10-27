@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
-import { Check, LocateFixed, MapPin, Minus, Plus, ShoppingBag, X } from "lucide-react";
+import { LocateFixed, MapPin, Minus, Plus, ShoppingBag, X } from "lucide-react";
 import { Logo } from "@/components/brand/logo";
 import { WhatsAppIcon } from "@/components/brand/whatsapp-icon";
 import { formatPKR } from "@/lib/domain/money";
@@ -71,7 +71,11 @@ export function SiteHome({ menu }: { menu: PublicMenu }) {
           <h1 className="mt-2 text-4xl font-black tracking-tight sm:text-5xl">Crispy. Juicy. Spicy.</h1>
           <p className="mx-auto mt-3 max-w-xl text-zinc-600">Spicy injected broast, burgers, wraps, wings and deals — hot to your door. Pay cash on delivery.</p>
           {openingOfferBps() > 0 && (
-            <p className="mx-auto mt-4 inline-block rounded-full bg-[#d62828] px-4 py-1.5 text-sm font-bold text-white">🎉 Opening week: {OPENING_OFFER.bps / 100}% off your order (cold drinks excluded) — till {new Date(`${OPENING_OFFER.end}T12:00:00`).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}</p>
+            <div className="mx-auto mt-5 flex max-w-md items-center gap-3 rounded-2xl border border-red-100 bg-white p-3 text-left shadow-sm">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/site/offer.png" alt="" width={72} height={72} className="h-[72px] w-[72px] shrink-0 object-contain" />
+              <p className="text-sm font-semibold"><span className="block text-lg font-black text-[#d62828]">Opening week: {OPENING_OFFER.bps / 100}% off</span>On your whole order (cold drinks excluded) · till {new Date(`${OPENING_OFFER.end}T12:00:00`).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}</p>
+            </div>
           )}
           <div className="mt-6"><a href="#menu" className="inline-block rounded-full bg-zinc-900 px-6 py-3 font-bold text-white hover:bg-zinc-700">See the menu</a></div>
         </div>
@@ -142,7 +146,8 @@ export function SiteHome({ menu }: { menu: PublicMenu }) {
       {done && (
         <Overlay onClose={() => setDone(null)}>
           <div className="p-8 text-center">
-            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 text-emerald-600"><Check size={36} /></div>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/site/waiting.png" alt="" width={160} height={160} className="mx-auto h-40 w-40 object-contain" />
             <h2 className="mt-4 text-2xl font-black">Order #{done.orderNo} received!</h2>
             <p className="mt-2 text-zinc-600">Our kitchen will confirm your order shortly and call or WhatsApp you. Please keep your phone nearby.</p>
             <p className="mt-4 text-lg font-bold">Pay {formatPKR(done.total)} cash on delivery</p>
@@ -260,7 +265,7 @@ function Checkout({ lines, total, onClose, onDone }: { lines: Line[]; total: num
   return (
     <Overlay onClose={onClose}>
       <form onSubmit={submit}>
-        <div className="flex items-center justify-between border-b border-zinc-200 p-4"><h2 className="text-xl font-black">Delivery details</h2><button type="button" onClick={onClose} aria-label="Close" className="rounded-full p-2 hover:bg-zinc-100"><X /></button></div>
+        <div className="flex items-center justify-between border-b border-zinc-200 p-4"><h2 className="flex items-center gap-2 text-xl font-black">{/* eslint-disable-next-line @next/next/no-img-element */}<img src="/site/map.png" alt="" width={44} height={44} className="h-11 w-11 object-contain" />Delivery details</h2><button type="button" onClick={onClose} aria-label="Close" className="rounded-full p-2 hover:bg-zinc-100"><X /></button></div>
         <div className="space-y-3 p-4">
           <input className={input} placeholder="Your name" value={f.name} onChange={(e) => set("name", e.target.value)} required maxLength={80} autoComplete="name" />
           <input className={input} placeholder="Phone number (03xx xxxxxxx)" inputMode="tel" value={f.phone} onChange={(e) => set("phone", e.target.value)} required maxLength={20} autoComplete="tel" />
