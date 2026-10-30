@@ -10,8 +10,9 @@ SHA=$(git -C "$APP" rev-parse HEAD)
 echo "COMMIT_REF=$SHA" > /etc/crsp.version.env   # lets the app tell open browser tabs that a new version is live
 chown -R crsp:crsp "$APP"
 
+# npm ci can refuse a lock file written by a newer npm on another OS: then fall back to npm install.
 # Build without the secrets in the environment. Next.js sometimes stops the first build to show an upgrade notice: run it again.
-sudo -u crsp -H bash -c "cd $APP && export COMMIT_REF=$SHA && npm ci --no-audit --no-fund && (npm run build || npm run build)"
+sudo -u crsp -H bash -c "cd $APP && export COMMIT_REF=$SHA && (npm ci --no-audit --no-fund || npm install --no-audit --no-fund) && (npm run build || npm run build)"
 
 systemctl restart crsp
 sleep 4
