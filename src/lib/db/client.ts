@@ -49,8 +49,8 @@ async function init(): Promise<Db> {
   const url = databaseUrl();
   if (url) {
     // max_pipeline 1: Supabase's transaction pooler stalls when several queries are pipelined onto one connection (e.g. the 11 parallel menu queries).
-    // Short-lived pooled connections: Supabase's pooler drops idle sockets, and a long-running server must not reuse a dead one (the request would hang).
-    const db = drizzlePg(postgres(url, ({ prepare: false, max: 8, max_pipeline: 1, idle_timeout: 5, max_lifetime: 120, connect_timeout: 15, // max_pipeline exists at run time but is missing from the type definitions
+    // Use Supabase's SESSION pooler (port 5432) on a long-running server; connections are kept for a while so requests do not pay a new TLS handshake each time.
+    const db = drizzlePg(postgres(url, ({ prepare: false, max: 8, max_pipeline: 1, idle_timeout: 120, max_lifetime: 1800, connect_timeout: 15, // max_pipeline exists at run time but is missing from the type definitions
        ...(/supabase|pooler/.test(url) ? { ssl: "require" as const } : {}) }) as postgres.Options<{}>), { schema }); // Supabase only accepts encrypted connections
     if (fs.existsSync(migrationsFolder)) {
       try {

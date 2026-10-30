@@ -22,7 +22,7 @@ echo "== 1/7 Settings =="
 if [ -f "$ENVFILE" ]; then
   echo "Found $ENVFILE: keeping the existing settings."
 else
-  ask "Supabase POSTGRES_URL (Transaction pooler, starts with postgresql://)" POSTGRES_URL silent
+  ask "Supabase POSTGRES_URL (SESSION pooler, port 5432, starts with postgresql://)" POSTGRES_URL silent
   case "$POSTGRES_URL" in postgres://*|postgresql://*) ;; *) echo "That does not look like a Postgres URL."; exit 1;; esac
   case "$POSTGRES_URL" in *"[YOUR-PASSWORD]"*|*PASTE_*) echo "The URL still has a placeholder in it."; exit 1;; esac
   echo "(saved, ${#POSTGRES_URL} characters)"
