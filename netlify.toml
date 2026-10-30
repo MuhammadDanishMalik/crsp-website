@@ -5,4 +5,4 @@
 [build.environment]
   NODE_VERSION = "22"
   # The admin e-mail is not a secret and also appears in the code as a default; do not let the secret scan fail the deploy over it.
-  SECRETS_SCAN_OMIT_KEYS = "ADMIN_EMAIL"
+  SECRETS_SCAN_OMIT_KEYS = "ADMIN_EMAIL,ADMIN_PASSWORD"

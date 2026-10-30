@@ -1,3 +1,4 @@
+import { runtimeEnv } from "@/lib/env";
 import "server-only";
 import fs from "node:fs";
 import path from "node:path";
@@ -39,7 +40,7 @@ async function seedFirstRun(db: Db) {
  * The integration's pooled URL carries a `supa=base-pooler.x` marker that the pooler rejects as a startup parameter, so it is removed.
  */
 export function databaseUrl(): string | undefined {
-  const raw = process.env.DATABASE_URL || process.env.POSTGRES_URL;
+  const raw = runtimeEnv("DATABASE_URL") || runtimeEnv("POSTGRES_URL");
   if (!raw) return undefined;
   try { const u = new URL(raw); u.searchParams.delete("supa"); return u.toString(); } catch { return raw; }
 }

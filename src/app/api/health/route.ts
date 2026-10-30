@@ -1,3 +1,4 @@
+import { runtimeEnv } from "@/lib/env";
 import { sql } from "drizzle-orm";
 import { databaseUrl, getDb } from "@/lib/db/client";
 
@@ -7,10 +8,10 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   const url = databaseUrl();
   const mode = url ? "postgres" : "embedded";
-  const seen = { POSTGRES_URL: !!process.env.POSTGRES_URL, DATABASE_URL: !!process.env.DATABASE_URL }; // only whether they exist, never the value
+  const seen = { POSTGRES_URL: !!runtimeEnv("POSTGRES_URL"), DATABASE_URL: !!runtimeEnv("DATABASE_URL") }; // only whether they exist, never the value
   // Which variable is in use and where it points (never the password): this is what tells you if an old DATABASE_URL is still winning.
   let where: { source?: string; host?: string; user?: string; port?: string } = {};
-  if (url) { try { const u = new URL(url); where = { source: process.env.DATABASE_URL ? "DATABASE_URL" : "POSTGRES_URL", host: u.hostname, port: u.port, user: decodeURIComponent(u.username) }; } catch { where = { source: process.env.DATABASE_URL ? "DATABASE_URL" : "POSTGRES_URL" }; } }
+  if (url) { try { const u = new URL(url); where = { source: runtimeEnv("DATABASE_URL") ? "DATABASE_URL" : "POSTGRES_URL", host: u.hostname, port: u.port, user: decodeURIComponent(u.username) }; } catch { where = { source: runtimeEnv("DATABASE_URL") ? "DATABASE_URL" : "POSTGRES_URL" }; } }
   try {
     const db = await getDb();
     await db.execute(sql`select 1`);

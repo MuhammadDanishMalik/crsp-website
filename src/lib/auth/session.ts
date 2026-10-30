@@ -1,3 +1,4 @@
+import { runtimeEnv } from "@/lib/env";
 import "server-only";
 import { cache } from "react";
 import { cookies } from "next/headers";
@@ -8,7 +9,7 @@ import { getDb } from "@/lib/db/client";
 import * as s from "@/lib/db/schema";
 import type { Permission } from "@/lib/domain/permissions";
 
-const secret = new TextEncoder().encode(process.env.SESSION_SECRET ?? "dev-only-secret-change-me-please-32chars");
+const secret = new TextEncoder().encode(runtimeEnv("SESSION_SECRET") ?? "dev-only-secret-change-me-please-32chars");
 const SESSION = "crsp_session";
 const TERMINAL = "crsp_terminal";
 

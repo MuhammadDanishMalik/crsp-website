@@ -1,3 +1,4 @@
+import { runtimeEnv } from "@/lib/env";
 import bcrypt from "bcryptjs";
 import { eq } from "drizzle-orm";
 import type { Db } from "./client";
@@ -18,10 +19,10 @@ const ROLE_NAMES: Record<string, string> = {
  * production creates a random password and prints it once in the server log.
  */
 const generatedPassword = Array.from(crypto.getRandomValues(new Uint8Array(14)), (b) => "abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789"[b % 54]).join("");
-if (process.env.NODE_ENV === "production" && !process.env.ADMIN_PASSWORD && process.env.CRSP_NO_SEED !== "1") console.warn(`[seed] ADMIN_PASSWORD not set: if the database is empty the owner password will be ${generatedPassword}`);
+if (process.env.NODE_ENV === "production" && !runtimeEnv("ADMIN_PASSWORD") && process.env.CRSP_NO_SEED !== "1") console.warn(`[seed] ADMIN_PASSWORD not set: if the database is empty the owner password will be ${generatedPassword}`);
 
 export const SEED_LOGINS = {
-  backOffice: { email: process.env.ADMIN_EMAIL ?? "admin@crsp.com", password: process.env.ADMIN_PASSWORD ?? (process.env.NODE_ENV === "production" ? generatedPassword : "admin123") }, // owner
+  backOffice: { email: runtimeEnv("ADMIN_EMAIL") ?? "admin@crsp.com", password: runtimeEnv("ADMIN_PASSWORD") ?? (process.env.NODE_ENV === "production" ? generatedPassword : "admin123") }, // owner
   otherStaffPassword: "admin123", // manager@/cashier@/accountant@crsp.test
   terminalCode: "POS1-DEV",
   pins: { owner: "1111", branch_manager: "2222", cashier: "3333", order_taker: "4444", kitchen: "5555", rider: "6666", accountant: "7777" },
