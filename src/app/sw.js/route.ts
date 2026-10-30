@@ -1,7 +1,7 @@
 /** The offline service worker, served dynamically so its cache name changes with every deployment (old pages are never served after an update). */
 export const dynamic = "force-dynamic";
 
-const BUILD = process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 10) ?? "dev";
+const BUILD = (process.env.VERCEL_GIT_COMMIT_SHA ?? process.env.COMMIT_REF)?.slice(0, 10) ?? "dev";
 const SOURCE = `/* CRSP POS service worker — lets the cashier screen open and keep selling with no internet.
  *  - static files (JS/CSS/fonts/logo): cache first
  *  - the POS pages themselves: network first (3 s), fall back to the last copy we saw

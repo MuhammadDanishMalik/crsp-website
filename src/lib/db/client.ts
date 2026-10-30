@@ -62,7 +62,8 @@ async function init(): Promise<Db> {
   // Embedded PGlite fallback: safe for local and serverless (Vercel uses /tmp)
   let client: PGlite;
   try {
-    const defaultDir = process.env.VERCEL ? "/tmp/pglite" : path.join(process.cwd(), ".data/pglite");
+    const serverless = process.env.VERCEL || process.env.NETLIFY || process.env.AWS_LAMBDA_FUNCTION_NAME; // read-only disk except /tmp
+    const defaultDir = serverless ? "/tmp/pglite" : path.join(process.cwd(), ".data/pglite");
     const dir = process.env.PGLITE_DIR ?? defaultDir;
     fs.mkdirSync(dir, { recursive: true });
     client = new PGlite(dir);
