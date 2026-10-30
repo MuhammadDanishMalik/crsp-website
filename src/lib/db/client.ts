@@ -48,7 +48,8 @@ export function databaseUrl(): string | undefined {
 async function init(): Promise<Db> {
   const url = databaseUrl();
   if (url) {
-    const db = drizzlePg(postgres(url, { prepare: false, ...(/supabase|pooler/.test(url) ? { ssl: "require" as const } : {}) }), { schema }); // Supabase only accepts encrypted connections
+    // Short-lived pooled connections: Supabase's pooler drops idle sockets, and a long-running server must not reuse a dead one (the request would hang).
+    const db = drizzlePg(postgres(url, { prepare: false, max: 5, idle_timeout: 5, max_lifetime: 120, connect_timeout: 15, ...(/supabase|pooler/.test(url) ? { ssl: "require" as const } : {}) }), { schema }); // Supabase only accepts encrypted connections
     if (fs.existsSync(migrationsFolder)) {
       try {
         await migratePg(db, { migrationsFolder });
