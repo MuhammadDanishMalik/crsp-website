@@ -7,13 +7,14 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   const url = databaseUrl();
   const mode = url ? "postgres" : "embedded";
+  const seen = { POSTGRES_URL: !!process.env.POSTGRES_URL, DATABASE_URL: !!process.env.DATABASE_URL }; // only whether they exist, never the value
   // Which variable is in use and where it points (never the password): this is what tells you if an old DATABASE_URL is still winning.
   let where: { source?: string; host?: string; user?: string; port?: string } = {};
   if (url) { try { const u = new URL(url); where = { source: process.env.DATABASE_URL ? "DATABASE_URL" : "POSTGRES_URL", host: u.hostname, port: u.port, user: decodeURIComponent(u.username) }; } catch { where = { source: process.env.DATABASE_URL ? "DATABASE_URL" : "POSTGRES_URL" }; } }
   try {
     const db = await getDb();
     await db.execute(sql`select 1`);
-    return Response.json({ ok: true, mode, ...where });
+    return Response.json({ ok: true, mode, ...where, ...(url ? {} : { envSeen: seen }) });
   } catch (e) {
     const err = e as { code?: string; name?: string; cause?: { code?: string; name?: string } };
     const code = err.cause?.code ?? err.code ?? err.cause?.name ?? err.name ?? "unknown";

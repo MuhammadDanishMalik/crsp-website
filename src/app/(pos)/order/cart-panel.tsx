@@ -123,7 +123,7 @@ export function CartPanel({
         </div>
       )}
 
-      <div className="space-y-1 border-t border-border p-4 text-base">
+      <div className="space-y-1 border-t border-border p-4 pb-14 text-base">
         <Row label={t("pos.subtotal")} v={tot.subtotal} />
         {tot.discountTotal > 0 && <Row label={t("pos.discount")} v={-tot.discountTotal} cls="text-success" />}
         {tot.serviceCharge > 0 && <Row label={t("pos.service")} v={tot.serviceCharge} />}
