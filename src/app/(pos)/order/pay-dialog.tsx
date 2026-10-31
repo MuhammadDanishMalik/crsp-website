@@ -143,9 +143,10 @@ export function PayDialog({ menu, me, offline, online, onClose, onFinished }: { 
         return saveOffline(); // the request never reached the server: keep the sale on this device
       }
       if (!r.ok) return setError(r.error);
-      const printMsg = await printReceipt(r.orderId, false, undefined, r.receipt);
       broadcastCart({ lines: [], subtotal: 0, discount: 0, tax: 0, total: totals.total, status: "paid", orderNo: r.orderNo, change: r.change });
-      setDone({ orderId: r.orderId, orderNo: r.orderNo, change: r.change, printMsg, receipt: r.receipt });
+      // The sale is saved: show "paid" at once and print in the background (a print dialog must not keep the cashier waiting on "Saving…").
+      setDone({ orderId: r.orderId, orderNo: r.orderNo, change: r.change, printMsg: "Printing…", receipt: r.receipt });
+      void printReceipt(r.orderId, false, undefined, r.receipt).then((msg) => setDone((d) => (d ? { ...d, printMsg: msg } : d)));
     });
   };
 
