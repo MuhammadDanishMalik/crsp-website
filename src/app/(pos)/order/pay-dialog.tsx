@@ -143,9 +143,9 @@ export function PayDialog({ menu, me, offline, online, onClose, onFinished }: { 
         return saveOffline(); // the request never reached the server: keep the sale on this device
       }
       if (!r.ok) return setError(r.error);
-      const printMsg = await printReceipt(r.orderId);
+      const printMsg = await printReceipt(r.orderId, false, undefined, r.receipt);
       broadcastCart({ lines: [], subtotal: 0, discount: 0, tax: 0, total: totals.total, status: "paid", orderNo: r.orderNo, change: r.change });
-      setDone({ orderId: r.orderId, orderNo: r.orderNo, change: r.change, printMsg });
+      setDone({ orderId: r.orderId, orderNo: r.orderNo, change: r.change, printMsg, receipt: r.receipt });
     });
   };
 
@@ -300,11 +300,11 @@ export function PayDialog({ menu, me, offline, online, onClose, onFinished }: { 
   );
 }
 
-export async function printReceipt(orderId: string, reprint = false, changes?: { added: { name: string; qty: number; mods: string[]; note: string | null }[]; removed: { name: string; qty: number }[] }): Promise<string> {
+export async function printReceipt(orderId: string, reprint = false, changes?: { added: { name: string; qty: number; mods: string[]; note: string | null }[]; removed: { name: string; qty: number }[] }, preloaded?: ReceiptData): Promise<string> {
   const msgs: string[] = [];
   if (printMode() === "browser") { // default: the browser's own print dialog, any printer installed on this PC
     try {
-      const data = await getReceiptData(orderId);
+      const data = preloaded ?? (await getReceiptData(orderId)); // a fresh sale brings its receipt along
       if (!data) return "Could not load the receipt to print";
       await printInBrowser(data, reprint ? { kitchen: false } : changes ? { changes } : { kitchen: true });
       return "Print window opened: choose the receipt printer and press Print";

@@ -3,6 +3,7 @@
 import { markNoDiscount } from "@/lib/domain/discount-scope";
 import { openingOfferBps, OPENING_OFFER } from "@/lib/domain/opening-offer";
 import { and, eq, inArray, sql } from "drizzle-orm";
+import { after } from "next/server";
 import { z } from "zod";
 import { getDb } from "@/lib/db/client";
 import * as s from "@/lib/db/schema";
@@ -13,6 +14,7 @@ import { businessDate } from "@/lib/domain/dates";
 import { computeTotals, groupError, type CartLine } from "@/lib/domain/pricing";
 import { createOrderSchema } from "@/lib/validation/order";
 import { loadTaxRules, categoryNamesOf, websiteOrderStatus } from "@/lib/queries/menu";
+import { loadReceipt, type ReceiptData } from "@/lib/queries/receipt";
 import { getOpenShift } from "@/lib/queries/shift";
 import { publish } from "@/lib/realtime/bus";
 import { findPromo } from "@/lib/queries/promo";
@@ -22,7 +24,7 @@ import { sadqaFor } from "@/lib/domain/sadqa";
 import { getProvider, manualProvider } from "@/lib/adapters/payments";
 import { maxRedeemablePoints, pointsEarned, redeemValue } from "@/lib/domain/loyalty";
 
-type Ok = { ok: true; orderId: string; orderNo: string; total: number; change: number };
+type Ok = { ok: true; orderId: string; orderNo: string; total: number; change: number; receipt?: ReceiptData };
 type Err = { ok: false; error: string };
 
 const METHOD_PERMISSION: Record<string, Permission> = {
@@ -49,10 +51,6 @@ async function createOrderInner(raw: unknown, ctx?: { session: Session; website:
   const input = createOrderSchema.parse(raw);
   const db = await getDb();
 
-  // Idempotency: a retry with the same clientId returns the existing order.
-  const [dup] = await db.select().from(s.orders).where(eq(s.orders.id, input.clientId));
-  if (dup) return { ok: true, orderId: dup.id, orderNo: dup.orderNo, total: dup.total, change: 0 };
-
   const off = input.offline;
   if (off) {
     if (input.cod || input.redeemPoints || input.discount) throw new OrderError("Discounts, points and cash-on-delivery are not available for offline orders");
@@ -70,45 +68,47 @@ async function createOrderInner(raw: unknown, ctx?: { session: Session; website:
     if (!session.can(METHOD_PERMISSION[p.method])) throw new PermissionError(`Missing permission: ${METHOD_PERMISSION[p.method]}`);
   }
 
-  // Ensure terminal and active shift exist so orders always succeed
-  const termId = session.terminalId ?? (await db.select({ id: s.terminals.id }).from(s.terminals).limit(1))[0]?.id;
-  let shift = off
-    ? (await db.select().from(s.shifts).where(and(eq(s.shifts.id, off.shiftId), eq(s.shifts.branchId, session.branchId))))[0]
-    : website
-      ? (await db.select().from(s.shifts).where(and(eq(s.shifts.branchId, session.branchId), eq(s.shifts.status, "open"))).limit(1))[0] ?? (await getOpenShift(termId, session.staffId)) // any cashier's open shift
-      : await getOpenShift(termId, session.staffId);
+  // All the independent reads go out together: every database round trip costs ~100 ms on a server far from the database.
+  const itemIds = [...new Set(input.lines.flatMap((l) => [l.itemId]))];
+  const allModIds = [...new Set(input.lines.flatMap((l) => l.modifierIds))];
+  const [[dup], termId, enabled, items, branchRows, itemGroupRows, mods, catOf, [biz], taxRules, [rules], sadqaRules, zone] = await Promise.all([
+    db.select().from(s.orders).where(eq(s.orders.id, input.clientId)), // idempotency: a retry with the same clientId returns the existing order
+    session.terminalId ? Promise.resolve(session.terminalId) : db.select({ id: s.terminals.id }).from(s.terminals).limit(1).then((r) => r[0]?.id),
+    db.select().from(s.paymentMethodSettings).where(and(eq(s.paymentMethodSettings.branchId, session.branchId), eq(s.paymentMethodSettings.isEnabled, true))),
+    db.select().from(s.menuItems).where(inArray(s.menuItems.id, itemIds)),
+    db.select().from(s.branchMenuItems).where(and(eq(s.branchMenuItems.branchId, session.branchId), inArray(s.branchMenuItems.itemId, itemIds))),
+    db.select().from(s.itemModifierGroups).where(inArray(s.itemModifierGroups.itemId, itemIds)),
+    allModIds.length ? db.select().from(s.modifiers).where(inArray(s.modifiers.id, allModIds)) : Promise.resolve([] as (typeof s.modifiers.$inferSelect)[]),
+    categoryNamesOf(itemIds),
+    db.select().from(s.business).limit(1),
+    loadTaxRules(session.branchId),
+    db.select().from(s.loyaltyRules).where(eq(s.loyaltyRules.isActive, true)).limit(1),
+    db.select().from(s.sadqaRules).where(and(eq(s.sadqaRules.isActive, true), inArray(s.sadqaRules.itemId, itemIds))),
+    input.deliveryZoneId ? db.select().from(s.deliveryZones).where(eq(s.deliveryZones.id, input.deliveryZoneId)).then((r) => r[0] ?? null) : Promise.resolve(null),
+  ]);
+  if (dup) return { ok: true, orderId: dup.id, orderNo: dup.orderNo, total: dup.total, change: 0 };
 
+  // Terminal + shift (needs the terminal), and the option groups (need the item→group links), together.
+  const groupIds = [...new Set(itemGroupRows.map((g) => g.groupId))];
+  const [shift0, groups] = await Promise.all([
+    off
+      ? db.select().from(s.shifts).where(and(eq(s.shifts.id, off.shiftId), eq(s.shifts.branchId, session.branchId))).then((r) => r[0])
+      : website
+        ? db.select().from(s.shifts).where(and(eq(s.shifts.branchId, session.branchId), eq(s.shifts.status, "open"))).limit(1).then(async (r) => r[0] ?? (await getOpenShift(termId, session.staffId))) // any cashier's open shift
+        : getOpenShift(termId, session.staffId),
+    groupIds.length ? db.select().from(s.modifierGroups).where(inArray(s.modifierGroups.id, groupIds)) : Promise.resolve([] as (typeof s.modifierGroups.$inferSelect)[]),
+  ]);
+  let shift = shift0;
   if (!shift && termId) {
-    const [autoShift] = await db.insert(s.shifts).values({
-      branchId: session.branchId,
-      terminalId: termId,
-      staffId: session.staffId,
-      openedAt: new Date(),
-      openingFloat: 0,
-      status: "open",
-    }).returning();
+    const [autoShift] = await db.insert(s.shifts).values({ branchId: session.branchId, terminalId: termId, staffId: session.staffId, openedAt: new Date(), openingFloat: 0, status: "open" }).returning();
     shift = autoShift;
   }
   if (!shift) throw new OrderError("No active shift available");
 
-  // Enabled payment methods
-  const enabled = await db.select().from(s.paymentMethodSettings)
-    .where(and(eq(s.paymentMethodSettings.branchId, session.branchId), eq(s.paymentMethodSettings.isEnabled, true)));
   const enabledSet = new Set(enabled.map((e) => e.method as string));
   for (const p of input.payments) if (!enabledSet.has(p.method)) throw new OrderError(`${p.method} is disabled`);
   const providerOf = (m: string) => getProvider(enabled.find((e) => e.method === m)?.provider);
-
-  // Re-price everything on the server. The client only sends ids.
-  const itemIds = [...new Set(input.lines.map((l) => l.itemId))];
-  const items = await db.select().from(s.menuItems).where(inArray(s.menuItems.id, itemIds));
   const allActiveItems = items.length === itemIds.length ? items : await db.select().from(s.menuItems).where(eq(s.menuItems.isActive, true));
-  const branchRows = await db.select().from(s.branchMenuItems)
-    .where(and(eq(s.branchMenuItems.branchId, session.branchId), inArray(s.branchMenuItems.itemId, itemIds)));
-  const itemGroupRows = await db.select().from(s.itemModifierGroups).where(inArray(s.itemModifierGroups.itemId, itemIds));
-  const allModIds = [...new Set(input.lines.flatMap((l) => l.modifierIds))];
-  const mods = allModIds.length ? await db.select().from(s.modifiers).where(inArray(s.modifiers.id, allModIds)) : [];
-  const groupIds = [...new Set(itemGroupRows.map((g) => g.groupId))];
-  const groups = groupIds.length ? await db.select().from(s.modifierGroups).where(inArray(s.modifierGroups.id, groupIds)) : [];
 
   const cartLines: (CartLine & { stationId: string | null })[] = input.lines.map((l, idx) => {
     let item = items.find((i) => i.id === l.itemId);
@@ -179,18 +179,13 @@ async function createOrderInner(raw: unknown, ctx?: { session: Session; website:
   const offerBps = !off && !input.discount ? openingOfferBps(businessDate(new Date())) : 0;
   if (offerBps) discount = { kind: "percent", value: offerBps };
 
-  const catOf = await categoryNamesOf(itemIds);
   const pricedLines = markNoDiscount(cartLines, catOf); // cold drinks are never discounted
 
-  const zone = input.deliveryZoneId ? (await db.select().from(s.deliveryZones).where(eq(s.deliveryZones.id, input.deliveryZoneId)))[0] : null;
-  const [biz] = await db.select().from(s.business).limit(1);
   const serviceChargeBps = ((biz?.settings as { serviceChargeBps?: number } | null)?.serviceChargeBps) ?? 0;
-  const taxRules = await loadTaxRules(session.branchId);
   // Tax can depend on payment method: use the method carrying the largest share.
   const dominant = cod ? "cash" : [...input.payments].sort((a, b) => b.amount - a.amount)[0].method;
 
   // Loyalty redemption: re-validated here against the customer's real balance.
-  const [rules] = await db.select().from(s.loyaltyRules).where(eq(s.loyaltyRules.isActive, true)).limit(1);
   const loyalty = rules ? { earnPerRupee: Number(rules.earnPerRupee), pointValuePaisa: rules.pointValuePaisa, minRedeemPoints: rules.minRedeemPoints } : null;
   let redeemedPoints = 0, loyaltyDiscount = 0;
   if (input.redeemPoints && loyalty) {
@@ -233,7 +228,6 @@ async function createOrderInner(raw: unknown, ctx?: { session: Session; website:
 
   // Offline orders keep the cashier who rang them if the person syncing is that cashier or a manager; otherwise the syncer is recorded.
   const attributedTo = off && (off.staffId === session.staffId || session.can("shift.close_any")) ? off.staffId : session.staffId;
-  const sadqaRules = await db.select().from(s.sadqaRules).where(and(eq(s.sadqaRules.isActive, true), inArray(s.sadqaRules.itemId, itemIds)));
   const result = await db.transaction(async (tx) => {
     let orderNo: string;
     if (off) { // keep the number printed on the offline receipt; make it unique if two terminals picked the same one
@@ -268,20 +262,19 @@ async function createOrderInner(raw: unknown, ctx?: { session: Session; website:
       createdBy: attributedTo, completedAt: awaiting || cod ? null : placedAt, createdAt: placedAt, updatedAt: placedAt, offlineCreated: !!off,
       note: off && attributedTo !== off.staffId ? `Rung offline by ${off.staffName}` : null,
     });
-    const created: { orderItemId: string; itemId: string; quantity: number; modifierIds: string[] }[] = [];
-    for (const l of cartLines) {
-      const [oi] = await tx.insert(s.orderItems).values({
-        orderId: input.clientId, itemId: l.itemId, nameSnapshot: l.name, unitPrice: l.basePrice + l.modifiers.reduce((x, m) => x + m.priceDelta, 0),
-        quantity: l.quantity, lineTotal: (l.basePrice + l.modifiers.reduce((x, m) => x + m.priceDelta, 0)) * l.quantity,
+    // One statement for all lines (each round trip to the remote database costs ~100 ms).
+    const created = cartLines.map((l) => ({ orderItemId: crypto.randomUUID(), itemId: l.itemId, quantity: l.quantity, modifierIds: l.modifiers.map((m) => m.id), line: l }));
+    await tx.insert(s.orderItems).values(created.map(({ orderItemId, line: l }) => {
+      const unit = l.basePrice + l.modifiers.reduce((x, m) => x + m.priceDelta, 0);
+      return {
+        id: orderItemId, orderId: input.clientId, itemId: l.itemId, nameSnapshot: l.name, unitPrice: unit, quantity: l.quantity, lineTotal: unit * l.quantity,
         note: l.note, stationId: l.stationId, sentAt: placedAt,
-        sadqaAmount: sadqaFor((l.basePrice + l.modifiers.reduce((x, m) => x + m.priceDelta, 0)) * l.quantity, sadqaRules.find((r) => r.itemId === l.itemId)?.percentBps ?? 0), kdsStatus: off ? "bumped" : "new", // offline sales were cooked from the paper ticket; do not resurrect them on the KDS
-      }).returning();
-      if (l.modifiers.length) await tx.insert(s.orderItemModifiers).values(l.modifiers.map((m) => ({ orderItemId: oi.id, modifierId: m.id, nameSnapshot: m.name, priceDelta: m.priceDelta })));
-      created.push({ orderItemId: oi.id, itemId: l.itemId, quantity: l.quantity, modifierIds: l.modifiers.map((m) => m.id) });
-    }
-    // Recipe-based stock deduction + cost snapshot (food-cost reporting)
-    const costs = await deductForOrder(tx, { branchId: session.branchId, orderId: input.clientId, staffId: session.staffId, lines: created });
-    for (const [orderItemId, cost] of costs) await tx.update(s.orderItems).set({ costSnapshot: cost }).where(eq(s.orderItems.id, orderItemId));
+        sadqaAmount: sadqaFor(unit * l.quantity, sadqaRules.find((r) => r.itemId === l.itemId)?.percentBps ?? 0), kdsStatus: (off ? "bumped" : "new") as "bumped" | "new", // offline sales were cooked from the paper ticket
+      };
+    }));
+    const modRows = created.flatMap(({ orderItemId, line: l }) => l.modifiers.map((m) => ({ orderItemId, modifierId: m.id, nameSnapshot: m.name, priceDelta: m.priceDelta })));
+    if (modRows.length) await tx.insert(s.orderItemModifiers).values(modRows);
+    // Recipe-based stock deduction + cost snapshot (food-cost reporting) happen right after the answer is sent: the cashier does not wait for them.
     if (totals.taxLines.length) await tx.insert(s.orderTaxLines).values(totals.taxLines.map((t) => ({ orderId: input.clientId, taxRuleId: t.ruleId, name: t.name, rateBps: t.rateBps, amount: t.amount })));
     if (discount) await tx.insert(s.orderDiscounts).values({ orderId: input.clientId, kind: discount.kind, value: discount.value, amount: totals.discountTotal - totals.loyaltyDiscount, reason: offerBps ? OPENING_OFFER.label : input.discount?.reason, discountId: promoId, appliedBy: session.staffId, approvedBy: approverId });
 
@@ -297,8 +290,8 @@ async function createOrderInner(raw: unknown, ctx?: { session: Session; website:
     }
     if (customerId && loyalty) {
       const earned = pointsEarned(totals.total, loyalty);
-      if (redeemedPoints) await tx.insert(s.loyaltyTransactions).values({ customerId, orderId: input.clientId, points: -redeemedPoints, reason: "Redeemed" });
-      if (earned) await tx.insert(s.loyaltyTransactions).values({ customerId, orderId: input.clientId, points: earned, reason: "Earned" });
+      const txs = [...(redeemedPoints ? [{ customerId, orderId: input.clientId, points: -redeemedPoints, reason: "Redeemed" }] : []), ...(earned ? [{ customerId, orderId: input.clientId, points: earned, reason: "Earned" }] : [])];
+      if (txs.length) await tx.insert(s.loyaltyTransactions).values(txs);
       await tx.update(s.customers).set({ loyaltyPoints: sql`${s.customers.loyaltyPoints} + ${earned - redeemedPoints}` }).where(eq(s.customers.id, customerId));
     }
     for (const [i, p] of input.payments.entries()) {
@@ -313,13 +306,24 @@ async function createOrderInner(raw: unknown, ctx?: { session: Session; website:
       });
     }
     if (promoId) await tx.update(s.discounts).set({ usedCount: sql`${s.discounts.usedCount} + 1` }).where(eq(s.discounts.id, promoId));
-    return { orderNo };
+    return { orderNo, created };
   });
 
   if (approverId) await audit(session, { action: "discount.override", entity: "order", entityId: input.clientId, after: discount, approverId, reason: input.discount?.reason });
-  await fiscalizeNow(input.clientId, session.branchId); // authority invoice number + QR for the receipt; queued if the authority is down
   publish(session.branchId, { type: website ? "website.order" : "order.created", orderId: input.clientId });
-  return { ok: true, orderId: input.clientId, orderNo: result.orderNo, total: totals.total, change };
+  // Not needed for the answer, so they run after it has been sent: stock deduction (+ cost snapshot per line) and the tax-authority invoice.
+  after(async () => {
+    try {
+      await db.transaction(async (tx) => {
+        const costs = await deductForOrder(tx, { branchId: session.branchId, orderId: input.clientId, staffId: session.staffId, lines: result.created.map(({ orderItemId, itemId, quantity, modifierIds }) => ({ orderItemId, itemId, quantity, modifierIds })) });
+        for (const [orderItemId, cost] of costs) await tx.update(s.orderItems).set({ costSnapshot: cost }).where(eq(s.orderItems.id, orderItemId));
+      });
+    } catch (e) { console.error("[order] stock deduction failed for", input.clientId, e); }
+    try { await fiscalizeNow(input.clientId, session.branchId); } catch (e) { console.error("[order] tax invoice failed for", input.clientId, e); }
+  });
+  // The receipt travels with the answer, so the till can print at once without asking the server again.
+  const receipt = off || website ? undefined : ((await loadReceipt(input.clientId)) ?? undefined);
+  return { ok: true, orderId: input.clientId, orderNo: result.orderNo, total: totals.total, change, receipt };
 }
 
 /** POS preview of a promo / staff-meal code. */

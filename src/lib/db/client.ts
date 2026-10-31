@@ -19,6 +19,9 @@ export type Db = ReturnType<typeof drizzlePglite<typeof schema>>;
 
 const migrationsFolder = path.join(process.cwd(), "drizzle");
 
+/** CRSP_LOG_QUERIES=1 prints every SQL statement (to count the round trips of a request). */
+const logger = runtimeEnv("CRSP_LOG_QUERIES") === "1" ? { logQuery: (q: string) => console.log("[sql]", q.replace(/\s+/g, " ").slice(0, 110)) } : undefined;
+
 const g = globalThis as unknown as { __crspDb?: Promise<Db>; __crspPglite?: PGlite };
 
 /** The embedded database handle (undefined when DATABASE_URL points at a real Postgres). Used by the backup job. */
@@ -51,7 +54,7 @@ async function init(): Promise<Db> {
     // max_pipeline 1: Supabase's transaction pooler stalls when several queries are pipelined onto one connection (e.g. the 11 parallel menu queries).
     // Use Supabase's SESSION pooler (port 5432) on a long-running server; connections are kept for a while so requests do not pay a new TLS handshake each time.
     const db = drizzlePg(postgres(url, ({ prepare: false, max: 8, max_pipeline: 1, idle_timeout: 120, max_lifetime: 1800, connect_timeout: 15, // max_pipeline exists at run time but is missing from the type definitions
-       ...(/supabase|pooler/.test(url) ? { ssl: "require" as const } : {}) }) as postgres.Options<{}>), { schema }); // Supabase only accepts encrypted connections
+       ...(/supabase|pooler/.test(url) ? { ssl: "require" as const } : {}) }) as postgres.Options<{}>), { schema, logger }); // Supabase only accepts encrypted connections
     if (fs.existsSync(migrationsFolder)) {
       try {
         await migratePg(db, { migrationsFolder });
@@ -77,7 +80,7 @@ async function init(): Promise<Db> {
   }
 
   g.__crspPglite = client;
-  const db = drizzlePglite(client, { schema });
+  const db = drizzlePglite(client, { schema, logger });
 
   if (fs.existsSync(migrationsFolder)) {
     try {
