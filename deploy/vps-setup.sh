@@ -98,6 +98,8 @@ server {
         proxy_set_header X-Real-IP \$remote_addr;
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_set_header X-Forwarded-Host \$host;   # server-action redirects (e.g. after the terminal code) must use the public address, not localhost
+        proxy_set_header X-Forwarded-Port \$server_port;
         proxy_buffering off;          # live kitchen / website-order alerts (server-sent events)
         proxy_read_timeout 3600s;
     }
