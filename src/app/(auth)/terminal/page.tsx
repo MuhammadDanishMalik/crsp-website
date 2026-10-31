@@ -1,5 +1,5 @@
 "use client";
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import Link from "next/link";
 import { registerTerminal } from "@/lib/actions/auth";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,7 @@ import { Sparkles, ArrowLeft } from "lucide-react";
 
 export default function TerminalPage() {
   const [state, action, pending] = useActionState(registerTerminal, null);
+  useEffect(() => { if (state?.ok && state.redirectTo) window.location.assign(state.redirectTo); }, [state]);
   const [code, setCode] = useState("POS1-DEV");
 
   return (

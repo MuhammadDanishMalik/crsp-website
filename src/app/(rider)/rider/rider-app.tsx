@@ -2,7 +2,7 @@
 import { useCallback, useState, useTransition } from "react";
 import { LogOut, MapPin, Phone } from "lucide-react";
 import { fetchDeliveries, updateDelivery } from "@/lib/actions/delivery";
-import { logout } from "@/lib/actions/auth";
+import { LogoutForm } from "@/components/logout-form";
 import { useBranchEvents } from "@/lib/realtime/use-events";
 import { formatPKR } from "@/lib/domain/money";
 import type { DeliveryRow } from "@/lib/queries/delivery";
@@ -27,7 +27,7 @@ export function RiderApp({ initial, name }: { initial: DeliveryRow[]; name: stri
   return (
     <main className="mx-auto max-w-md p-4">
       <header className="mb-4 flex items-center gap-3"><Logo height={36} /><div className="ml-auto text-right leading-tight"><p className="font-semibold">{name}</p><p className="text-xs text-muted">Rider</p></div>
-        <form action={logout}><button aria-label="Sign out" className="flex h-11 w-11 items-center justify-center rounded-xl bg-surface-2"><LogOut size={18} /></button></form></header>
+        <LogoutForm><button aria-label="Sign out" className="flex h-11 w-11 items-center justify-center rounded-xl bg-surface-2"><LogOut size={18} /></button></LogoutForm></header>
       <div className="mb-4 grid grid-cols-2 gap-3">
         <div className="rounded-2xl bg-surface p-4"><p className="text-xs uppercase text-muted">To deliver</p><p className="text-3xl font-black">{active.length}</p></div>
         <div className="rounded-2xl bg-surface p-4"><p className="text-xs uppercase text-muted">Cash with me</p><p className="text-2xl font-black">{formatPKR(holding)}</p></div>

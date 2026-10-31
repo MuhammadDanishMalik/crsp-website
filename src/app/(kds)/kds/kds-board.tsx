@@ -3,7 +3,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Bell, BellOff, RotateCcw, LogOut, CheckCircle2 } from "lucide-react";
 import { bumpItem, bumpOrder, fetchKds, recallLast, startTicket } from "@/lib/actions/kds";
-import { logout } from "@/lib/actions/auth";
+import { LogoutForm } from "@/components/logout-form";
 import { useBranchEvents } from "@/lib/realtime/use-events";
 import type { KdsData, KdsTicket } from "@/lib/queries/kds";
 import { cn } from "@/lib/utils";
@@ -70,7 +70,7 @@ export function KdsBoard({ initial, stationId, who, canBump, canRecall, canPos }
         </button>
         {canPos && <button onClick={() => router.push("/order")} className="h-12 rounded-xl px-3 text-muted">POS</button>}
         <span className="text-sm text-muted">{who}</span>
-        <form action={logout}><button aria-label="Sign out" className="flex h-12 w-12 items-center justify-center rounded-xl hover:bg-surface-2"><LogOut size={20} /></button></form>
+        <LogoutForm><button aria-label="Sign out" className="flex h-12 w-12 items-center justify-center rounded-xl hover:bg-surface-2"><LogOut size={20} /></button></LogoutForm>
       </header>
       <div className="scroll-thin grid flex-1 auto-rows-min grid-cols-[repeat(auto-fill,minmax(280px,1fr))] content-start gap-3 overflow-y-auto p-3">
         {data.tickets.map((t) => (

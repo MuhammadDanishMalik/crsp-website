@@ -2,7 +2,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Clock, LogOut, Search, Settings2, Star, Wifi, WifiOff, Wallet } from "lucide-react";
-import { logout } from "@/lib/actions/auth";
+import { LogoutForm } from "@/components/logout-form";
 import { useBranchEvents } from "@/lib/realtime/use-events";
 import { useCart, type OrderType } from "@/lib/stores/cart";
 import { formatPKR } from "@/lib/domain/money";
@@ -124,7 +124,7 @@ export function PosScreen({ menu, me, shiftOpenedAt, offline }: PosProps) {
         {me.can.shift && <button onClick={() => router.push("/shift")} className="flex h-12 items-center gap-2 rounded-xl px-3 hover:bg-surface-2"><Wallet size={20} />{t("shift.shift")}</button>}
         {me.can.admin && <button onClick={() => router.push("/admin")} aria-label="Back office" className="flex h-12 w-12 items-center justify-center rounded-xl hover:bg-surface-2"><Settings2 size={20} /></button>}
         <LocaleToggle />
-        <form action={logout}><button aria-label={t("common.signOut")} className="flex h-12 w-12 items-center justify-center rounded-xl hover:bg-surface-2"><LogOut size={20} /></button></form>
+        <LogoutForm><button aria-label={t("common.signOut")} className="flex h-12 w-12 items-center justify-center rounded-xl hover:bg-surface-2"><LogOut size={20} /></button></LogoutForm>
       </header>
 
       <div className="flex min-h-0 flex-1">

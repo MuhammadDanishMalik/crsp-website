@@ -1,5 +1,5 @@
 "use client";
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { loginWithPassword } from "@/lib/actions/auth";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
@@ -9,6 +9,7 @@ import { LayoutDashboard, Monitor } from "lucide-react";
 
 export default function LoginPage() {
   const [state, action, pending] = useActionState(loginWithPassword, null);
+  useEffect(() => { if (state?.ok && state.redirectTo) window.location.assign(state.redirectTo); }, [state]);
   const [email, setEmail] = useState(""); // never prefill credentials: this page is public
   const [password, setPassword] = useState("");
 

@@ -33,7 +33,7 @@ export async function registerTerminal(_: unknown, form: FormData): Promise<Resu
     if (await bcrypt.compare(code, t.deviceKeyHash)) {
       await setTerminalCookie({ tid: t.id, bid: t.branchId });
       await db.update(s.terminals).set({ lastSeenAt: new Date() }).where(eq(s.terminals.id, t.id));
-      redirect("/pin");
+      return { ok: true, redirectTo: "/pin" }; // the page navigates (a server-side redirect can point at the wrong host behind a proxy)
     }
   }
   return { ok: false, error: "Unknown terminal code" };
@@ -151,12 +151,11 @@ export async function loginWithPassword(_: unknown, form: FormData): Promise<Res
   const [link] = await db.select().from(s.staffBranches).where(eq(s.staffBranches.staffId, st.id)).limit(1);
   if (!link) return { ok: false, error: "No branch assigned" };
   await setSession({ sid: st.id, bid: link.branchId, kind: "admin" });
-  redirect("/admin");
+  return { ok: true, redirectTo: "/admin" };
 }
 
 export async function logout() {
   await clearSession();
-  redirect("/pin");
 }
 
 /** Manager PIN override. Returns approver id if a staff member with `permission` has this PIN. */

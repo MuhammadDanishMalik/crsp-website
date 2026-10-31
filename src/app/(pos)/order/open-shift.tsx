@@ -2,7 +2,7 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { openShift } from "@/lib/actions/shift";
-import { logout } from "@/lib/actions/auth";
+import { LogoutForm } from "@/components/logout-form";
 import { Numpad } from "@/components/pos/numpad";
 import { Button } from "@/components/ui/button";
 import { formatPKR } from "@/lib/domain/money";
@@ -27,7 +27,7 @@ export function OpenShift({ name, canOpen }: { name: string; canOpen: boolean })
           onClick={() => start(async () => { const r = await openShift(amount); if (r.ok) router.refresh(); else setError(r.error); })}>
           {canOpen ? t("open") : "—"}
         </Button>
-        <form action={logout}><Button variant="ghost" className="mt-2 w-full">{t("switchUser")}</Button></form>
+        <LogoutForm><Button variant="ghost" className="mt-2 w-full">{t("switchUser")}</Button></LogoutForm>
       </div>
     </main>
   );
