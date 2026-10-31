@@ -1,4 +1,7 @@
 import { NextResponse } from "next/server";
+
+/** A redirect with a RELATIVE Location. NextResponse.redirect needs an absolute URL built from req.url, which behind a proxy points at localhost:3000. */
+const redirectTo = (path: string) => new NextResponse(null, { status: 307, headers: { Location: path } });
 import { getDb } from "@/lib/db/client";
 import * as s from "@/lib/db/schema";
 import {
@@ -17,11 +20,11 @@ const QUICK_LAUNCH = process.env.NODE_ENV !== "production" || process.env.ALLOW_
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
-  if (!QUICK_LAUNCH) return NextResponse.redirect(new URL(searchParams.get("module") === "admin" ? "/login" : "/pin", req.url));
+  if (!QUICK_LAUNCH) return redirectTo(searchParams.get("module") === "admin" ? "/login" : "/pin");
   const mod = searchParams.get("module") ?? "counter";
   const isAdmin = mod === "admin";
   const redirectTarget = isAdmin ? "/admin" : "/order";
-  const response = NextResponse.redirect(new URL(redirectTarget, req.url));
+  const response = redirectTo(redirectTarget);
 
   try {
     const db = await getDb();
