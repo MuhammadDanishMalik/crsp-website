@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
 import { Clock, LocateFixed, Star, MapPin, Minus, Plus, ShoppingBag, X } from "lucide-react";
+import { SHOP_PHONE } from "@/lib/domain/contact";
 import { Logo } from "@/components/brand/logo";
 import { formatPKR } from "@/lib/domain/money";
 import { computeTotals } from "@/lib/domain/pricing";
@@ -9,7 +10,7 @@ import { openingOfferBps, OPENING_OFFER } from "@/lib/domain/opening-offer";
 import { placeWebsiteOrder } from "@/lib/actions/orders";
 import type { PublicMenu, PosItem } from "@/lib/queries/menu";
 
-const PHONE = "0309 0135353";
+const PHONE = SHOP_PHONE;
 const RATE_URL = "https://www.google.com/search?kgmid=/g/11nw2dlqx_&hl=en-PK&q=CRSP&shem=epsd1,esd2e,ltae,rimspwouoe,sdpie&shndl=30&source=sh/x/loc/osrp/m5/1&kgs=b0f0058efcc035ea&utm_source=epsd1,esd2e,ltae,rimspwouoe,sdpie,sh/x/loc/osrp/m5/1&zx=1793112095256#lrd=0x39271980f6068057:0x776594746f9f7093,3,,,,";
 
 type Line = { key: string; itemId: string; name: string; price: number; qty: number; mods: { id: string; name: string; priceDelta: number }[] };

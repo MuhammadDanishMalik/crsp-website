@@ -166,7 +166,8 @@ async function createOrderInner(raw: unknown, ctx?: { session: Session; website:
       discount = { kind: input.discount.kind, value: input.discount.value };
       const pct = input.discount.kind === "percent" ? input.discount.value : Math.round((input.discount.value / Math.max(subtotal, 1)) * 10_000);
       if (pct > 10_000) throw new OrderError("Discount cannot exceed 100%");
-      if (pct > session.discountLimitBps) {
+      const quickTick = input.discount.kind === "percent" && (input.discount.value === 1000 || input.discount.value === 1500) && input.discount.reason?.startsWith("Quick "); // the 10% / 15% tick boxes on the till
+      if (pct > session.discountLimitBps && !quickTick) {
         const perm: Permission = "discount.apply.above_10pct";
         const aid = session.can(perm) ? session.staffId : await readOverride(input.discount.overrideToken, perm);
         if (!aid) throw new PermissionError("Manager approval required for this discount");

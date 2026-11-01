@@ -1,4 +1,5 @@
 import "server-only";
+import { SHOP_PHONE } from "@/lib/domain/contact";
 import { asc, eq, inArray } from "drizzle-orm";
 import { getDb } from "@/lib/db/client";
 import * as s from "@/lib/db/schema";
@@ -34,7 +35,7 @@ export async function loadReceipt(orderId: string): Promise<ReceiptData | null> 
   const settings = (biz?.settings ?? {}) as { receiptHeader?: string; receiptFooter?: string; receiptFooterUr?: string };
   return {
     business: { name: biz?.name ?? "CRSP", ntn: biz?.ntn ?? null, header: settings.receiptHeader ?? "", footer: settings.receiptFooter ?? "Thank you!", footerUr: settings.receiptFooterUr ?? "" },
-    branch: { name: branch?.name ?? "CRSP", address: branch?.address ?? "", phone: branch?.phone ?? "" },
+    branch: { name: branch?.name ?? "CRSP", address: branch?.address ?? "", phone: SHOP_PHONE },
     orderNo: o.orderNo, type: o.type, tableNo: o.tableNo, cashier: cashier?.fullName ?? "", terminal: terminal?.name ?? "", createdAt: o.createdAt.toISOString(),
     customer: cust ? { name: o.customerName ?? cust.name, phone: cust.phone } : o.customerName ? { name: o.customerName, phone: null } : null, deliveryAddress: o.deliveryAddress,
     lines: items.filter((i) => !i.isVoided).map((i) => ({

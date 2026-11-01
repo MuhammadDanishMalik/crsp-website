@@ -5,6 +5,7 @@ import { getOpenShift } from "@/lib/queries/shift";
 import { eq, and } from "drizzle-orm";
 import { getDb } from "@/lib/db/client";
 import * as s from "@/lib/db/schema";
+import { SHOP_PHONE } from "@/lib/domain/contact";
 import { PosScreen } from "./pos-screen";
 import { OpenShift } from "./open-shift";
 
@@ -35,7 +36,7 @@ export default async function OrderPage() {
   const bizSettings = (biz?.settings ?? {}) as { receiptHeader?: string; receiptFooter?: string; receiptFooterUr?: string };
   const offlineCfg = {
     prefix: term?.orderNoPrefix || "T", shiftId: shift.id, staffId: session.staffId, staffName: session.name, terminalName: session.terminalName ?? "",
-    info: { businessName: biz?.name ?? "CRSP", ntn: biz?.ntn ?? null, header: bizSettings.receiptHeader ?? "", footer: bizSettings.receiptFooter ?? "Thank you!", footerUr: bizSettings.receiptFooterUr ?? "", branchName: branch.name, address: branch.address, phone: branch.phone },
+    info: { businessName: biz?.name ?? "CRSP", ntn: biz?.ntn ?? null, header: bizSettings.receiptHeader ?? "", footer: bizSettings.receiptFooter ?? "Thank you!", footerUr: bizSettings.receiptFooterUr ?? "", branchName: branch.name, address: branch.address, phone: SHOP_PHONE },
     receiptPrinter: rp ? { target: toTarget(rp), paperMm: (rp.paperWidthMm === 58 ? 58 : 80) as 58 | 80, openDrawer: rp.openDrawer } : null,
     kotPrinters: printers.filter((p) => p.role === "kot").map((p) => ({ id: p.id, name: p.name, target: toTarget(p), paperMm: (p.paperWidthMm === 58 ? 58 : 80) as 58 | 80 })),
     stationPrinter: Object.fromEntries(stations.map((x) => [x.id, x.printerId])), stationName: Object.fromEntries(stations.map((x) => [x.id, x.name])),

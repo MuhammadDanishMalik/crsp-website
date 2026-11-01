@@ -54,7 +54,7 @@ function customerSlip(r: ReceiptData, qrSvg: string | null) {
   return `<section class="slip"><div class="c"><div class="b" style="font-size:1.5em">${esc(r.business.name)}</div><div class="b">${esc(r.branch.name)}</div>
 ${r.branch.address ? `<div>${esc(r.branch.address)}</div>` : ""}${r.branch.phone ? `<div>Tel: ${esc(r.branch.phone)}</div>` : ""}${r.business.ntn ? `<div>NTN: ${esc(r.business.ntn)}</div>` : ""}${r.business.header ? `<div>${esc(r.business.header)}</div>` : ""}</div>
 <div class="hr"></div><div class="c b" style="font-size:1.5em">Order #${esc(r.orderNo)}</div><div class="c b">${TYPE[r.type] ?? esc(r.type)}${r.tableNo ? ` - Table ${esc(r.tableNo)}` : ""}</div>
-<div>${esc(when)}</div><div>Cashier: ${esc(r.cashier)} - ${esc(r.terminal)}</div>${customerBlock(r)}<div class="hr"></div>
+<div>${esc(when)}</div><div>${esc(r.terminal)}</div>${customerBlock(r)}<div class="hr"></div>
 ${r.lines.map((l) => `<div class="row b"><span>${l.qty} x ${esc(l.name)}</span><span>${money(l.total)}</span></div>${l.mods.map((m) => `<div class="mod">+ ${esc(m)}</div>`).join("")}${l.note ? `<div class="mod">* ${esc(l.note)}</div>` : ""}`).join("")}
 <div class="hr"></div><div class="row"><span>Subtotal</span><span>${money(r.subtotal)}</span></div>
 ${r.discount ? `<div class="row"><span>Discount</span><span>-${money(r.discount)}</span></div>` : ""}${r.serviceCharge ? `<div class="row"><span>Service charge</span><span>${money(r.serviceCharge)}</span></div>` : ""}${r.deliveryCharge ? `<div class="row"><span>Delivery</span><span>${money(r.deliveryCharge)}</span></div>` : ""}
@@ -106,7 +106,7 @@ async function printSlip(html: string, paper: number): Promise<void> {
   document.body.appendChild(frame);
   const doc = frame.contentDocument!;
   doc.open(); doc.write(html); doc.close();
-  await new Promise((res) => setTimeout(res, 350)); // let fonts / QR lay out
+  await new Promise((res) => setTimeout(res, 120)); // let fonts / QR lay out
   const px = Math.max(doc.body.scrollHeight, doc.body.getBoundingClientRect().height);
   const mm = Math.ceil((px * 25.4) / 96) + 2; // +2 mm so rounding never spills a second (blank) page
   const style = doc.createElement("style");
@@ -126,5 +126,5 @@ async function printSlip(html: string, paper: number): Promise<void> {
 /** Prints the slips one after the other, each as its own job (so each is cut separately). Resolves after the last job was handed to the printer. */
 export async function printInBrowser(r: ReceiptData, o: SlipOptions = {}): Promise<void> {
   const s = o.settings ?? getPrintSettings();
-  for (const html of await buildSlipDocs(r, o)) { await printSlip(html, s.paper); await new Promise((res) => setTimeout(res, 500)); }
+  for (const html of await buildSlipDocs(r, o)) { await printSlip(html, s.paper); await new Promise((res) => setTimeout(res, 150)); }
 }

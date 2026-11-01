@@ -199,6 +199,21 @@ export function PayDialog({ menu, me, offline, online, onClose, onFinished }: { 
 
   return (
     <Modal title={`${t("title")} · ${formatPKR(totals.total)}`} onClose={onClose} width="max-w-4xl">
+      {me.can.discount && online && (
+        <div className="mb-4 flex items-center gap-3 rounded-2xl border border-border bg-surface-2 p-3">
+          <span className="font-semibold">Discount</span>
+          {[1000, 1500].map((bps) => {
+            const on = cart.discount?.kind === "percent" && cart.discount.value === bps && cart.discount.reason?.startsWith("Quick ");
+            return (
+              <label key={bps} className={cn("flex h-12 cursor-pointer items-center gap-2 rounded-xl border-2 px-4 font-bold", on ? "border-brand bg-brand/15" : "border-border")}>
+                <input type="checkbox" className="h-5 w-5" checked={!!on} onChange={(e) => cart.set({ discount: e.target.checked ? { kind: "percent", value: bps, reason: `Quick ${bps / 100}%`, label: `${bps / 100}% off` } : null })} />
+                {bps / 100}%
+              </label>
+            );
+          })}
+          <span className="text-sm text-muted">Tick to give a discount. Cold drinks are never discounted.</span>
+        </div>
+      )}
       <details className="mb-4 rounded-2xl border border-border bg-surface-2 p-3" open={cart.orderType === "delivery" || !!(cart.customerName || cart.customerPhone || cart.deliveryAddress)}>
         <summary className="cursor-pointer font-semibold">{cart.orderType === "delivery" ? "Delivery customer" : "Customer name / number / address on receipt"} <span className="font-normal text-muted">{cart.orderType === "delivery" ? "(address required)" : "(optional)"}</span></summary>
         <div className="mt-3 grid grid-cols-2 gap-2">
