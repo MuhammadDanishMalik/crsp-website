@@ -146,7 +146,9 @@ export function PayDialog({ menu, me, offline, online, onClose, onFinished }: { 
       broadcastCart({ lines: [], subtotal: 0, discount: 0, tax: 0, total: totals.total, status: "paid", orderNo: r.orderNo, change: r.change });
       // The sale is saved: show "paid" at once and print in the background (a print dialog must not keep the cashier waiting on "Saving…").
       setDone({ orderId: r.orderId, orderNo: r.orderNo, change: r.change, printMsg: "Printing…", receipt: r.receipt });
-      void printReceipt(r.orderId, false, undefined, r.receipt).then((msg) => setDone((d) => (d ? { ...d, printMsg: msg } : d)));
+      // Printing (building the slips and opening the print dialog) starts only after the browser has painted the "Paid" screen: window.print() blocks the page while its dialog is open.
+      const receipt = r.receipt, orderId = r.orderId;
+      requestAnimationFrame(() => setTimeout(() => { void printReceipt(orderId, false, undefined, receipt).then((msg) => setDone((d) => (d ? { ...d, printMsg: msg } : d))); }, 60));
     });
   };
 
