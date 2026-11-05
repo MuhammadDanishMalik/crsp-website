@@ -1,6 +1,6 @@
 "use client";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { memo, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Clock, LogOut, Search, Settings2, Star, Wifi, WifiOff, Wallet } from "lucide-react";
 import { LogoutForm } from "@/components/logout-form";
 import { useBranchEvents } from "@/lib/realtime/use-events";
@@ -19,6 +19,7 @@ import { WebsiteTab } from "./website-orders";
 import { SyncStatus } from "./sync-status";
 import { holdOrder, listHeld } from "@/lib/actions/hold";
 import type { PosProps } from "./types";
+import { ItemGridSkeleton } from "@/components/ui/skeleton";
 import { Logo } from "@/components/brand/logo";
 import { useLocale, useTranslations } from "next-intl";
 import { LocaleToggle } from "@/components/locale-toggle";
@@ -61,19 +62,23 @@ export function PosScreen({ menu, me, shiftOpenedAt, offline }: PosProps) {
   };
 
   const types = TYPES.filter((x) => (x.id !== "delivery" || me.can.delivery));
+  const soldOutText = t("pos.soldOut");
   const favs = useMemo(() => menu.items.filter((i) => i.isFavourite), [menu.items]);
+  // The rail highlights the tapped category at once; the (possibly long) item grid catches up in the background, with a shimmer meanwhile.
+  const dCat = useDeferredValue(cat), dQ = useDeferredValue(q);
+  const switching = dCat !== cat || dQ !== q;
   const visible = useMemo(() => {
-    const term = q.trim().toLowerCase();
+    const term = dQ.trim().toLowerCase();
     if (term) return menu.items.filter((i) => i.name.toLowerCase().includes(term) || i.barcode === term);
-    if (cat === FAV) return favs;
-    return menu.items.filter((i) => i.categoryId === cat);
-  }, [menu.items, cat, q, favs]);
+    if (dCat === FAV) return favs;
+    return menu.items.filter((i) => i.categoryId === dCat);
+  }, [menu.items, dCat, dQ, favs]);
 
-  const pick = (item: PosItem) => {
+  const pick = useCallback((item: PosItem) => { // stable identity: the memoised tiles are not redrawn on every cart change
     if (!item.available) return;
     if (item.groups.length) return setSheet(item);
-    cart.add({ itemId: item.id, name: item.name, basePrice: item.price, quantity: 1, modifiers: [] });
-  };
+    useCart.getState().add({ itemId: item.id, name: item.name, basePrice: item.price, quantity: 1, modifiers: [] });
+  }, []);
 
   // Barcode scanner (keyboard wedge): digits + Enter in the search box adds the matching item.
   const onSearchKey = (e: React.KeyboardEvent) => {
@@ -144,8 +149,8 @@ export function PosScreen({ menu, me, shiftOpenedAt, offline }: PosProps) {
             </div>
           </div>
           <div className="scroll-thin grid flex-1 auto-rows-[132px] grid-cols-[repeat(auto-fill,minmax(168px,1fr))] gap-3 overflow-y-auto p-3 pt-0 content-start">
-            {visible.map((i) => <ItemTile key={i.id} item={i} ur={ur} soldOut={t("pos.soldOut")} onPick={() => pick(i)} />)}
-            {!visible.length && <p className="col-span-full mt-16 text-center text-muted">{t("pos.nothing")}</p>}
+            {switching ? <ItemGridSkeleton count={Math.min(12, Math.max(visible.length, 6))} /> : visible.map((i) => <ItemTile key={i.id} item={i} ur={ur} soldOut={soldOutText} onPick={pick} />)}
+            {!switching && !visible.length && <p className="col-span-full mt-16 text-center text-muted">{t("pos.nothing")}</p>}
           </div>
         </main>
 
@@ -180,10 +185,10 @@ function RailBtn({ active, onClick, label, icon }: { active: boolean; onClick: (
   );
 }
 
-function ItemTile({ item, ur, soldOut, onPick }: { item: PosItem; ur: boolean; soldOut: string; onPick: () => void }) {
+const ItemTile = memo(function ItemTile({ item, ur, soldOut, onPick }: { item: PosItem; ur: boolean; soldOut: string; onPick: (item: PosItem) => void }) {
   const emoji = item.image?.startsWith("emoji:") ? item.image.slice(6) : null;
   return (
-    <button onClick={onPick} disabled={!item.available}
+    <button onClick={() => onPick(item)} disabled={!item.available}
       className="relative flex flex-col justify-between overflow-hidden rounded-2xl border border-border bg-surface p-3 text-left transition active:scale-[.97] hover:border-brand">
       <span className="text-4xl leading-none">{emoji ?? "🍽️"}</span>
       <span>
@@ -194,7 +199,7 @@ function ItemTile({ item, ur, soldOut, onPick }: { item: PosItem; ur: boolean; s
       {!item.available && <span className="absolute inset-0 flex items-center justify-center bg-black/70 text-lg font-black tracking-wide text-danger">{soldOut}</span>}
     </button>
   );
-}
+});
 
 function ShiftTimer({ since }: { since: string }) {
   const [now, setNow] = useState(() => Date.now());

@@ -79,3 +79,7 @@ button:disabled { cursor: not-allowed; opacity: .5; }
   mask-composite: intersect; }
 @media (min-width: 640px) { .ticket { --stub: 11rem; } }
 @media (prefers-reduced-motion: reduce) { .btn-shine::after, .text-shimmer, .shimmer-busy, .skeleton { animation: none; } .anim-fly, .anim-bob { animation: none !important; } }
+
+/* ---- till (dark theme) shimmer ---- */
+.skeleton-dark { background: linear-gradient(90deg, var(--surface) 25%, var(--surface-2) 50%, var(--surface) 75%); background-size: 200% 100%; animation: crsp-sweep 1.3s linear infinite; }
+@media (prefers-reduced-motion: reduce) { .skeleton-dark { animation: none; } }
