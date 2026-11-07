@@ -5,13 +5,7 @@ set -euo pipefail
 [ "$(id -u)" = 0 ] || { echo "Run as root."; exit 1; }
 
 cat > /etc/nginx/conf.d/crsp-speed.conf <<'CONF'
-gzip on;
-gzip_comp_level 5;
-gzip_min_length 512;
-gzip_proxied any;
-gzip_vary on;
-gzip_types text/plain text/css application/json application/javascript text/javascript application/x-javascript image/svg+xml application/manifest+json;
-
+# (gzip is already switched on by Ubuntu's nginx.conf: do not repeat it, nginx refuses duplicates)
 upstream crsp_app { server 127.0.0.1:3000; keepalive 32; }
 CONF
 
@@ -44,4 +38,4 @@ sed -i -E 's/listen (\[::\]:)?443 ssl;/listen \1443 ssl http2;/' "$F"
 sed -i -E 's/listen (\[::\]:)?443 ssl http2 http2;/listen \1443 ssl http2;/' "$F"
 nginx -t
 systemctl reload nginx
-echo "Tuned: gzip, keep-alive to the app, 1-year cache for built files, HTTP/2."
+echo "Tuned: keep-alive to the app. (gzip and the 1-year cache of built files were already active.)"
