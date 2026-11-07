@@ -1,3 +1,4 @@
+import { receiptNotice } from "@/lib/domain/opening-offer";
 import { computeTotals, unitPrice, lineTotal, type CartLine, type TaxRuleInput } from "@/lib/domain/pricing";
 import type { ReceiptData } from "@/lib/queries/receipt";
 import type { OfflineConfig } from "./types";
@@ -16,7 +17,7 @@ export function localReceipt(a: {
   const receipt: ReceiptData = {
     business: { name: a.cfg.info.businessName, ntn: a.cfg.info.ntn, header: a.cfg.info.header, footer: a.cfg.info.footer, footerUr: a.cfg.info.footerUr },
     branch: { name: a.cfg.info.branchName, address: a.cfg.info.address, phone: a.cfg.info.phone },
-    orderNo: a.localNo, type: a.type, tableNo: a.tableNo, cashier: a.cfg.staffName, terminal: a.cfg.terminalName, createdAt: a.createdAt, customer: a.customer && (a.customer.name || a.customer.phone) ? { name: a.customer.name || null, phone: a.customer.phone || null } : null, deliveryAddress: a.address?.trim() || null,
+    notice: receiptNotice(), orderNo: a.localNo, type: a.type, tableNo: a.tableNo, cashier: a.cfg.staffName, terminal: a.cfg.terminalName, createdAt: a.createdAt, customer: a.customer && (a.customer.name || a.customer.phone) ? { name: a.customer.name || null, phone: a.customer.phone || null } : null, deliveryAddress: a.address?.trim() || null,
     lines: a.lines.map((l) => ({ name: l.name, qty: l.quantity, unit: unitPrice(l), total: lineTotal(l), mods: l.modifiers.map((m) => m.name), note: l.note ?? null })),
     subtotal: t.subtotal, discount: t.discountTotal, serviceCharge: t.serviceCharge, deliveryCharge: t.deliveryCharge,
     taxLines: t.taxLines.map((x) => ({ name: x.name, rateBps: x.rateBps, amount: x.amount })), total: t.total,

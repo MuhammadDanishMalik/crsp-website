@@ -116,6 +116,7 @@ export function buildReceipt(r: ReceiptData, opts: { paperMm: 58 | 80; openDrawe
   if (r.taxInvoiceNo) p.line(`Tax invoice: ${r.taxInvoiceNo}`);
   else if (r.taxPending) p.line("Tax invoice no. pending");
   if (r.qr) p.feed(1).qr(r.qr, opts.paperMm === 58 ? 5 : 6).feed(1);
+  if (r.notice) p.line(r.notice).feed(1);
   p.line(r.business.footer).feed(1).line(POWERED_BY).feed(4).cut();
   if (opts.openDrawer) p.openDrawer();
   return p.bytes();

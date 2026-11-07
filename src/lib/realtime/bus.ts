@@ -1,4 +1,5 @@
 import "server-only";
+import { clearMenuCache } from "./menu-cache";
 
 /**
  * In-process event bus fanned out to browsers over SSE (/api/events).
@@ -13,6 +14,7 @@ const g = globalThis as unknown as { __crspBus?: Map<string, Set<Listener>> };
 const listeners = (g.__crspBus ??= new Map());
 
 export function publish(branchId: string, event: BranchEvent) {
+  if (event.type === "menu.changed") clearMenuCache();
   for (const l of listeners.get(branchId) ?? []) l(event);
 }
 export function subscribe(branchId: string, l: Listener) {

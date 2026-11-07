@@ -1,5 +1,6 @@
 import "server-only";
 import { SHOP_PHONE } from "@/lib/domain/contact";
+import { receiptNotice } from "@/lib/domain/opening-offer";
 import { asc, eq, inArray } from "drizzle-orm";
 import { getDb } from "@/lib/db/client";
 import * as s from "@/lib/db/schema";
@@ -14,6 +15,7 @@ export type ReceiptData = {
   taxLines: { name: string; rateBps: number; amount: number }[]; total: number;
   payments: { method: string; amount: number; tendered: number | null; change: number | null; status: string; reference: string | null }[];
   taxInvoiceNo: string | null; qr: string | null; taxPending: boolean;
+  notice?: string | null; // announcement printed above the footer
 };
 
 export async function loadReceipt(orderId: string): Promise<ReceiptData | null> {
@@ -45,6 +47,6 @@ export async function loadReceipt(orderId: string): Promise<ReceiptData | null> 
     subtotal: o.subtotal, discount: o.discountTotal, serviceCharge: o.serviceCharge, deliveryCharge: o.deliveryCharge,
     taxLines: taxLines.map((t) => ({ name: t.name, rateBps: t.rateBps, amount: t.amount })), total: o.total,
     payments: pays.map((p) => ({ method: p.method, amount: p.amount, tendered: p.tendered, change: p.changeGiven, status: p.status, reference: p.approvalCode ?? p.referenceNo })),
-    taxInvoiceNo: inv?.authorityInvoiceNo ?? null, qr: inv?.qrPayload ?? null, taxPending: !!inv && !inv.authorityInvoiceNo,
+    notice: receiptNotice(), taxInvoiceNo: inv?.authorityInvoiceNo ?? null, qr: inv?.qrPayload ?? null, taxPending: !!inv && !inv.authorityInvoiceNo,
   };
 }

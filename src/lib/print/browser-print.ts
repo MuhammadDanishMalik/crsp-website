@@ -61,7 +61,7 @@ ${r.discount ? `<div class="row"><span>Discount</span><span>-${money(r.discount)
 ${r.taxLines.map((t) => `<div class="row"><span>${esc(t.name)} ${t.rateBps / 100}%</span><span>${money(t.amount)}</span></div>`).join("")}
 <div class="row tot"><span>TOTAL</span><span>${formatPKR(r.total)}</span></div><div class="hr"></div>
 ${r.payments.map((p) => `<div class="row"><span style="text-transform:capitalize">${esc(p.method.replace("_", " "))}${p.status === "pending_verification" ? " (pending)" : p.status === "pending" ? " (COD)" : ""}</span><span>${money(p.amount)}</span></div>${p.tendered ? `<div class="row"><span>&nbsp;&nbsp;Tendered</span><span>${money(p.tendered)}</span></div>` : ""}${p.change ? `<div class="row"><span>&nbsp;&nbsp;Change</span><span>${money(p.change)}</span></div>` : ""}${p.reference ? `<div>&nbsp;&nbsp;Ref: ${esc(p.reference)}</div>` : ""}`).join("")}
-<div class="hr"></div><div class="c b">${esc(r.business.footer)}</div>${r.business.footerUr ? `<div class="c" dir="rtl">${esc(r.business.footerUr)}</div>` : ""}
+<div class="hr"></div>${r.notice ? `<div class="rule b">${esc(r.notice)}</div>` : ""}<div class="c b">${esc(r.business.footer)}</div>${r.business.footerUr ? `<div class="c" dir="rtl">${esc(r.business.footerUr)}</div>` : ""}
 ${r.taxInvoiceNo ? `<div class="c b">Tax invoice: ${esc(r.taxInvoiceNo)}</div>` : r.taxPending ? `<div class="c">Tax invoice no. pending</div>` : ""}${qrSvg ? `<div class="c">${qrSvg}</div>` : ""}
 <div class="c" style="margin-top:6px;font-size:10px">Software powered by Orixto.com</div></section>`;
 }

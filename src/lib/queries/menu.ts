@@ -1,3 +1,4 @@
+import { cached } from "@/lib/realtime/menu-cache";
 import { openingOfferBps } from "@/lib/domain/opening-offer";
 import "server-only";
 import { and, asc, eq, inArray } from "drizzle-orm";
@@ -40,7 +41,10 @@ export async function loadTaxRules(branchId: string) {
     }));
 }
 
-export async function loadPosMenu(branchId: string): Promise<PosMenu> {
+/** The till menu, kept for a few seconds (and dropped at once when the menu is edited or an item is sold out). */
+export const loadPosMenu = (branchId: string): Promise<PosMenu> => cached(`pos:${branchId}`, () => loadPosMenuFresh(branchId));
+
+async function loadPosMenuFresh(branchId: string): Promise<PosMenu> {
   const db = await getDb();
   const [cats, items, branchRows, itemGroups, taxRules, methods, zones, [biz], [lr]] = await Promise.all([
     db.select().from(s.categories).where(eq(s.categories.isActive, true)).orderBy(asc(s.categories.sortOrder)),
@@ -95,7 +99,9 @@ export type PublicMenu = {
   branches: { id: string; name: string; city: string | null; address: string | null; phone: string | null }[];
 };
 
-export async function loadPublicMenu(): Promise<PublicMenu> {
+export const loadPublicMenu = (): Promise<PublicMenu> => cached("public", loadPublicMenuFresh);
+
+async function loadPublicMenuFresh(): Promise<PublicMenu> {
   const db = await getDb();
   const branchList = await db.select().from(s.branches).where(eq(s.branches.isActive, true));
   const primaryBranch = branchList[0];

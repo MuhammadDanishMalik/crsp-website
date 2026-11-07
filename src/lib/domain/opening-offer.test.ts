@@ -1,10 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { openingOfferBps } from "./opening-offer";
+import { openingOfferBps, receiptNotice } from "./opening-offer";
 
-describe("opening offer", () => {
-  it("runs from the first to the last day inclusive", () => {
-    // the automatic offer is switched off: discounts are chosen by tick on the till
-    expect(openingOfferBps("2026-10-27")).toBe(0);
+describe("Iqbal Day offer", () => {
+  it("is 9% on 9 Nov only", () => {
+    expect(openingOfferBps("2026-11-08")).toBe(0);
+    expect(openingOfferBps("2026-11-09")).toBe(900);
+    expect(openingOfferBps("2026-11-10")).toBe(0);
+  });
+  it("announces in advance, on the day, and stops after", () => {
+    expect(receiptNotice("2026-11-07")).toContain("9 Nov");
+    expect(receiptNotice("2026-11-09")).toContain("applied");
+    expect(receiptNotice("2026-11-10")).toBeNull();
   });
 });
 

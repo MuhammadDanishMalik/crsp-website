@@ -1,4 +1,5 @@
 "use client";
+import { openingOfferBps } from "@/lib/domain/opening-offer";
 import { markNoDiscount } from "@/lib/domain/discount-scope";
 import { useMemo, useState, useTransition } from "react";
 import { useTranslations } from "next-intl";
@@ -64,13 +65,13 @@ export function PayDialog({ menu, me, offline, online, onClose, onFinished }: { 
   const dominant = entries.length ? [...entries].sort((a, b) => b.amount - a.amount)[0].method : method;
   const redeem = useMemo(() => {
     if (!cart.redeem || !menu.loyalty) return { points: 0, value: 0 };
-    const base = computeTotals({ lines: priced, discount: cart.discount ?? (online && menu.openingOfferBps ? { kind: "percent", value: menu.openingOfferBps } : null), orderType: cart.orderType, taxRules: [] });
+    const base = computeTotals({ lines: priced, discount: cart.discount ?? (online && openingOfferBps() ? { kind: "percent", value: openingOfferBps() } : null), orderType: cart.orderType, taxRules: [] });
     const payable = base.subtotal - base.discountTotal;
     const points = maxRedeemablePoints(cart.customerPoints, payable, menu.loyalty);
     return { points, value: redeemValue(points, payable, menu.loyalty) };
-  }, [cart.redeem, priced, cart.discount, online, menu.openingOfferBps, cart.orderType, cart.customerPoints, menu.loyalty]);
+  }, [cart.redeem, priced, cart.discount, online, openingOfferBps(), cart.orderType, cart.customerPoints, menu.loyalty]);
   // Opening-week offer: the server applies it when no other discount is set (not to offline sales).
-  const autoDiscount = online && !cart.discount && menu.openingOfferBps ? ({ kind: "percent", value: menu.openingOfferBps } as const) : null;
+  const autoDiscount = online && !cart.discount && openingOfferBps() ? ({ kind: "percent", value: openingOfferBps() } as const) : null;
   const totals = useMemo(
     () => computeTotals({ lines: priced, discount: cart.discount ?? autoDiscount, orderType: cart.orderType, paymentMethod: dominant, taxRules: menu.taxRules, serviceChargeBps: menu.serviceChargeBps, deliveryCharge: zone?.charge ?? 0, loyaltyDiscount: redeem.value }),
     [priced, cart.discount, autoDiscount, cart.orderType, dominant, menu, zone, redeem.value],

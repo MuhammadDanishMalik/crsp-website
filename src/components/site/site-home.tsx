@@ -81,7 +81,7 @@ export function SiteHome({ menu, orders }: { menu: PublicMenu; orders: { open: b
                   <img src="/site/offer.png" alt="" width={176} height={176} className="h-28 w-28 object-contain sm:h-36 sm:w-36" />
                 </div>
                 <div className="flex-1 border-l-2 border-dashed border-red-200 p-4 text-left sm:p-5">
-                  <p className="text-[11px] font-black uppercase tracking-widest text-zinc-400">Opening offer</p>
+                  <p className="text-[11px] font-black uppercase tracking-widest text-zinc-400">Today only</p>
                   <p className="text-2xl font-black leading-tight text-[#d62828] sm:text-3xl">{OPENING_OFFER.bps / 100}% off</p>
                   <p className="mt-1 text-sm font-semibold">On your whole order <span className="font-normal text-zinc-500">(cold drinks excluded)</span></p>
                   <Countdown />
@@ -143,7 +143,7 @@ export function SiteHome({ menu, orders }: { menu: PublicMenu; orders: { open: b
             {lines.length > 0 && (
               <div className="space-y-1 border-t border-zinc-200 p-4 text-sm">
                 <div className="flex justify-between"><span>Subtotal</span><span>{formatPKR(totals.subtotal)}</span></div>
-                {totals.discountTotal > 0 && <div className="flex justify-between text-emerald-700"><span>Opening offer {OPENING_OFFER.bps / 100}%</span><span>− {formatPKR(totals.discountTotal)}</span></div>}
+                {totals.discountTotal > 0 && <div className="flex justify-between text-emerald-700"><span>{OPENING_OFFER.label}</span><span>− {formatPKR(totals.discountTotal)}</span></div>}
                 <div className="flex justify-between text-lg font-black"><span>Total (cash on delivery)</span><span>{formatPKR(totals.total)}</span></div>
                 <button onClick={() => { setCartOpen(false); setCheckout(true); }} className="btn-shine mt-3 h-12 w-full rounded-full bg-[#d62828] font-bold text-white active:scale-[.99]">Checkout</button>
               </div>
@@ -190,7 +190,7 @@ function BusyNotice() {
 
 /** "Offer ends in 5 days 4 h 12 m 30 s", ticking every second. */
 function Countdown() {
-  const end = useMemo(() => new Date(`${OPENING_OFFER.end}T23:59:59+05:00`).getTime(), []); // end of the last day, Pakistan time
+  const end = useMemo(() => new Date(OPENING_OFFER.endsAt).getTime(), []); // end of the last day, Pakistan time
   const [now, setNow] = useState<number | null>(null);
   useEffect(() => { setNow(Date.now()); const t = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(t); }, []);
   if (now === null) return <span className="skeleton mt-2 block h-5 w-48 rounded" />;
