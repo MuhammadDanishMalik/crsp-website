@@ -43,6 +43,7 @@ export function PosScreen({ menu, me, shiftOpenedAt, offline }: PosProps) {
   const [toast, setToast] = useState("");
   const searchRef = useRef<HTMLInputElement>(null);
   const online = useOnline();
+  useEffect(() => { for (const p of ["/orders", "/delivery", "/shift"]) router.prefetch(p); }, [router]); // the header pages are ready before they are tapped
   // Instant sold-out / menu edits from the back office
   useBranchEvents((type) => {
     if (type === "menu.changed") router.refresh();
