@@ -18,7 +18,7 @@ export const STATION_OF: Record<string, string> = { Broast: "Fryer", Wings: "Fry
 
 /** Modifier groups. Sauce and add-on prices are the menu card's. */
 export const GROUPS: Record<GroupKey, { name: string; nameUr: string; min: number; max: number; options: { name: string; nameUr: string; price?: number; isDefault?: boolean }[] }> = {
-  spice: { name: "Spice Level", nameUr: "مرچ کی شدت", min: 1, max: 1, options: [{ name: "Regular", nameUr: "درمیانہ", isDefault: true }, { name: "Spicy", nameUr: "تیز مرچ" }] },
+  spice: { name: "Spice Level", nameUr: "مرچ کی شدت", min: 0, max: 1, options: [{ name: "Regular", nameUr: "درمیانہ" }, { name: "Spicy", nameUr: "تیز مرچ" }] }, // optional: the cashier may skip it
   sauce: { name: "Extra Sauce", nameUr: "اضافی ساس", min: 0, max: 5, options: [{ name: "Chipotle Sauce", nameUr: "چپوٹلے ساس", price: 100 }, { name: "Garlic Sauce", nameUr: "گارلک ساس", price: 100 }, { name: "Honey Mustard", nameUr: "ہنی مسٹرڈ ساس", price: 100 }] },
   addons: { name: "Burger Add-ons", nameUr: "برگر ایڈ آنز", min: 0, max: 3, options: [{ name: "Extra beef patty", nameUr: "اضافی بیف پیٹی", price: 295 }, { name: "Make it meal (Fries + drink)", nameUr: "میک اٹ میل (فرائز + ڈرنک)", price: 300 }, { name: "Extra Cheese Slice", nameUr: "اضافی چیز سلائس", price: 80 }] },
   drink: { name: "Drink (deal)", nameUr: "ڈرنک (ڈیل)", min: 0, max: 4, options: [{ name: "Coca-Cola", nameUr: "کوکا کولا" }, { name: "Sprite", nameUr: "اسپرائٹ" }, { name: "Fanta", nameUr: "فینٹا" }] },

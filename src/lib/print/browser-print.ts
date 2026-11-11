@@ -66,7 +66,21 @@ ${r.taxInvoiceNo ? `<div class="c b">Tax invoice: ${esc(r.taxInvoiceNo)}</div>` 
 <div class="c" style="margin-top:6px;font-size:10px">Software powered by Orixto.com</div></section>`;
 }
 
-export type SlipOptions = { kitchen?: boolean; customer?: boolean; changes?: Parameters<typeof kitchenSlip>[1]; ruler?: boolean; settings?: PrintSettings };
+/** Slip for the delivery rider: who to deliver to, where, the phone number to call, and how much cash to collect. */
+function riderSlip(r: ReceiptData) {
+  const when = new Date(r.createdAt).toLocaleString("en-GB", { timeZone: "Asia/Karachi", dateStyle: "short", timeStyle: "short" });
+  const cod = r.payments.some((p) => p.status === "pending");
+  const items = r.lines.map((l) => `<div>${l.qty} x ${esc(l.name)}${l.mods.length ? ` (${l.mods.map(esc).join(", ")})` : ""}</div>`).join("");
+  return `<section class="slip"><div class="c tag">*** RIDER SLIP ***</div>
+<div class="c big">#${esc(r.orderNo)}</div><div class="c b">DELIVERY</div><div class="c">${esc(when)}</div><div class="hr"></div>
+<div class="b" style="font-size:1.2em">${esc(r.customer?.name || "Customer")}</div>
+${r.customer?.phone ? `<div class="b" style="font-size:1.6em">Tel: ${esc(r.customer.phone)}</div>` : ""}
+<div class="b" style="font-size:1.2em;margin-top:4px">${esc(r.deliveryAddress || "No address given")}</div><div class="hr"></div>
+<div class="rule b" style="font-size:1.3em">${cod ? `COLLECT CASH: ${formatPKR(r.total)}` : `PAID: ${formatPKR(r.total)}`}</div>
+<div class="hr"></div>${items}<div class="hr"></div><div class="c">${esc(r.branch.name)}${r.branch.phone ? ` - ${esc(r.branch.phone)}` : ""}</div></section>`;
+}
+
+export type SlipOptions = { kitchen?: boolean; customer?: boolean; rider?: boolean; changes?: Parameters<typeof kitchenSlip>[1]; ruler?: boolean; settings?: PrintSettings };
 
 /** A page of rulers to check that the paper width and the text columns fit this printer. */
 function rulerSlip(s: PrintSettings) {
@@ -90,7 +104,9 @@ export async function buildSlipDocs(r: ReceiptData, o: SlipOptions = {}): Promis
   let qr: string | null = null;
   if (r.qr && o.customer !== false) { try { qr = await (await import("qrcode")).toString(r.qr, { type: "svg", margin: 0, width: 120 }); } catch { qr = null; } }
   const wrap = (body: string) => `<!doctype html><html><head><meta charset="utf-8"><title>Order ${esc(r.orderNo)}</title><style>${css(s)}</style></head><body>${body}</body></html>`;
-  const slips = [o.ruler ? rulerSlip(s) : "", o.kitchen !== false || o.changes ? kitchenSlip(r, o.changes) : "", o.customer !== false ? customerSlip(r, qr) : ""];
+  // A delivery sale prints three slips: kitchen, customer and rider (the rider slip only on a fresh sale or when asked for).
+  const rider = o.rider ?? (r.type === "delivery" && o.kitchen !== false && !o.changes);
+  const slips = [o.ruler ? rulerSlip(s) : "", o.kitchen !== false || o.changes ? kitchenSlip(r, o.changes) : "", o.customer !== false ? customerSlip(r, qr) : "", rider ? riderSlip(r) : ""];
   return slips.filter(Boolean).map(wrap);
 }
 
