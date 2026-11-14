@@ -1,5 +1,6 @@
 "use server";
 
+import { deliveryChargeFor } from "@/lib/domain/delivery";
 import { markNoDiscount } from "@/lib/domain/discount-scope";
 import { openingOfferBps, OPENING_OFFER } from "@/lib/domain/opening-offer";
 import { and, eq, inArray, sql } from "drizzle-orm";
@@ -198,7 +199,7 @@ async function createOrderInner(raw: unknown, ctx?: { session: Session; website:
     redeemedPoints = Math.min(input.redeemPoints, allowed);
     loyaltyDiscount = redeemValue(redeemedPoints, base.subtotal - base.discountTotal, loyalty);
   }
-  const totals = computeTotals({ lines: pricedLines, discount, orderType: input.type, paymentMethod: dominant, taxRules, serviceChargeBps, deliveryCharge: zone?.charge ?? 0, loyaltyDiscount });
+  const totals = computeTotals({ lines: pricedLines, discount, orderType: input.type, paymentMethod: dominant, taxRules, serviceChargeBps, deliveryCharge: off ? 0 : deliveryChargeFor(input.type, subtotal, input.deliveryCharge), loyaltyDiscount });
 
   const paid = input.payments.reduce((a, p) => a + p.amount, 0);
   if (!cod && paid < totals.total) throw new OrderError("Payments do not cover the total");

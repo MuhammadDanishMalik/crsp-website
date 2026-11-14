@@ -1,4 +1,5 @@
 "use client";
+import { deliveryChargeFor } from "@/lib/domain/delivery";
 import { openingOfferBps } from "@/lib/domain/opening-offer";
 import { markNoDiscount } from "@/lib/domain/discount-scope";
 import { useEffect } from "react";
@@ -31,10 +32,9 @@ export function CartPanel({
   const cart = useCart();
   const t = useTranslations();
   const ur = useLocale() === "ur";
-  const zone = menu.zones.find((z) => z.id === cart.deliveryZoneId);
   const tot = computeTotals({
     lines: markNoDiscount(cart.lines, (id) => { const it = menu.items.find((x) => x.id === id); return it && menu.categories.find((c) => c.id === it.categoryId)?.name; }), discount: cart.discount ?? (openingOfferBps() ? { kind: "percent", value: openingOfferBps() } : null), orderType: cart.orderType, paymentMethod: "cash", taxRules: menu.taxRules,
-    serviceChargeBps: menu.serviceChargeBps, deliveryCharge: zone?.charge ?? 0,
+    serviceChargeBps: menu.serviceChargeBps, deliveryCharge: deliveryChargeFor(cart.orderType, cart.lines.reduce((a, l) => a + lineTotal(l), 0), cart.deliveryCharge),
   });
   const nLines = cart.lines.length;
 

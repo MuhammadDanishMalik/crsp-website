@@ -4,7 +4,8 @@ import { Clock, LocateFixed, Star, MapPin, Minus, Plus, ShoppingBag, X } from "l
 import { SHOP_PHONE } from "@/lib/domain/contact";
 import { Logo } from "@/components/brand/logo";
 import { formatPKR } from "@/lib/domain/money";
-import { computeTotals } from "@/lib/domain/pricing";
+import { computeTotals, lineTotal } from "@/lib/domain/pricing";
+import { deliveryChargeFor } from "@/lib/domain/delivery";
 import { markNoDiscount } from "@/lib/domain/discount-scope";
 import { openingOfferBps, OPENING_OFFER } from "@/lib/domain/opening-offer";
 import { placeWebsiteOrder } from "@/lib/actions/orders";
@@ -34,7 +35,7 @@ export function SiteHome({ menu, orders }: { menu: PublicMenu; orders: { open: b
   const totals = useMemo(() => {
     const cl = lines.map((l) => ({ key: l.key, itemId: l.itemId, name: l.name, basePrice: l.price, quantity: l.qty, modifiers: l.mods }));
     const bps = openingOfferBps();
-    return computeTotals({ lines: markNoDiscount(cl, catName), discount: bps ? { kind: "percent", value: bps } : null, orderType: "delivery", taxRules: [] });
+    return computeTotals({ lines: markNoDiscount(cl, catName), discount: bps ? { kind: "percent", value: bps } : null, orderType: "delivery", taxRules: [], deliveryCharge: deliveryChargeFor("delivery", cl.reduce((a, l) => a + lineTotal(l), 0)) });
   }, [lines, catName]);
   const count = lines.reduce((a, l) => a + l.qty, 0);
 
@@ -144,6 +145,7 @@ export function SiteHome({ menu, orders }: { menu: PublicMenu; orders: { open: b
               <div className="space-y-1 border-t border-zinc-200 p-4 text-sm">
                 <div className="flex justify-between"><span>Subtotal</span><span>{formatPKR(totals.subtotal)}</span></div>
                 {totals.discountTotal > 0 && <div className="flex justify-between text-emerald-700"><span>{OPENING_OFFER.label}</span><span>− {formatPKR(totals.discountTotal)}</span></div>}
+                {totals.deliveryCharge > 0 && <div className="flex justify-between"><span>Delivery</span><span>{formatPKR(totals.deliveryCharge)}</span></div>}
                 <div className="flex justify-between text-lg font-black"><span>Total (cash on delivery)</span><span>{formatPKR(totals.total)}</span></div>
                 <button onClick={() => { setCartOpen(false); setCheckout(true); }} className="btn-shine mt-3 h-12 w-full rounded-full bg-[#d62828] font-bold text-white active:scale-[.99]">Checkout</button>
               </div>

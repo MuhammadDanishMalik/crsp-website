@@ -35,6 +35,7 @@ export const createOrderSchema = z.object({
     localNo: z.string().min(1).max(20), createdAt: z.string().datetime(), shiftId: z.string().uuid(), staffId: z.string().uuid(), staffName: z.string().max(80),
     lines: z.array(z.object({ itemId: z.string().uuid(), basePrice: z.number().int().min(0), modifiers: z.array(z.object({ id: z.string().uuid(), priceDelta: z.number().int() })) })),
   }).optional(),
+  deliveryCharge: z.number().int().min(0).max(50_000).optional(), // paisa; typed by the cashier, otherwise the Rs 100 / Rs 1000 rule applies
   cod: z.boolean().optional(), // cash on delivery: no payment now, the rider collects it
   redeemPoints: z.number().int().min(0).max(1_000_000).optional(),
 });

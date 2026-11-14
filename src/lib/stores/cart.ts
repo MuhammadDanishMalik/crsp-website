@@ -16,6 +16,7 @@ type State = {
   customerPoints: number; // loyalty balance of the looked-up customer
   redeem: boolean; // redeem the maximum points on this order
   discount: CartDiscount | null;
+  deliveryCharge: number | null; // paisa typed by the cashier; null = the automatic rule
   clientId: string; // regenerated per order; doubles as idempotency key
   add: (line: Omit<CartLine, "key">) => void;
   setQty: (key: string, qty: number) => void;
@@ -27,7 +28,7 @@ type State = {
 
 const fresh = () => ({
   lines: [] as CartLine[], tableNo: "", customerPhone: "", customerName: "", deliveryAddress: "", deliveryZoneId: null as string | null,
-  aggregatorName: "", customerPoints: 0, redeem: false, discount: null as CartDiscount | null, clientId: crypto.randomUUID(),
+  aggregatorName: "", customerPoints: 0, redeem: false, discount: null as CartDiscount | null, deliveryCharge: null as number | null, clientId: crypto.randomUUID(),
 });
 
 const sig = (l: Omit<CartLine, "key">) => `${l.itemId}|${l.modifiers.map((m) => m.id).sort().join(",")}|${l.note ?? ""}`;

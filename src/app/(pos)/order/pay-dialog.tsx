@@ -1,4 +1,5 @@
 "use client";
+import { deliveryChargeFor } from "@/lib/domain/delivery";
 import { openingOfferBps } from "@/lib/domain/opening-offer";
 import { markNoDiscount } from "@/lib/domain/discount-scope";
 import { useMemo, useState, useTransition } from "react";
@@ -61,7 +62,8 @@ export function PayDialog({ menu, me, offline, online, onClose, onFinished }: { 
   // Cold drinks (Beverages) are other companies' products: no discount applies to them.
   const catName = useMemo(() => { const c = new Map(menu.categories.map((x) => [x.id, x.name])); const i = new Map(menu.items.map((x) => [x.id, c.get(x.categoryId)])); return (id: string) => i.get(id); }, [menu]);
   const priced = useMemo(() => markNoDiscount(cart.lines, catName), [cart.lines, catName]);
-  const zone = menu.zones.find((z) => z.id === cart.deliveryZoneId);
+  const rawSubtotal = cart.lines.reduce((a, l) => a + lineTotal(l), 0);
+  const deliveryCharge = deliveryChargeFor(cart.orderType, rawSubtotal, cart.deliveryCharge);
   const dominant = entries.length ? [...entries].sort((a, b) => b.amount - a.amount)[0].method : method;
   const redeem = useMemo(() => {
     if (!cart.redeem || !menu.loyalty) return { points: 0, value: 0 };
@@ -73,8 +75,8 @@ export function PayDialog({ menu, me, offline, online, onClose, onFinished }: { 
   // Opening-week offer: the server applies it when no other discount is set (not to offline sales).
   const autoDiscount = online && !cart.discount && openingOfferBps() ? ({ kind: "percent", value: openingOfferBps() } as const) : null;
   const totals = useMemo(
-    () => computeTotals({ lines: priced, discount: cart.discount ?? autoDiscount, orderType: cart.orderType, paymentMethod: dominant, taxRules: menu.taxRules, serviceChargeBps: menu.serviceChargeBps, deliveryCharge: zone?.charge ?? 0, loyaltyDiscount: redeem.value }),
-    [priced, cart.discount, autoDiscount, cart.orderType, dominant, menu, zone, redeem.value],
+    () => computeTotals({ lines: priced, discount: cart.discount ?? autoDiscount, orderType: cart.orderType, paymentMethod: dominant, taxRules: menu.taxRules, serviceChargeBps: menu.serviceChargeBps, deliveryCharge, loyaltyDiscount: redeem.value }),
+    [priced, cart.discount, autoDiscount, cart.orderType, dominant, menu, deliveryCharge, redeem.value],
   );
   const canRedeem = !!menu.loyalty && cart.customerPoints >= menu.loyalty.minRedeemPoints;
   const paid = entries.reduce((a, e) => a + e.amount, 0);
@@ -119,12 +121,13 @@ export function PayDialog({ menu, me, offline, online, onClose, onFinished }: { 
     const payload = {
       clientId: cart.clientId, type: cart.orderType, tableNo: cart.tableNo || undefined, customerPhone: cart.customerPhone || undefined,
       customerName: cart.customerName || undefined, deliveryAddress: cart.deliveryAddress || undefined, deliveryZoneId: cart.deliveryZoneId ?? undefined,
-      aggregatorName: cart.aggregatorName || undefined, cod: cod || undefined, redeemPoints: redeem.points || undefined,
+      aggregatorName: cart.aggregatorName || undefined, cod: cod || undefined, deliveryCharge: cart.orderType === "delivery" ? deliveryCharge : undefined, redeemPoints: redeem.points || undefined,
       lines: cart.lines.map((l) => ({ itemId: l.itemId, quantity: l.quantity, modifierIds: l.modifiers.map((m) => m.id), note: l.note || undefined })),
       discount: cart.discount ? { kind: cart.discount.kind, value: cart.discount.value, reason: cart.discount.reason, code: cart.discount.code, overrideToken: cart.discount.overrideToken } : null,
       payments: all.map((e) => ({ method: e.method, amount: e.amount, tendered: e.tendered, approvalCode: e.approvalCode, cardBrand: e.cardBrand, referenceNo: e.method === "raast" || e.method === "bank_transfer" ? e.referenceNo : undefined })),
     };
     const saveOffline = async () => {
+      if (deliveryCharge > 0) return setError("A delivery charge needs the internet. Set it to 0 to save this order offline.");
       if (cart.discount || cod || redeem.points) return setError("Discounts, points and cash-on-delivery need the internet. Remove them to continue offline.");
       const createdAt = new Date().toISOString();
       const localNo = await nextLocalNo(offline.prefix, businessDate());
@@ -215,6 +218,14 @@ export function PayDialog({ menu, me, offline, online, onClose, onFinished }: { 
             );
           })}
           <span className="text-sm text-muted">Tick to give a discount. Cold drinks are never discounted.</span>
+        </div>
+      )}
+      {cart.orderType === "delivery" && (
+        <div className="mb-4 flex items-center gap-3 rounded-2xl border border-border bg-surface-2 p-3">
+          <label htmlFor="delivery-charge" className="font-semibold">Delivery charge (Rs)</label>
+          <Input id="delivery-charge" inputMode="numeric" className="w-32 text-lg font-bold" value={String(deliveryCharge / 100)}
+            onChange={(e) => { const n = Number(e.target.value.replace(/\D/g, "") || 0); cart.set({ deliveryCharge: Math.min(n, 500) * 100 }); }} />
+          <button type="button" onClick={() => cart.set({ deliveryCharge: null })} className="text-sm text-muted underline">Reset (Rs 100 on orders of Rs 1000 or more)</button>
         </div>
       )}
       <details className="mb-4 rounded-2xl border border-border bg-surface-2 p-3" open={cart.orderType === "delivery" || !!(cart.customerName || cart.customerPhone || cart.deliveryAddress)}>
