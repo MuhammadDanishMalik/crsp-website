@@ -130,6 +130,8 @@ export const getSession = cache(async (): Promise<Session | null> => {
 export async function requireSession(opts: { permission?: Permission; kind?: "pos" | "admin" } = {}) {
   const session = await getSession();
   if (!session) redirect(opts.kind === "admin" ? "/login" : "/pin");
+  // A till (PIN) session of a cashier/kitchen user must not open the admin panel: ask for the admin login instead.
+  if (opts.kind === "admin" && session.kind !== "admin" && !session.can("dashboard.view")) redirect("/login");
   if (opts.permission && !session.can(opts.permission)) redirect("/forbidden");
   return session;
 }
