@@ -66,7 +66,8 @@ async function createOrderInner(raw: unknown, ctx?: { session: Session; website:
   if (!cod && !input.payments.length) throw new OrderError("Add a payment");
   if (input.payments.length > 1 && !session.can("payment.split")) throw new PermissionError("Missing permission: payment.split");
   for (const p of input.payments) {
-    if (!session.can(METHOD_PERMISSION[p.method])) throw new PermissionError(`Missing permission: ${METHOD_PERMISSION[p.method]}`);
+    // Anyone who can punch orders can take cash (order takers had no payment permission and every sale failed).
+    if (!session.can(METHOD_PERMISSION[p.method]) && !(p.method === "cash" && session.can("order.create"))) throw new PermissionError(`Missing permission: ${METHOD_PERMISSION[p.method]}`);
   }
 
   // All the independent reads go out together: every database round trip costs ~100 ms on a server far from the database.

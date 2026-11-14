@@ -147,7 +147,7 @@ export const ROLE_DEFAULTS: Record<string, Permission[] | "ALL"> = {
     "payment.voucher","payment.split","shift.open","shift.close","shift.view_x_report","attendance.clock",
     "customer.view","customer.manage","menu.view",
   ],
-  order_taker: ["order.create","order.hold","order.delivery.create","customer.view","customer.manage","attendance.clock","menu.view"],
+  order_taker: ["order.create","payment.cash","order.hold","order.delivery.create","customer.view","customer.manage","attendance.clock","menu.view"],
   kitchen: ["kds.view","kds.bump","kds.recall","attendance.clock"],
   rider: ["delivery.view_assigned","delivery.update_status","attendance.clock"],
   accountant: [
