@@ -17,6 +17,7 @@ export default async function HomePage(props: {
     if (s.kind === "admin") redirect("/admin");
     if (!s.can("order.create") && s.can("kds.view")) redirect("/kds");
     if (!s.can("order.create") && s.can("delivery.view_assigned")) redirect("/rider");
+    if (!s.can("order.create")) redirect("/orders");
     redirect("/order");
   }
 

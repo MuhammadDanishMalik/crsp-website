@@ -104,9 +104,7 @@ export async function loginWithPin(pin: string): Promise<Result> {
     if (st.pinHash && (await bcrypt.compare(pin, st.pinHash))) {
       attempts.delete(terminalKey);
       await setSession({ sid: st.id, bid: branchId!, tid: terminalId, kind: "pos" });
-      const [role] = await db.select().from(s.roles).where(eq(s.roles.id, st.roleId)).limit(1);
-      const redirectTo = role?.key === "kitchen" ? "/kds" : "/order";
-      return { ok: true, redirectTo };
+      return { ok: true, redirectTo: "/" }; // the home page sends each role to the screen it is allowed to use
     }
   }
 
@@ -126,8 +124,7 @@ export async function loginWithPin(pin: string): Promise<Result> {
       if (matchedStaff) {
         attempts.delete(terminalKey);
         await setSession({ sid: matchedStaff.id, bid: branchId!, tid: terminalId, kind: "pos" });
-        const redirectTo = targetKey === "kitchen" ? "/kds" : "/order";
-        return { ok: true, redirectTo };
+        return { ok: true, redirectTo: "/" };
       }
     }
   }
