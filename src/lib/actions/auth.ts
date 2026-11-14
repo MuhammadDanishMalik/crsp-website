@@ -104,7 +104,7 @@ export async function loginWithPin(pin: string): Promise<Result> {
     if (st.pinHash && (await bcrypt.compare(pin, st.pinHash))) {
       attempts.delete(terminalKey);
       await setSession({ sid: st.id, bid: branchId!, tid: terminalId, kind: "pos" });
-      return { ok: true, redirectTo: "/" }; // the home page sends each role to the screen it is allowed to use
+      return { ok: true, redirectTo: "/?pos=1" }; // the home page sends each role to the screen it is allowed to use
     }
   }
 
@@ -124,7 +124,7 @@ export async function loginWithPin(pin: string): Promise<Result> {
       if (matchedStaff) {
         attempts.delete(terminalKey);
         await setSession({ sid: matchedStaff.id, bid: branchId!, tid: terminalId, kind: "pos" });
-        return { ok: true, redirectTo: "/" };
+        return { ok: true, redirectTo: "/?pos=1" };
       }
     }
   }
