@@ -25,6 +25,8 @@ import { sadqaFor } from "@/lib/domain/sadqa";
 import { getProvider, manualProvider } from "@/lib/adapters/payments";
 import { maxRedeemablePoints, pointsEarned, redeemValue } from "@/lib/domain/loyalty";
 
+/** order_counters row that holds the all-time order number (the table is keyed by date; this key never changes). */
+const ALL_TIME_COUNTER = "1970-01-01";
 type Ok = { ok: true; orderId: string; orderNo: string; total: number; change: number; receipt?: ReceiptData };
 type Err = { ok: false; error: string };
 
@@ -239,7 +241,9 @@ async function createOrderInner(raw: unknown, ctx?: { session: Session; website:
       orderNo = off.localNo;
       for (let k = 2; used.has(orderNo); k++) orderNo = `${off.localNo}-${k}`;
     } else {
-      const [counter] = await tx.insert(s.orderCounters).values({ branchId: session.branchId, businessDate: date, lastNumber: 1 })
+      // One running number from the very first order (it no longer restarts every day). The counter row uses a fixed date key; the first time
+      // it starts after the orders already in the system, so numbering continues from the total instead of from 1.
+      const [counter] = await tx.insert(s.orderCounters).values({ branchId: session.branchId, businessDate: ALL_TIME_COUNTER, lastNumber: sql`(select count(*) from orders where branch_id = ${session.branchId})::int + 1` })
         .onConflictDoUpdate({ target: [s.orderCounters.branchId, s.orderCounters.businessDate], set: { lastNumber: sql`${s.orderCounters.lastNumber} + 1` } })
         .returning();
       orderNo = String(counter.lastNumber).padStart(3, "0");
