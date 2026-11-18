@@ -25,8 +25,16 @@ import { sadqaFor } from "@/lib/domain/sadqa";
 import { getProvider, manualProvider } from "@/lib/adapters/payments";
 import { maxRedeemablePoints, pointsEarned, redeemValue } from "@/lib/domain/loyalty";
 
-/** order_counters row that holds the all-time order number (the table is keyed by date; this key never changes). */
-const ALL_TIME_COUNTER = "1970-01-01";
+/** CR + 4 digits (CR0001–CR0999 first, so numbers stay small and start with 0; widens only if a day runs out). */
+function randomOrderNo(used: Set<string>): string {
+  for (const max of [999, 9999]) {
+    for (let i = 0; i < 40; i++) {
+      const no = `CR${String(1 + Math.floor(Math.random() * max)).padStart(4, "0")}`;
+      if (!used.has(no)) return no;
+    }
+  }
+  for (let n = 1; ; n++) { const no = `CR${String(n).padStart(4, "0")}`; if (!used.has(no)) return no; }
+}
 type Ok = { ok: true; orderId: string; orderNo: string; total: number; change: number; receipt?: ReceiptData };
 type Err = { ok: false; error: string };
 
@@ -241,12 +249,9 @@ async function createOrderInner(raw: unknown, ctx?: { session: Session; website:
       orderNo = off.localNo;
       for (let k = 2; used.has(orderNo); k++) orderNo = `${off.localNo}-${k}`;
     } else {
-      // One running number from the very first order (it no longer restarts every day). The counter row uses a fixed date key; the first time
-      // it starts after the orders already in the system, so numbering continues from the total instead of from 1.
-      const [counter] = await tx.insert(s.orderCounters).values({ branchId: session.branchId, businessDate: ALL_TIME_COUNTER, lastNumber: sql`(select count(*) from orders where branch_id = ${session.branchId})::int + 1` })
-        .onConflictDoUpdate({ target: [s.orderCounters.branchId, s.orderCounters.businessDate], set: { lastNumber: sql`${s.orderCounters.lastNumber} + 1` } })
-        .returning();
-      orderNo = String(counter.lastNumber).padStart(3, "0");
+      // Random order number like CR0343: small values with leading zeros, new for every order, never repeated on the same day.
+      const taken = await tx.select({ n: s.orders.orderNo }).from(s.orders).where(and(eq(s.orders.branchId, session.branchId), eq(s.orders.businessDate, date)));
+      orderNo = randomOrderNo(new Set(taken.map((x) => x.n)));
     }
 
     let customerId: string | undefined;
