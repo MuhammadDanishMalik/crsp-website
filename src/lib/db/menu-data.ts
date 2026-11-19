@@ -21,8 +21,8 @@ export const GROUPS: Record<GroupKey, { name: string; nameUr: string; min: numbe
   spice: { name: "Spice Level", nameUr: "مرچ کی شدت", min: 0, max: 1, options: [{ name: "Regular", nameUr: "درمیانہ" }, { name: "Spicy", nameUr: "تیز مرچ" }] }, // optional: the cashier may skip it
   sauce: { name: "Extra Sauce", nameUr: "اضافی ساس", min: 0, max: 5, options: [{ name: "Chipotle Sauce", nameUr: "چپوٹلے ساس", price: 100 }, { name: "Garlic Sauce", nameUr: "گارلک ساس", price: 100 }, { name: "Honey Mustard", nameUr: "ہنی مسٹرڈ ساس", price: 100 }] },
   addons: { name: "Burger Add-ons", nameUr: "برگر ایڈ آنز", min: 0, max: 3, options: [{ name: "Extra beef patty", nameUr: "اضافی بیف پیٹی", price: 295 }, { name: "Make it meal (Fries + drink)", nameUr: "میک اٹ میل (فرائز + ڈرنک)", price: 300 }, { name: "Extra Cheese Slice", nameUr: "اضافی چیز سلائس", price: 80 }] },
-  drink: { name: "Drink (deal)", nameUr: "ڈرنک (ڈیل)", min: 0, max: 4, options: [{ name: "Coca-Cola", nameUr: "کوکا کولا" }, { name: "Sprite", nameUr: "اسپرائٹ" }, { name: "Fanta", nameUr: "فینٹا" }] },
-  drinkFlavor: { name: "Drink Flavor", nameUr: "ڈرنک کا فلیور", min: 1, max: 1, options: [{ name: "Coca-Cola", nameUr: "کوکا کولا", isDefault: true }, { name: "Sprite", nameUr: "اسپرائٹ" }, { name: "Fanta", nameUr: "فینٹا" }, { name: "Diet Coke", nameUr: "ڈائیٹ کوک" }] },
+  drink: { name: "Drink (deal)", nameUr: "ڈرنک (ڈیل)", min: 0, max: 4, options: [{ name: "Coca-Cola", nameUr: "کوکا کولا" }, { name: "Sprite", nameUr: "اسپرائٹ" }, { name: "Fanta", nameUr: "فینٹا" }, { name: "Mirinda Citrus", nameUr: "مرینڈا سٹرس" }] },
+  drinkFlavor: { name: "Drink Flavor", nameUr: "ڈرنک کا فلیور", min: 1, max: 1, options: [{ name: "Coca-Cola", nameUr: "کوکا کولا", isDefault: true }, { name: "Sprite", nameUr: "اسپرائٹ" }, { name: "Fanta", nameUr: "فینٹا" }, { name: "Mirinda Citrus", nameUr: "مرینڈا سٹرس" }, { name: "Diet Coke", nameUr: "ڈائیٹ کوک" }] },
   kid: { name: "Kid's burger", nameUr: "بچوں کا برگر", min: 1, max: 1, options: [{ name: "Krunch Burger", nameUr: "کرنچ برگر", isDefault: true }, { name: "Chicken Patty", nameUr: "چکن پیٹی" }] },
   kidDrink: { name: "Milo / Drink + Toy", nameUr: "ملو / ڈرنک + کھلونا", min: 1, max: 1, options: [{ name: "Milo", nameUr: "ملو", isDefault: true }, { name: "Drink", nameUr: "ڈرنک" }] },
 };
@@ -66,7 +66,8 @@ const ROWS: Row[] = [
     ["Fries", "CRSP Loaded Fries", 550, ["sauce"], "🍟", true, false, "Fries loaded with crispy chicken chunks, melted cheese & sauces"],
     ["Fries", "Grill Loaded Fries", 600, ["sauce"], "🍟", false, false, "Fries topped with grilled chicken, jalapenos & smoky sauce"],
     // Beverages
-    ["Beverages", "Soft Drink (Can 250 ml)", 120, ["drinkFlavor"], "🥤", true, false, "Chilled canned soft drink (Coca-Cola, Sprite, Fanta, Diet Coke)"],
+    ["Beverages", "Mirinda Citrus", 400, [], "🥤", true, false, "Chilled Mirinda Citrus soft drink"],
+    ["Beverages", "Soft Drink (Can 250 ml)", 120, ["drinkFlavor"], "🥤", true, false, "Chilled canned soft drink (Coca-Cola, Sprite, Fanta, Diet Coke, Mirinda Citrus)"],
     ["Beverages", "Soft Drink (Bottle 350 ml)", 100, ["drinkFlavor"], "🥤", true, false, "Chilled bottle soft drink"],
     ["Beverages", "Soft Drink (Bottle 1 L)", 170, ["drinkFlavor"], "🥤", false, false, "1 Litre sharing bottle"],
     ["Beverages", "Soft Drink (Bottle 1.5 L)", 200, ["drinkFlavor"], "🥤", false, false, "1.5 Litre jumbo bottle"],
@@ -101,7 +102,7 @@ export const URDU: Record<string, string> = {
   "Simple Wings (10 pcs)": "سمپل ونگز (10 پیس)", "Hot Buffalo Wings (10 pcs)": "ہاٹ بفیلو ونگز (10 پیس)", "Sweet Thai Wings (10 pcs)": "سویٹ تھائی ونگز (10 پیس)", "Masala Wings (10 pcs)": "مصالحہ ونگز (10 پیس)",
   "Injected Nuggets (6 pcs)": "انجیکٹڈ نگٹس (6 پیس)", "Chicken Strips (6 pcs)": "چکن اسٹرپس (6 پیس)", "Chicken Fries (6 pcs)": "چکن فرائز (6 پیس)", "Hot Shot (12 pcs)": "ہاٹ شاٹ (12 پیس)",
   "Simple Fries (Small)": "سادہ فرائز (چھوٹے)", "Simple Fries (Medium)": "سادہ فرائز (درمیانے)", "Simple Fries (Large)": "سادہ فرائز (بڑے)", "Masala Fries": "مصالحہ فرائز", "CRSP Loaded Fries": "کرسپ لوڈڈ فرائز", "Grill Loaded Fries": "گرل لوڈڈ فرائز",
-  "Soft Drink (Can 250 ml)": "سوفٹ ڈرنک (ٹن 250 ملی لیٹر)", "Soft Drink (Bottle 350 ml)": "سوفٹ ڈرنک (بوتل 350 ملی لیٹر)", "Soft Drink (Bottle 1 L)": "سوفٹ ڈرنک (بوتل 1 لیٹر)", "Soft Drink (Bottle 1.5 L)": "سوفٹ ڈرنک (بوتل 1.5 لیٹر)", "Mineral Water (500 ml)": "منرل واٹر (500 ملی لیٹر)",
+  "Mirinda Citrus": "مرینڈا سٹرس", "Soft Drink (Can 250 ml)": "سوفٹ ڈرنک (ٹن 250 ملی لیٹر)", "Soft Drink (Bottle 350 ml)": "سوفٹ ڈرنک (بوتل 350 ملی لیٹر)", "Soft Drink (Bottle 1 L)": "سوفٹ ڈرنک (بوتل 1 لیٹر)", "Soft Drink (Bottle 1.5 L)": "سوفٹ ڈرنک (بوتل 1.5 لیٹر)", "Mineral Water (500 ml)": "منرل واٹر (500 ملی لیٹر)",
   "Chipotle Sauce": "چپوٹلے ساس", "Garlic Sauce": "گارلک ساس", "Honey Mustard": "ہنی مسٹرڈ", "Extra Cheese Slice": "اضافی چیز سلائس", "Buns": "بنز", "Chicken Piece": "چکن پیس", "Coleslaw": "کول سلا",
   "Deal 1": "ڈیل 1", "Deal 2": "ڈیل 2", "Deal 3": "ڈیل 3", "Deal 4": "ڈیل 4", "Deal 5": "ڈیل 5", "Deal 6": "ڈیل 6", "Deal 7": "ڈیل 7", "Deal 8": "ڈیل 8", "Deal 9": "ڈیل 9", "Kid's Deal 10": "بچوں کی ڈیل 10",
 };
@@ -118,6 +119,7 @@ export const INGREDIENTS: [string, Unit, number, boolean, number, [number, numbe
   ["Packaging box", "pc", 1500, false, 100, [0, 0, 0, 0]], ["Honey mustard sauce", "ml", 20, false, 1500, [300, 1, 25, 22]], ["Cheese sauce", "ml", 25, false, 1500, [250, 6, 10, 20]],
   ["Garlic sauce", "ml", 15, false, 2000, [450, 1, 3, 48]], ["Spicy garlic sauce", "ml", 18, false, 1500, [440, 1, 4, 46]], ["Ranch sauce", "ml", 20, false, 1500, [430, 1, 6, 45]],
   ["Chipotle sauce", "ml", 20, false, 1500, [250, 1, 12, 22]],
+  ["Mirinda Citrus", "pc", 18000, false, 48, [150, 0, 38, 0]],
   ["Soft drink can 250 ml", "pc", 6000, false, 48, [105, 0, 27, 0]], ["Soft drink bottle 350 ml", "pc", 5500, false, 48, [147, 0, 37, 0]], ["Soft drink bottle 1 L", "pc", 10000, false, 24, [420, 0, 105, 0]],
   ["Soft drink bottle 1.5 L", "pc", 12500, false, 24, [630, 0, 158, 0]], ["Mineral water 500 ml", "pc", 3000, false, 48, [0, 0, 0, 0]],
 ];
@@ -156,6 +158,7 @@ R["Simple Fries (Small)"] = fries(120); R["Simple Fries (Medium)"] = fries(200);
 R["Masala Fries"] = merge(fries(200), [["Broast seasoning", 5, "g"]]);
 R["CRSP Loaded Fries"] = merge(fries(200), [["Zinger fillet", 1, "pc"], ["Cheese sauce", 40, "ml"], ["Garlic sauce", 20, "ml"]]);
 R["Grill Loaded Fries"] = merge(fries(200), [["Chicken (raw)", 100, "g"], ["Cheese sauce", 40, "ml"]]);
+R["Mirinda Citrus"] = [["Mirinda Citrus", 1, "pc"]];
 R["Soft Drink (Can 250 ml)"] = [["Soft drink can 250 ml", 1, "pc"]]; R["Soft Drink (Bottle 350 ml)"] = [["Soft drink bottle 350 ml", 1, "pc"]];
 R["Soft Drink (Bottle 1 L)"] = [["Soft drink bottle 1 L", 1, "pc"]]; R["Soft Drink (Bottle 1.5 L)"] = [["Soft drink bottle 1.5 L", 1, "pc"]]; R["Mineral Water (500 ml)"] = [["Mineral water 500 ml", 1, "pc"]];
 R["Chipotle Sauce"] = [["Chipotle sauce", 30, "ml"]]; R["Garlic Sauce"] = [["Garlic sauce", 30, "ml"]]; R["Honey Mustard"] = [["Honey mustard sauce", 30, "ml"]];

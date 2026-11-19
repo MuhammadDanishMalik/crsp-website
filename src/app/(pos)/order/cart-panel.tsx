@@ -40,6 +40,7 @@ export function CartPanel({
 
   const quickItems = useMemo(() => {
     const targets = [
+      "Mirinda Citrus",
       "Soft Drink (Can 250 ml)",
       "Soft Drink (Bottle 350 ml)",
       "Soft Drink (Bottle 1.5 L)",
