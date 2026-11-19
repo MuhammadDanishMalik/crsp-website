@@ -30,12 +30,12 @@ await sql.begin(async (tx) => {
   const [rec] = await tx`select id from recipes where item_id = ${itemId} limit 1`;
   if (!rec) await tx`insert into recipes (item_id, ingredient_id, quantity, unit_id) values (${itemId}, ${ing.id}, 1, ${pc.id})`;
 
-  // choosable as a drink inside deals / soft-drink flavours
-  for (const g of ["Drink (deal)", "Drink Flavor"]) {
-    const [grp] = await tx`select id from modifier_groups where name = ${g} and business_id = ${ref.business_id} limit 1`;
-    if (!grp) { console.log(`(group "${g}" not found: skipped)`); continue; }
+  // choosable as a drink inside deals and as a soft-drink flavour: the "Drink (deal)" group, and whatever flavour group the soft-drink items use
+  const groups = await tx`select distinct g.id, g.name from modifier_groups g where g.business_id = ${ref.business_id} and (g.name = 'Drink (deal)' or g.id in (select group_id from item_modifier_groups where item_id = ${ref.id}))`;
+  for (const grp of groups) {
     const [m] = await tx`select id from modifiers where group_id = ${grp.id} and name = ${NAME} limit 1`;
-    if (!m) { const [{ n }] = await tx`select coalesce(max(sort_order), 0) + 1 as n from modifiers where group_id = ${grp.id}`; await tx`insert into modifiers (group_id, name, name_ur, price_delta, sort_order) values (${grp.id}, ${NAME}, ${NAME_UR}, 0, ${n})`; console.log(`Added to "${g}".`); }
+    if (!m) { const [{ n }] = await tx`select coalesce(max(sort_order), 0) + 1 as n from modifiers where group_id = ${grp.id}`; await tx`insert into modifiers (group_id, name, name_ur, price_delta, sort_order) values (${grp.id}, ${NAME}, ${NAME_UR}, 0, ${n})`; console.log(`Added to "${grp.name}".`); }
+    else console.log(`Already in "${grp.name}".`);
   }
 });
 console.log("Done:", JSON.stringify(await sql`select name, base_price, is_active from menu_items where name = ${NAME}`));
