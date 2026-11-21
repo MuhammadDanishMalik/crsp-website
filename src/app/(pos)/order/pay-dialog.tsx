@@ -57,6 +57,8 @@ export function PayDialog({ menu, me, offline, online, onClose, onFinished }: { 
   const [itemTarget, setItemTarget] = useState<number | null>(null);
   const [picked, setPicked] = useState<Record<string, number>>({});
   const [pending, start] = useTransition();
+  // The customer-details box opens when there is something in it (or for delivery) and then STAYS as the cashier left it: clearing a field with Backspace must not collapse it.
+  const [detailsOpen, setDetailsOpen] = useState(() => cart.orderType === "delivery" || !!(cart.customerName || cart.customerPhone || cart.deliveryAddress));
   const [done, setDone] = useState<null | { orderId: string; orderNo: string; change: number; printMsg: string; offline?: boolean; receipt?: ReceiptData }>(null);
 
   // Cold drinks (Beverages) are other companies' products: no discount applies to them.
@@ -228,7 +230,7 @@ export function PayDialog({ menu, me, offline, online, onClose, onFinished }: { 
           <button type="button" onClick={() => cart.set({ deliveryCharge: null })} className="text-sm text-muted underline">Reset (Rs 100 on orders of Rs 1000 or more)</button>
         </div>
       )}
-      <details className="mb-4 rounded-2xl border border-border bg-surface-2 p-3" open={cart.orderType === "delivery" || !!(cart.customerName || cart.customerPhone || cart.deliveryAddress)}>
+      <details className="mb-4 rounded-2xl border border-border bg-surface-2 p-3" open={detailsOpen} onToggle={(e) => setDetailsOpen(e.currentTarget.open)}>
         <summary className="cursor-pointer font-semibold">{cart.orderType === "delivery" ? "Delivery customer" : "Customer name / number / address on receipt"} <span className="font-normal text-muted">{cart.orderType === "delivery" ? "(address required)" : "(optional)"}</span></summary>
         <div className="mt-3 grid grid-cols-2 gap-2">
           <Input aria-label="Customer name" placeholder="Name" value={cart.customerName} maxLength={80} onChange={(e) => cart.set({ customerName: e.target.value })} />

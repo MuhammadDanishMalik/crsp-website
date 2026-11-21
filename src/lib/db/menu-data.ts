@@ -20,7 +20,7 @@ export const STATION_OF: Record<string, string> = { Broast: "Fryer", Wings: "Fry
 export const GROUPS: Record<GroupKey, { name: string; nameUr: string; min: number; max: number; options: { name: string; nameUr: string; price?: number; isDefault?: boolean }[] }> = {
   spice: { name: "Spice Level", nameUr: "مرچ کی شدت", min: 0, max: 1, options: [{ name: "Regular", nameUr: "درمیانہ" }, { name: "Spicy", nameUr: "تیز مرچ" }] }, // optional: the cashier may skip it
   sauce: { name: "Extra Sauce", nameUr: "اضافی ساس", min: 0, max: 5, options: [{ name: "Chipotle Sauce", nameUr: "چپوٹلے ساس", price: 100 }, { name: "Garlic Sauce", nameUr: "گارلک ساس", price: 100 }, { name: "Honey Mustard", nameUr: "ہنی مسٹرڈ ساس", price: 100 }] },
-  addons: { name: "Burger Add-ons", nameUr: "برگر ایڈ آنز", min: 0, max: 3, options: [{ name: "Extra beef patty", nameUr: "اضافی بیف پیٹی", price: 295 }, { name: "Make it meal (Fries + drink)", nameUr: "میک اٹ میل (فرائز + ڈرنک)", price: 300 }, { name: "Extra Cheese Slice", nameUr: "اضافی چیز سلائس", price: 80 }] },
+  addons: { name: "Burger Add-ons", nameUr: "برگر ایڈ آنز", min: 0, max: 3, options: [{ name: "Extra patty", nameUr: "اضافی پیٹی", price: 295 }, { name: "Make it meal (Fries + drink)", nameUr: "میک اٹ میل (فرائز + ڈرنک)", price: 300 }, { name: "Extra Cheese Slice", nameUr: "اضافی چیز سلائس", price: 80 }] },
   drink: { name: "Drink (deal)", nameUr: "ڈرنک (ڈیل)", min: 0, max: 4, options: [{ name: "Coca-Cola", nameUr: "کوکا کولا" }, { name: "Sprite", nameUr: "اسپرائٹ" }, { name: "Fanta", nameUr: "فینٹا" }, { name: "Mirinda Citrus", nameUr: "مرینڈا سٹرس" }] },
   drinkFlavor: { name: "Drink Flavor", nameUr: "ڈرنک کا فلیور", min: 1, max: 1, options: [{ name: "Coca-Cola", nameUr: "کوکا کولا", isDefault: true }, { name: "Sprite", nameUr: "اسپرائٹ" }, { name: "Fanta", nameUr: "فینٹا" }, { name: "Mirinda Citrus", nameUr: "مرینڈا سٹرس" }, { name: "Diet Coke", nameUr: "ڈائیٹ کوک" }] },
   kid: { name: "Kid's burger", nameUr: "بچوں کا برگر", min: 1, max: 1, options: [{ name: "Krunch Burger", nameUr: "کرنچ برگر", isDefault: true }, { name: "Chicken Patty", nameUr: "چکن پیٹی" }] },
@@ -179,5 +179,5 @@ export const RECIPES = R;
 /** Add-on / sauce options also use stock. */
 export const MODIFIER_RECIPES: Record<string, RecipeLine[]> = {
   "Chipotle Sauce": [["Chipotle sauce", 30, "ml"]], "Garlic Sauce": [["Garlic sauce", 30, "ml"]], "Honey Mustard": [["Honey mustard sauce", 30, "ml"]],
-  "Extra beef patty": [["Beef (minced)", 100, "g"]], "Make it meal (Fries + drink)": merge(fries(200), bottle), "Extra Cheese Slice": [["Cheese slice", 1, "pc"]],
+  "Extra patty": [["Beef (minced)", 100, "g"]], "Make it meal (Fries + drink)": merge(fries(200), bottle), "Extra Cheese Slice": [["Cheese slice", 1, "pc"]],
 };
