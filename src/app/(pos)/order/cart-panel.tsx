@@ -13,6 +13,7 @@ import type { PosItem, PosMenu } from "@/lib/queries/menu";
 import type { Me } from "./types";
 import { useLocale, useTranslations } from "next-intl";
 import { useMemo } from "react";
+import { EditFooter, EditLines } from "./edit-order";
 
 export function CartPanel({
   menu,
@@ -21,6 +22,7 @@ export function CartPanel({
   onDiscount,
   onHold,
   onPickItem,
+  onEdited,
 }: {
   menu: PosMenu;
   me: Me;
@@ -28,6 +30,7 @@ export function CartPanel({
   onDiscount: () => void;
   onHold: () => void;
   onPickItem?: (item: PosItem) => void;
+  onEdited?: (msg: string) => void;
 }) {
   const cart = useCart();
   const t = useTranslations();
@@ -63,11 +66,12 @@ export function CartPanel({
   return (
     <aside className="flex h-full w-[390px] shrink-0 flex-col border-l border-border bg-surface">
       <div className="flex items-center justify-between px-4 py-3">
-        <h2 className="text-lg font-bold">{t("pos.currentOrder")}</h2>
-        <button disabled={!cart.lines.length} onClick={() => cart.clear()} className="flex h-12 items-center gap-1 rounded-xl px-3 text-danger hover:bg-surface-2"><Trash2 size={18} /> {t("pos.clearOrder")}</button>
+        <h2 className="text-lg font-bold">{cart.edit ? `Editing #${cart.edit.orderNo}` : t("pos.currentOrder")}</h2>
+        <button disabled={!cart.edit && !cart.lines.length} onClick={() => cart.clear()} className="flex h-12 items-center gap-1 rounded-xl px-3 text-danger hover:bg-surface-2"><Trash2 size={18} /> {cart.edit ? "Cancel edit" : t("pos.clearOrder")}</button>
       </div>
       <div className="scroll-thin flex-1 space-y-2 overflow-y-auto px-3">
-        {!cart.lines.length && <p className="mt-16 text-center text-muted">{t("pos.tapToStart")}</p>}
+        <EditLines />
+        {!cart.edit && !cart.lines.length && <p className="mt-16 text-center text-muted">{t("pos.tapToStart")}</p>}
         {cart.lines.map((l) => (
           <div key={l.key} className="rounded-2xl bg-surface-2 p-3">
             <div className="flex items-start justify-between gap-2">
@@ -125,6 +129,7 @@ export function CartPanel({
         </div>
       )}
 
+      {cart.edit ? <EditFooter onDone={(m) => onEdited?.(m)} /> : (
       <div className="space-y-1 border-t border-border p-4 pb-14 text-base">
         <Row label={t("pos.subtotal")} v={tot.subtotal} />
         {tot.discountTotal > 0 && <Row label={t("pos.discount")} v={-tot.discountTotal} cls="text-success" />}
@@ -140,6 +145,7 @@ export function CartPanel({
           <Button variant="success" size="xl" className="flex-1 text-2xl tracking-wide" disabled={!cart.lines.length} onClick={onPay}>{t("pos.pay")}</Button>
         </div>
       </div>
+      )}
     </aside>
   );
 }

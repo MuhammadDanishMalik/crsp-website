@@ -18,6 +18,7 @@ import { HeldDialog } from "./held-dialog";
 import { WebsiteTab } from "./website-orders";
 import { SyncStatus } from "./sync-status";
 import { holdOrder, listHeld } from "@/lib/actions/hold";
+import { loadOrderForEdit } from "@/lib/actions/order-items-edit";
 import type { PosProps } from "./types";
 import { ItemGridSkeleton } from "@/components/ui/skeleton";
 import { Logo } from "@/components/brand/logo";
@@ -50,6 +51,22 @@ export function PosScreen({ menu, me, shiftOpenedAt, offline }: PosProps) {
     if (me.can.hold) void listHeld().then((l) => setHeldCount(l.length));
   }, 30_000);
   useEffect(() => { if (me.can.hold) void listHeld().then((l) => setHeldCount(l.length)); }, [me.can.hold]);
+
+  // Orders page → "Edit": /order?edit=<id> loads that order into this screen (existing lines + / − and new items), then the address bar is cleaned.
+  const editStarted = useRef(false);
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get("edit");
+    if (!id || editStarted.current) return;
+    editStarted.current = true;
+    window.history.replaceState(null, "", "/order");
+    if (cart.lines.length && !confirm("The order on screen will be cleared to edit this one. Continue?")) return;
+    void loadOrderForEdit(id).then((r) => {
+      if (!r.ok) return setToast(r.error);
+      if (r.blocked) return setToast(r.blocked);
+      cart.startEdit({ orderId: id, orderNo: r.orderNo, lines: r.lines });
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const hold = async () => {
     const r = await holdOrder({
@@ -92,12 +109,12 @@ export function PosScreen({ menu, me, shiftOpenedAt, offline }: PosProps) {
   useEffect(() => {
     const h = (e: KeyboardEvent) => {
       if (e.key === "F2") { e.preventDefault(); searchRef.current?.focus(); }
-      if (e.key === "F4" && cart.lines.length) { e.preventDefault(); setPaying(true); }
-      if (e.key === "F8" && me.can.discount && cart.lines.length) { e.preventDefault(); setDiscounting(true); }
+      if (e.key === "F4" && cart.lines.length && !cart.edit) { e.preventDefault(); setPaying(true); }
+      if (e.key === "F8" && me.can.discount && cart.lines.length && !cart.edit) { e.preventDefault(); setDiscounting(true); }
     };
     window.addEventListener("keydown", h);
     return () => window.removeEventListener("keydown", h);
-  }, [cart.lines.length, me.can.discount]);
+  }, [cart.lines.length, cart.edit, me.can.discount]);
 
   const subtotal = cart.lines.reduce((a, l) => a + (l.basePrice + l.modifiers.reduce((x, m) => x + m.priceDelta, 0)) * l.quantity, 0);
   const needsDetails = cart.orderType === "dine_in" || cart.orderType === "online"; // delivery works like takeaway: its address is typed in the pay window
@@ -162,6 +179,7 @@ export function PosScreen({ menu, me, shiftOpenedAt, offline }: PosProps) {
           onDiscount={() => setDiscounting(true)}
           onHold={hold}
           onPickItem={pick}
+          onEdited={(m) => { setToast(m); setTimeout(() => setToast(""), 4000); }}
         />
       </div>
 

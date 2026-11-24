@@ -154,6 +154,8 @@ export function OrdersManager({ orders, can, reasons, context = "pos" }: Props) 
 
   const [editCustomer, setEditCustomer] = useState<ManageableOrder | null>(null);
   const [editItems, setEditItems] = useState<ManageableOrder | null>(null);
+  // On the till, editing happens on the main POS screen (existing items + / − and new items, then "Update order"); the back office keeps the window.
+  const openEdit = (o: ManageableOrder) => (context === "pos" ? router.push(`/order?edit=${o.id}`) : setEditItems(o));
   const changeStatus = (orderId: string, status: string) => {
     startTransition(async () => {
       const r = await setOrderStatus(orderId, status);
@@ -902,7 +904,7 @@ export function OrdersManager({ orders, can, reasons, context = "pos" }: Props) 
                         )}
 
                         {!isClosed && (
-                          <Button variant="secondary" size="md" className="h-10 px-2 text-xs font-bold" title="Edit order items" onClick={() => setEditItems(o)}>
+                          <Button variant="secondary" size="md" className="h-10 px-2 text-xs font-bold" title="Edit order items" onClick={() => openEdit(o)}>
                             Edit
                           </Button>
                         )}
@@ -1177,7 +1179,7 @@ export function OrdersManager({ orders, can, reasons, context = "pos" }: Props) 
                 </Button>
               )}
               {selectedOrder.status !== "voided" && selectedOrder.status !== "refunded" && (
-                <Button variant="secondary" size="md" className="flex-1 text-xs font-bold" onClick={() => { const o = selectedOrder; setSelectedOrder(null); setEditItems(o); }}>
+                <Button variant="secondary" size="md" className="flex-1 text-xs font-bold" onClick={() => { const o = selectedOrder; setSelectedOrder(null); openEdit(o); }}>
                   Edit items
                 </Button>
               )}
