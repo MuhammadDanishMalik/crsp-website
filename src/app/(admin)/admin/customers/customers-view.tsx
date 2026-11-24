@@ -1,7 +1,7 @@
 "use client";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { Plus } from "lucide-react";
+import { Crown, Medal, Plus, Award } from "lucide-react";
 import { adjustPoints, saveCustomer, saveCustomerNote } from "@/lib/actions/customers-admin";
 import { formatPKR } from "@/lib/domain/money";
 import { Button } from "@/components/ui/button";
@@ -10,8 +10,13 @@ import { Modal } from "@/components/ui/modal";
 
 type C = { address: string; id: string; name: string; phone: string; notes: string; points: number; isCorporate: boolean; credit: number; orders: number; spend: number; last: string; history: { no: string; date: string; total: number; type: string }[]; addresses: string[]; ledger: { at: string; points: number; reason: string }[] };
 
-/** Loyalty badge from the number of orders: Repeat 2–4, Regular 5–9, VIP 10+. */
-const badge = (n: number) => (n >= 10 ? { t: "VIP", c: "bg-accent/25 text-accent" } : n >= 5 ? { t: "REGULAR", c: "bg-success/20 text-success" } : n >= 2 ? { t: "REPEAT", c: "bg-brand/15 text-brand" } : null);
+/** Three loyalty levels from the number of orders. */
+const LEVELS = [
+  { min: 10, name: "Gold VIP", range: "10+ orders", Icon: Crown, pill: "bg-gradient-to-r from-yellow-300 to-amber-400 text-black shadow-[0_0_14px_rgba(251,191,36,.55)]", card: "border-amber-400/60", avatar: "bg-amber-400/20 text-amber-300" },
+  { min: 5, name: "Silver Regular", range: "5–9 orders", Icon: Medal, pill: "bg-gradient-to-r from-slate-200 to-slate-400 text-slate-900", card: "border-slate-400/50", avatar: "bg-slate-400/20 text-slate-200" },
+  { min: 2, name: "Bronze Friend", range: "2–4 orders", Icon: Award, pill: "bg-gradient-to-r from-orange-500 to-amber-700 text-white", card: "border-orange-500/40", avatar: "bg-orange-500/20 text-orange-300" },
+] as const;
+const levelOf = (n: number) => LEVELS.find((l) => n >= l.min) ?? null;
 
 export function CustomersView({ customers, q, view, totals, can }: { customers: C[]; q: string; view: "all" | "repeat"; totals: { all: number; repeat: number }; can: { manage: boolean; adjust: boolean } }) {
   const router = useRouter();
@@ -19,7 +24,7 @@ export function CustomersView({ customers, q, view, totals, can }: { customers: 
   const [adding, setAdding] = useState(false);
   const [noteFor, setNoteFor] = useState<C | null>(null);
   return (
-    <div className="max-w-5xl">
+    <div className="max-w-[1500px]">
       <div className="mb-4 flex items-center gap-3"><h1 className="text-3xl font-bold">Customers</h1>
         <form action="/admin/customers" className="ml-4"><Input name="q" defaultValue={q} placeholder="Search name or phone" className="w-64" /></form>
         {can.manage && <Button className="ml-auto" onClick={() => setAdding(true)}><Plus size={18} />Add customer</Button>}</div>
@@ -28,34 +33,39 @@ export function CustomersView({ customers, q, view, totals, can }: { customers: 
           <a key={k} href={`/admin/customers?${new URLSearchParams({ ...(q ? { q } : {}), view: k })}`}
             className={`flex h-11 items-center rounded-xl px-4 font-semibold ${view === k ? "bg-brand text-brand-fg" : "border border-border bg-surface hover:bg-surface-2"}`}>{label}</a>
         ))}
-        {view === "repeat" && !q && <p className="flex items-center text-sm text-muted">Customers with 2 or more orders, most orders first</p>}
+        <div className="ml-auto flex flex-wrap items-center gap-2">
+          {[...LEVELS].reverse().map((l) => <span key={l.name} className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-black ${l.pill}`}><l.Icon size={13} />{l.name} <span className="font-semibold opacity-80">· {l.range}</span></span>)}
+        </div>
       </div>
-      <div className="grid gap-3">
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(255px,1fr))] gap-3">
         {customers.map((c) => {
-          const bd = badge(c.orders);
+          const lv = levelOf(c.orders);
           return (
-            <div key={c.id} className="rounded-2xl border border-border bg-surface p-4">
-              <div className="flex items-start gap-3">
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-brand/15 text-lg font-black text-brand">{(c.name || c.phone).trim().charAt(0).toUpperCase()}</div>
-                <button onClick={() => setOpen(c)} className="min-w-0 flex-1 text-left">
-                  <p className="flex flex-wrap items-center gap-2 text-lg font-bold leading-tight">{c.name || "—"}
-                    {c.isCorporate && <span className="rounded bg-accent/20 px-2 py-0.5 text-xs font-bold">CORPORATE</span>}
-                    {bd && <span className={`rounded px-2 py-0.5 text-xs font-black ${bd.c}`}>{bd.t}</span>}</p>
-                  <p className="mt-0.5 text-sm text-muted">{c.phone}{c.last && ` · last order ${c.last}`}</p>
-                  {c.address && <p className="mt-0.5 truncate text-sm text-muted">📍 {c.address}</p>}
-                </button>
-                <div className="grid shrink-0 grid-cols-3 gap-4 text-right">
-                  <Metric l="Orders" v={String(c.orders)} /><Metric l="Spent" v={formatPKR(c.spend)} /><Metric l="Points" v={String(c.points)} cls="text-accent" />
+            <div key={c.id} className={`flex flex-col rounded-2xl border bg-surface p-3.5 ${lv ? lv.card : "border-border"}`}>
+              <button onClick={() => setOpen(c)} className="flex min-w-0 items-start gap-3 text-left">
+                <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-lg font-black ${lv ? lv.avatar : "bg-brand/15 text-brand"}`}>{(c.name || c.phone).trim().charAt(0).toUpperCase()}</div>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-base font-bold leading-tight">{c.name || "—"}</p>
+                  <p className="text-sm text-muted">{c.phone}</p>
                 </div>
+              </button>
+              <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                {lv && <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-black ${lv.pill}`}><lv.Icon size={12} />{lv.name}</span>}
+                {c.isCorporate && <span className="rounded-full bg-accent/20 px-2 py-0.5 text-[11px] font-bold">CORPORATE</span>}
               </div>
-              <div className="mt-3 flex items-center gap-2">
-                {c.notes ? <p className="min-w-0 flex-1 truncate rounded-lg bg-warn/10 px-3 py-1.5 text-sm">📝 {c.notes}</p> : <span className="flex-1" />}
-                {can.manage && <button onClick={() => setNoteFor(c)} className="h-9 shrink-0 rounded-lg border border-border px-3 text-sm font-semibold hover:bg-surface-2">{c.notes ? "Edit note" : "+ Note"}</button>}
+              {c.address && <p className="mt-2 line-clamp-2 text-sm text-muted">📍 {c.address}</p>}
+              {c.last && <p className="mt-1 text-xs text-muted">Last order {c.last}</p>}
+              <div className="mt-3 grid grid-cols-3 gap-1 rounded-xl bg-surface-2 py-2 text-center">
+                <Metric l="Orders" v={String(c.orders)} /><Metric l="Spent" v={formatPKR(c.spend)} /><Metric l="Points" v={String(c.points)} cls="text-accent" />
+              </div>
+              <div className="mt-auto pt-3">
+                {c.notes && <p className="mb-2 line-clamp-2 rounded-lg bg-warn/10 px-2.5 py-1.5 text-sm">📝 {c.notes}</p>}
+                {can.manage && <button onClick={() => setNoteFor(c)} className="h-9 w-full rounded-lg border border-border text-sm font-semibold hover:bg-surface-2">{c.notes ? "Edit note" : "+ Note"}</button>}
               </div>
             </div>
           );
         })}
-        {!customers.length && <p className="rounded-2xl border border-border bg-surface p-10 text-center text-muted">{view === "repeat" ? "No repeat customers yet (customers with 2 or more orders appear here)." : "No customers found. They are added automatically when an order has a phone number."}</p>}
+        {!customers.length && <p className="col-span-full rounded-2xl border border-border bg-surface p-10 text-center text-muted">{view === "repeat" ? "No repeat customers yet (customers with 2 or more orders appear here)." : "No customers found. They are added automatically when an order has a phone number."}</p>}
       </div>
       {noteFor && <NoteDialog c={noteFor} onClose={() => setNoteFor(null)} onDone={() => { setNoteFor(null); router.refresh(); }} />}
       {open && <Detail c={open} can={can} onClose={() => setOpen(null)} onDone={() => { setOpen(null); router.refresh(); }} />}
@@ -113,7 +123,7 @@ function Edit({ c, onClose, onDone }: { c?: C; onClose: () => void; onDone: () =
 }
 
 const Metric = ({ l, v, cls = "" }: { l: string; v: string; cls?: string }) => (
-  <div><p className="text-[11px] font-semibold uppercase tracking-wide text-muted">{l}</p><p className={`text-base font-bold tabular-nums ${cls}`}>{v}</p></div>
+  <div><p className="text-[10px] font-semibold uppercase tracking-wide text-muted">{l}</p><p className={`text-sm font-bold tabular-nums ${cls}`}>{v}</p></div>
 );
 
 /** Quick note on a customer: it shows on the till the next time this phone number is entered. */
