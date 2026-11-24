@@ -12,9 +12,9 @@ type C = { address: string; id: string; name: string; phone: string; notes: stri
 
 /** Three loyalty levels from the number of orders. */
 const LEVELS = [
-  { min: 10, name: "Gold VIP", range: "10+ orders", Icon: Crown, pill: "bg-gradient-to-r from-yellow-300 to-amber-400 text-black shadow-[0_0_14px_rgba(251,191,36,.55)]", card: "border-amber-400/60", avatar: "bg-amber-400/20 text-amber-300" },
-  { min: 5, name: "Silver Regular", range: "5–9 orders", Icon: Medal, pill: "bg-gradient-to-r from-slate-200 to-slate-400 text-slate-900", card: "border-slate-400/50", avatar: "bg-slate-400/20 text-slate-200" },
-  { min: 2, name: "Bronze Friend", range: "2–4 orders", Icon: Award, pill: "bg-gradient-to-r from-orange-500 to-amber-700 text-white", card: "border-orange-500/40", avatar: "bg-orange-500/20 text-orange-300" },
+  { min: 10, name: "Gold VIP", range: "10+ orders", Icon: Crown, pill: "bg-gradient-to-r from-yellow-300 to-amber-400 text-black", card: "border-amber-400/60", avatar: "bg-amber-400/20 text-amber-300", b1: "#422006", b2: "#ffffff" },
+  { min: 5, name: "Silver Regular", range: "5–9 orders", Icon: Medal, pill: "bg-gradient-to-r from-slate-200 to-slate-400 text-slate-900", card: "border-slate-400/50", avatar: "bg-slate-400/20 text-slate-200", b1: "#0f172a", b2: "#ffffff" },
+  { min: 2, name: "Bronze Friend", range: "2–4 orders", Icon: Award, pill: "bg-gradient-to-r from-orange-500 to-amber-700 text-white", card: "border-orange-500/40", avatar: "bg-orange-500/20 text-orange-300", b1: "#ffffff", b2: "#451a03" },
 ] as const;
 const levelOf = (n: number) => LEVELS.find((l) => n >= l.min) ?? null;
 
@@ -34,7 +34,7 @@ export function CustomersView({ customers, q, view, totals, can }: { customers: 
             className={`flex h-11 items-center rounded-xl px-4 font-semibold ${view === k ? "bg-brand text-brand-fg" : "border border-border bg-surface hover:bg-surface-2"}`}>{label}</a>
         ))}
         <div className="ml-auto flex flex-wrap items-center gap-2">
-          {[...LEVELS].reverse().map((l) => <span key={l.name} className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-black ${l.pill}`}><l.Icon size={13} />{l.name} <span className="font-semibold opacity-80">· {l.range}</span></span>)}
+          {[...LEVELS].reverse().map((l) => <span key={l.name} className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-black ${l.pill}`}><l.Icon size={13} /><span className="badge-text" style={{ "--b1": l.b1, "--b2": l.b2 } as React.CSSProperties}>{l.name}</span> <span className="font-semibold opacity-80">· {l.range}</span></span>)}
         </div>
       </div>
       <div className="grid grid-cols-[repeat(auto-fill,minmax(255px,1fr))] gap-3">
@@ -50,7 +50,7 @@ export function CustomersView({ customers, q, view, totals, can }: { customers: 
                 </div>
               </button>
               <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                {lv && <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-black ${lv.pill}`}><lv.Icon size={12} />{lv.name}</span>}
+                {lv && <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-black ${lv.pill}`}><lv.Icon size={12} /><span className="badge-text" style={{ "--b1": lv.b1, "--b2": lv.b2 } as React.CSSProperties}>{lv.name}</span></span>}
                 {c.isCorporate && <span className="rounded-full bg-accent/20 px-2 py-0.5 text-[11px] font-bold">CORPORATE</span>}
               </div>
               {c.address && <p className="mt-2 line-clamp-2 text-sm text-muted">📍 {c.address}</p>}

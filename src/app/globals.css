@@ -83,3 +83,8 @@ button:disabled { cursor: not-allowed; opacity: .5; }
 /* ---- till (dark theme) shimmer ---- */
 .skeleton-dark { background: linear-gradient(90deg, var(--surface) 25%, var(--surface-2) 50%, var(--surface) 75%); background-size: 200% 100%; animation: crsp-sweep 1.3s linear infinite; }
 @media (prefers-reduced-motion: reduce) { .skeleton-dark { animation: none; } }
+
+/* ---- customer level badges: light sweeps through the badge text (no glow/shadow) ---- */
+.badge-text { background: linear-gradient(110deg, var(--b1) 38%, var(--b2) 50%, var(--b1) 62%); background-size: 260% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; animation: badge-sweep 2.6s linear infinite; }
+@keyframes badge-sweep { from { background-position: 160% 0; } to { background-position: -60% 0; } }
+@media (prefers-reduced-motion: reduce) { .badge-text { animation: none; } }
