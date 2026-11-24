@@ -34,7 +34,7 @@ export function CustomersView({ customers, q, view, totals, can }: { customers: 
             className={`flex h-11 items-center rounded-xl px-4 font-semibold ${view === k ? "bg-brand text-brand-fg" : "border border-border bg-surface hover:bg-surface-2"}`}>{label}</a>
         ))}
         <div className="ml-auto flex flex-wrap items-center gap-2">
-          {[...LEVELS].reverse().map((l) => <span key={l.name} className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-black ${l.pill}`}><l.Icon size={13} /><span className="badge-text" style={{ "--b1": l.b1, "--b2": l.b2 } as React.CSSProperties}>{l.name}</span> <span className="font-semibold opacity-80">· {l.range}</span></span>)}
+          {[...LEVELS].reverse().map((l) => <span key={l.name} className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-black ${l.pill}`}><l.Icon size={13} /><span className={l.min >= 10 ? "badge-text" : ""} style={{ "--b1": l.b1, "--b2": l.b2 } as React.CSSProperties}>{l.name}</span> <span className="font-semibold opacity-80">· {l.range}</span></span>)}
         </div>
       </div>
       <div className="grid grid-cols-[repeat(auto-fill,minmax(255px,1fr))] gap-3">
@@ -50,7 +50,7 @@ export function CustomersView({ customers, q, view, totals, can }: { customers: 
                 </div>
               </button>
               <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                {lv && <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-black ${lv.pill}`}><lv.Icon size={12} /><span className="badge-text" style={{ "--b1": lv.b1, "--b2": lv.b2 } as React.CSSProperties}>{lv.name}</span></span>}
+                {lv && <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-black ${lv.pill}`}><lv.Icon size={12} /><span className={lv.min >= 10 ? "badge-text" : ""} style={{ "--b1": lv.b1, "--b2": lv.b2 } as React.CSSProperties}>{lv.name}</span></span>}
                 {c.isCorporate && <span className="rounded-full bg-accent/20 px-2 py-0.5 text-[11px] font-bold">CORPORATE</span>}
               </div>
               {c.address && <p className="mt-2 line-clamp-2 text-sm text-muted">📍 {c.address}</p>}
