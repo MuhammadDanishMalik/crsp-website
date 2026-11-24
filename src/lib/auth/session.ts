@@ -63,9 +63,22 @@ export type Session = {
   can: (p: Permission) => boolean;
 };
 
+// Every page used to re-read the staff row, role permissions and terminal (4 database round trips) on each click. Keep the result for a few seconds.
+const SESSION_TTL_MS = 8_000;
+const sessionStore = ((globalThis as unknown as { __crspSessions?: Map<string, { at: number; s: Session }> }).__crspSessions ??= new Map());
+
 export const getSession = cache(async (): Promise<Session | null> => {
   const claims = await verify<SessionClaims>((await cookies()).get(SESSION)?.value);
   if (!claims) return null;
+  const ckey = `${claims.sid}|${claims.bid}|${claims.tid ?? ""}|${claims.kind}|${claims.role ?? ""}`;
+  const hit = sessionStore.get(ckey);
+  if (hit && Date.now() - hit.at < SESSION_TTL_MS) return hit.s;
+  const fresh = await readSession(claims);
+  if (fresh) { if (sessionStore.size > 200) sessionStore.clear(); sessionStore.set(ckey, { at: Date.now(), s: fresh }); }
+  return fresh;
+});
+
+async function readSession(claims: SessionClaims): Promise<Session | null> {
   const db = await getDb();
   let [row] = await db
     .select({ staff: s.staff, role: s.roles, branch: s.branches })
@@ -124,7 +137,7 @@ export const getSession = cache(async (): Promise<Session | null> => {
     discountLimitBps: row.role.discountLimitBps, branchId: row.branch.id, branchName: row.branch.name,
     terminalId: tid ?? null, terminalName, kind: claims.kind, permissions, can: (p) => permissions.has(p),
   };
-});
+}
 
 /** For pages/layouts: redirect when not signed in or missing permission. */
 export async function requireSession(opts: { permission?: Permission; kind?: "pos" | "admin" } = {}) {

@@ -2,10 +2,14 @@ import "server-only";
 import { and, eq, inArray } from "drizzle-orm";
 import { getDb } from "@/lib/db/client";
 import * as s from "@/lib/db/schema";
+import { cached } from "@/lib/realtime/menu-cache";
 import type { Session } from "@/lib/auth/session";
 
 /** Branches this person may look at: everything with `branch.switch`, otherwise only their own. */
-export async function accessibleBranches(session: Session) {
+export function accessibleBranches(session: Session) {
+  return cached(`branches:${session.staffId}:${session.can("branch.switch")}`, () => loadAccessibleBranches(session));
+}
+async function loadAccessibleBranches(session: Session) {
   const db = await getDb();
   if (session.can("branch.switch")) return db.select().from(s.branches).where(eq(s.branches.isActive, true));
   const links = await db.select().from(s.staffBranches).where(eq(s.staffBranches.staffId, session.staffId));
