@@ -1,6 +1,7 @@
 "use client";
 import { useState, useTransition } from "react";
 import { lookupCustomer } from "@/lib/actions/customers";
+import { CustomerNoteBox } from "./customer-note";
 import { useCart } from "@/lib/stores/cart";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
@@ -17,8 +18,8 @@ export function OrderFieldsDialog({ menu, onClose }: { menu: PosMenu; onClose: (
   const lookup = () =>
     start(async () => {
       const c = await lookupCustomer(cart.customerPhone);
-      if (!c) { cart.set({ customerPoints: 0, redeem: false }); return setHint("New customer"); }
-      cart.set({ customerName: c.name, deliveryAddress: cart.deliveryAddress || c.address, deliveryZoneId: cart.deliveryZoneId ?? c.zoneId, customerPoints: c.points });
+      if (!c) { cart.set({ customerPoints: 0, redeem: false, customerNote: "", customerId: "" }); return setHint("New customer"); }
+      cart.set({ customerName: c.name, deliveryAddress: cart.deliveryAddress || c.address, deliveryZoneId: cart.deliveryZoneId ?? c.zoneId, customerPoints: c.points, customerNote: c.notes, customerId: c.id });
       setHint(`Found ${c.name || "customer"} · ${c.points} pts`);
     });
   return (
@@ -35,6 +36,7 @@ export function OrderFieldsDialog({ menu, onClose }: { menu: PosMenu; onClose: (
                 <Button variant="secondary" onClick={lookup} disabled={pending}>Find</Button>
               </div>
               {hint && <p className="mt-1 text-sm text-muted">{hint}</p>}
+              <CustomerNoteBox />
             </div>
             <div><Label>Name</Label><Input value={cart.customerName} onChange={(e) => cart.set({ customerName: e.target.value })} /></div>
           </>

@@ -14,7 +14,8 @@ export default async function CustomersPage({ searchParams }: PageProps<"/admin/
   const count = new Map<string, { n: number; spend: number }>();
   for (const o of live) { const x = count.get(o.c!) ?? { n: 0, spend: 0 }; x.n++; x.spend += o.total; count.set(o.c!, x); }
   const repeatCount = all.filter((c) => (count.get(c.id)?.n ?? 0) >= 2).length;
-  const view = sp.view === "repeat" ? "repeat" : "all";
+  // Opens on the customers who keep coming back; a search looks through everybody.
+  const view = sp.view === "all" || q ? "all" : "repeat";
   let pool = all.filter((c) => !q || (c.name ?? "").toLowerCase().includes(q) || c.phone.includes(q));
   if (view === "repeat") pool = pool.filter((c) => (count.get(c.id)?.n ?? 0) >= 2).sort((a, b) => (count.get(b.id)!.n - count.get(a.id)!.n) || (count.get(b.id)!.spend - count.get(a.id)!.spend));
   const list = pool.slice(0, 200);

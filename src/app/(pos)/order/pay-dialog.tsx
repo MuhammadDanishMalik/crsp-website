@@ -7,6 +7,7 @@ import { useTranslations } from "next-intl";
 import { Banknote, CreditCard, Landmark, Smartphone, QrCode, Printer } from "lucide-react";
 import { createOrder } from "@/lib/actions/orders";
 import { lookupCustomer } from "@/lib/actions/customers";
+import { CustomerNoteBox } from "./customer-note";
 import { getKotJobs, getReceiptData, getReceiptPrintJob } from "@/lib/actions/print";
 import { printInBrowser } from "@/lib/print/browser-print";
 import { reloadClean } from "@/components/update-banner";
@@ -59,6 +60,12 @@ export function PayDialog({ menu, me, offline, online, onClose, onFinished }: { 
   const [pending, start] = useTransition();
   // The customer-details box opens when there is something in it (or for delivery) and then STAYS as the cashier left it: clearing a field with Backspace must not collapse it.
   const [detailsOpen, setDetailsOpen] = useState(() => cart.orderType === "delivery" || !!(cart.customerName || cart.customerPhone || cart.deliveryAddress));
+  // Known customer (by phone): fill the name, points and show their saved note.
+  const findCustomer = async (phone: string) => {
+    if (!online || phone.replace(/\D/g, "").length < 7) return;
+    const c = await lookupCustomer(phone);
+    if (c) cart.set({ customerName: useCart.getState().customerName || c.name, customerPoints: c.points, customerNote: c.notes, customerId: c.id });
+  };
   const [done, setDone] = useState<null | { orderId: string; orderNo: string; change: number; printMsg: string; offline?: boolean; receipt?: ReceiptData }>(null);
 
   // Cold drinks (Beverages) are other companies' products: no discount applies to them.
@@ -235,10 +242,11 @@ export function PayDialog({ menu, me, offline, online, onClose, onFinished }: { 
         <div className="mt-3 grid grid-cols-2 gap-2">
           <Input aria-label="Customer name" placeholder="Name" value={cart.customerName} maxLength={80} onChange={(e) => cart.set({ customerName: e.target.value })} />
           <Input aria-label="Customer phone" placeholder="Phone (03xx-xxxxxxx)" inputMode="tel" value={cart.customerPhone} maxLength={20}
-            onChange={(e) => cart.set({ customerPhone: e.target.value })}
-            onBlur={async () => { if (!online || cart.customerPhone.replace(/\D/g, "").length < 7) return; const c = await lookupCustomer(cart.customerPhone); if (c) cart.set({ customerName: cart.customerName || c.name, customerPoints: c.points }); }} />
+            onChange={(e) => { cart.set({ customerPhone: e.target.value, customerNote: "", customerId: "" }); if (e.target.value.replace(/\D/g, "").length >= 11) void findCustomer(e.target.value); }}
+            onBlur={() => void findCustomer(cart.customerPhone)} />
         </div>
          <Input className="mt-2" aria-label="Customer address" placeholder={cart.orderType === "delivery" ? "Delivery address" : "Address (optional)"} value={cart.deliveryAddress} maxLength={300} onChange={(e) => cart.set({ deliveryAddress: e.target.value })} />
+        <CustomerNoteBox />
       </details>
       <div className="grid grid-cols-[220px_1fr] gap-6">
         <div className="space-y-2">

@@ -2,7 +2,7 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { Plus } from "lucide-react";
-import { adjustPoints, saveCustomer } from "@/lib/actions/customers-admin";
+import { adjustPoints, saveCustomer, saveCustomerNote } from "@/lib/actions/customers-admin";
 import { formatPKR } from "@/lib/domain/money";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
@@ -17,26 +17,47 @@ export function CustomersView({ customers, q, view, totals, can }: { customers: 
   const router = useRouter();
   const [open, setOpen] = useState<C | null>(null);
   const [adding, setAdding] = useState(false);
+  const [noteFor, setNoteFor] = useState<C | null>(null);
   return (
     <div className="max-w-5xl">
       <div className="mb-4 flex items-center gap-3"><h1 className="text-3xl font-bold">Customers</h1>
         <form action="/admin/customers" className="ml-4"><Input name="q" defaultValue={q} placeholder="Search name or phone" className="w-64" /></form>
         {can.manage && <Button className="ml-auto" onClick={() => setAdding(true)}><Plus size={18} />Add customer</Button>}</div>
-      <div className="mb-3 flex gap-2">
-        {([["all", `All customers (${totals.all})`], ["repeat", `Repeat customers (${totals.repeat})`]] as const).map(([k, label]) => (
-          <a key={k} href={`/admin/customers?${new URLSearchParams({ ...(q ? { q } : {}), ...(k === "repeat" ? { view: "repeat" } : {}) })}`}
+      <div className="mb-3 flex flex-wrap gap-2">
+        {([["repeat", `Repeat customers (${totals.repeat})`], ["all", `All customers (${totals.all})`]] as const).map(([k, label]) => (
+          <a key={k} href={`/admin/customers?${new URLSearchParams({ ...(q ? { q } : {}), view: k })}`}
             className={`flex h-11 items-center rounded-xl px-4 font-semibold ${view === k ? "bg-brand text-brand-fg" : "border border-border bg-surface hover:bg-surface-2"}`}>{label}</a>
         ))}
+        {view === "repeat" && !q && <p className="flex items-center text-sm text-muted">Customers with 2 or more orders, most orders first</p>}
       </div>
-      <div className="overflow-hidden rounded-2xl border border-border bg-surface">
-        {customers.map((c) => (
-          <button key={c.id} onClick={() => setOpen(c)} className="flex min-h-16 w-full items-center gap-3 border-b border-border px-4 text-left last:border-0 hover:bg-surface-2">
-            <div className="min-w-0 flex-1"><p className="font-semibold">{c.name || "—"} {c.isCorporate && <span className="ml-1 rounded bg-accent/20 px-2 py-0.5 text-xs font-bold">CORPORATE</span>}{badge(c.orders) && <span className={`ml-2 rounded px-2 py-0.5 text-xs font-black ${badge(c.orders)!.c}`}>{badge(c.orders)!.t} · {c.orders}×</span>}</p><p className="text-sm text-muted">{c.phone}{c.last && ` · last order ${c.last}`}</p>{c.address && <p className="truncate text-sm text-muted">📍 {c.address}</p>}</div>
-            <span className="w-16 text-right tabular-nums text-sm">{c.orders} orders</span><span className="w-28 text-right tabular-nums">{formatPKR(c.spend)}</span><span className="w-20 text-right text-sm font-semibold text-accent">{c.points} pts</span>
-          </button>
-        ))}
-        {!customers.length && <p className="p-10 text-center text-muted">{view === "repeat" ? "No repeat customers yet (customers with 2 or more orders appear here)." : "No customers found. They are added automatically when an order has a phone number."}</p>}
+      <div className="grid gap-3">
+        {customers.map((c) => {
+          const bd = badge(c.orders);
+          return (
+            <div key={c.id} className="rounded-2xl border border-border bg-surface p-4">
+              <div className="flex items-start gap-3">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-brand/15 text-lg font-black text-brand">{(c.name || c.phone).trim().charAt(0).toUpperCase()}</div>
+                <button onClick={() => setOpen(c)} className="min-w-0 flex-1 text-left">
+                  <p className="flex flex-wrap items-center gap-2 text-lg font-bold leading-tight">{c.name || "—"}
+                    {c.isCorporate && <span className="rounded bg-accent/20 px-2 py-0.5 text-xs font-bold">CORPORATE</span>}
+                    {bd && <span className={`rounded px-2 py-0.5 text-xs font-black ${bd.c}`}>{bd.t}</span>}</p>
+                  <p className="mt-0.5 text-sm text-muted">{c.phone}{c.last && ` · last order ${c.last}`}</p>
+                  {c.address && <p className="mt-0.5 truncate text-sm text-muted">📍 {c.address}</p>}
+                </button>
+                <div className="grid shrink-0 grid-cols-3 gap-4 text-right">
+                  <Metric l="Orders" v={String(c.orders)} /><Metric l="Spent" v={formatPKR(c.spend)} /><Metric l="Points" v={String(c.points)} cls="text-accent" />
+                </div>
+              </div>
+              <div className="mt-3 flex items-center gap-2">
+                {c.notes ? <p className="min-w-0 flex-1 truncate rounded-lg bg-warn/10 px-3 py-1.5 text-sm">📝 {c.notes}</p> : <span className="flex-1" />}
+                {can.manage && <button onClick={() => setNoteFor(c)} className="h-9 shrink-0 rounded-lg border border-border px-3 text-sm font-semibold hover:bg-surface-2">{c.notes ? "Edit note" : "+ Note"}</button>}
+              </div>
+            </div>
+          );
+        })}
+        {!customers.length && <p className="rounded-2xl border border-border bg-surface p-10 text-center text-muted">{view === "repeat" ? "No repeat customers yet (customers with 2 or more orders appear here)." : "No customers found. They are added automatically when an order has a phone number."}</p>}
       </div>
+      {noteFor && <NoteDialog c={noteFor} onClose={() => setNoteFor(null)} onDone={() => { setNoteFor(null); router.refresh(); }} />}
       {open && <Detail c={open} can={can} onClose={() => setOpen(null)} onDone={() => { setOpen(null); router.refresh(); }} />}
       {adding && <Edit onClose={() => setAdding(false)} onDone={() => { setAdding(false); router.refresh(); }} />}
     </div>
@@ -86,6 +107,29 @@ function Edit({ c, onClose, onDone }: { c?: C; onClose: () => void; onDone: () =
         {v.corp && <div><Label>Credit limit (Rs)</Label><Input inputMode="decimal" value={v.credit} onChange={(e) => setV({ ...v, credit: e.target.value })} /></div>}
         {error && <p className="text-danger">{error}</p>}
         <Button size="lg" className="w-full" disabled={pending} onClick={() => start(async () => { const r = await saveCustomer({ id: c?.id, phone: v.phone, name: v.name || undefined, notes: v.notes || undefined, isCorporate: v.corp, creditLimitRupees: Number(v.credit) || 0 }); if (r.ok) onDone(); else setError(r.error); })}>Save</Button>
+      </div>
+    </Modal>
+  );
+}
+
+const Metric = ({ l, v, cls = "" }: { l: string; v: string; cls?: string }) => (
+  <div><p className="text-[11px] font-semibold uppercase tracking-wide text-muted">{l}</p><p className={`text-base font-bold tabular-nums ${cls}`}>{v}</p></div>
+);
+
+/** Quick note on a customer: it shows on the till the next time this phone number is entered. */
+function NoteDialog({ c, onClose, onDone }: { c: C; onClose: () => void; onDone: () => void }) {
+  const [text, setText] = useState(c.notes);
+  const [err, setErr] = useState("");
+  const [pending, start] = useTransition();
+  return (
+    <Modal title={`Note · ${c.name || c.phone}`} onClose={onClose} width="max-w-md">
+      <p className="mb-2 text-sm text-muted">This note appears on the POS whenever this customer orders again.</p>
+      <textarea autoFocus value={text} onChange={(e) => setText(e.target.value)} maxLength={500} rows={4} placeholder="e.g. no onions, extra spicy, call before arriving"
+        className="w-full rounded-xl border border-border bg-surface-2 p-3 outline-none focus:border-brand" />
+      {err && <p className="mt-1 text-danger">{err}</p>}
+      <div className="mt-3 flex gap-2">
+        <Button className="flex-1" disabled={pending} onClick={() => start(async () => { const r = await saveCustomerNote(c.id, text); if (r.ok) onDone(); else setErr(r.error); })}>{pending ? "Saving…" : "Save note"}</Button>
+        {c.notes && <Button variant="secondary" disabled={pending} onClick={() => start(async () => { const r = await saveCustomerNote(c.id, ""); if (r.ok) onDone(); else setErr(r.error); })}>Remove note</Button>}
       </div>
     </Modal>
   );

@@ -65,3 +65,18 @@ export async function saveLoyaltyRules(raw: unknown): Promise<R> {
     return { ok: true };
   });
 }
+
+/** Quick note on a customer ("no onions", "calls before arriving"…). Shown on the till when this customer orders again. */
+export async function saveCustomerNote(customerId: string, note: string): Promise<R> {
+  return guard(async () => {
+    const session = await requirePermission("customer.manage");
+    const text = z.string().trim().max(500).parse(note);
+    const db = await getDb();
+    const [c] = await db.select({ id: s.customers.id, notes: s.customers.notes }).from(s.customers).where(eq(s.customers.id, customerId));
+    if (!c) throw new UserError("Customer not found");
+    await db.update(s.customers).set({ notes: text || null }).where(eq(s.customers.id, customerId));
+    await audit(session, { action: "customer.note", entity: "customer", entityId: customerId, before: { notes: c.notes }, after: { notes: text || null } });
+    reval();
+    return { ok: true };
+  });
+}

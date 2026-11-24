@@ -14,5 +14,5 @@ export async function lookupCustomer(phone: string) {
   const [c] = await db.select().from(s.customers).where(and(eq(s.customers.phone, clean)));
   if (!c) return null;
   const [addr] = await db.select().from(s.customerAddresses).where(eq(s.customerAddresses.customerId, c.id)).orderBy(desc(s.customerAddresses.lastUsedAt)).limit(1);
-  return { name: c.name ?? "", address: addr?.address ?? "", zoneId: addr?.zoneId ?? null, points: c.loyaltyPoints };
+  return { name: c.name ?? "", address: addr?.address ?? "", zoneId: addr?.zoneId ?? null, points: c.loyaltyPoints, notes: c.notes ?? "", id: c.id };
 }

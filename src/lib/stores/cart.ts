@@ -21,6 +21,8 @@ type State = {
   deliveryZoneId: string | null;
   aggregatorName: string;
   customerPoints: number; // loyalty balance of the looked-up customer
+  customerNote: string; // saved note of the looked-up customer (shown to the cashier)
+  customerId: string; // looked-up customer, "" when new
   redeem: boolean; // redeem the maximum points on this order
   discount: CartDiscount | null;
   deliveryCharge: number | null; // paisa typed by the cashier; null = the automatic rule
@@ -36,7 +38,7 @@ type State = {
 const fresh = () => ({
   edit: null as EditSession | null,
   lines: [] as CartLine[], tableNo: "", customerPhone: "", customerName: "", deliveryAddress: "", deliveryZoneId: null as string | null,
-  aggregatorName: "", customerPoints: 0, redeem: false, discount: null as CartDiscount | null, deliveryCharge: null as number | null, clientId: crypto.randomUUID(),
+  aggregatorName: "", customerPoints: 0, customerNote: "", customerId: "", redeem: false, discount: null as CartDiscount | null, deliveryCharge: null as number | null, clientId: crypto.randomUUID(),
 });
 
 const sig = (l: Omit<CartLine, "key">) => `${l.itemId}|${l.modifiers.map((m) => m.id).sort().join(",")}|${l.note ?? ""}`;
