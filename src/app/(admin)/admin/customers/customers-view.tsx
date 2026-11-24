@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
 
-type C = { id: string; name: string; phone: string; notes: string; points: number; isCorporate: boolean; credit: number; orders: number; spend: number; last: string; history: { no: string; date: string; total: number; type: string }[]; addresses: string[]; ledger: { at: string; points: number; reason: string }[] };
+type C = { address: string; id: string; name: string; phone: string; notes: string; points: number; isCorporate: boolean; credit: number; orders: number; spend: number; last: string; history: { no: string; date: string; total: number; type: string }[]; addresses: string[]; ledger: { at: string; points: number; reason: string }[] };
 
 export function CustomersView({ customers, q, can }: { customers: C[]; q: string; can: { manage: boolean; adjust: boolean } }) {
   const router = useRouter();
@@ -22,7 +22,7 @@ export function CustomersView({ customers, q, can }: { customers: C[]; q: string
       <div className="overflow-hidden rounded-2xl border border-border bg-surface">
         {customers.map((c) => (
           <button key={c.id} onClick={() => setOpen(c)} className="flex min-h-16 w-full items-center gap-3 border-b border-border px-4 text-left last:border-0 hover:bg-surface-2">
-            <div className="min-w-0 flex-1"><p className="font-semibold">{c.name || "—"} {c.isCorporate && <span className="ml-1 rounded bg-accent/20 px-2 py-0.5 text-xs font-bold">CORPORATE</span>}</p><p className="text-sm text-muted">{c.phone}</p></div>
+            <div className="min-w-0 flex-1"><p className="font-semibold">{c.name || "—"} {c.isCorporate && <span className="ml-1 rounded bg-accent/20 px-2 py-0.5 text-xs font-bold">CORPORATE</span>}</p><p className="text-sm text-muted">{c.phone}</p>{c.address && <p className="truncate text-sm text-muted">📍 {c.address}</p>}</div>
             <span className="w-16 text-right tabular-nums text-sm">{c.orders} orders</span><span className="w-28 text-right tabular-nums">{formatPKR(c.spend)}</span><span className="w-20 text-right text-sm font-semibold text-accent">{c.points} pts</span>
           </button>
         ))}
