@@ -10,7 +10,10 @@ import { Modal } from "@/components/ui/modal";
 
 type C = { address: string; id: string; name: string; phone: string; notes: string; points: number; isCorporate: boolean; credit: number; orders: number; spend: number; last: string; history: { no: string; date: string; total: number; type: string }[]; addresses: string[]; ledger: { at: string; points: number; reason: string }[] };
 
-export function CustomersView({ customers, q, can }: { customers: C[]; q: string; can: { manage: boolean; adjust: boolean } }) {
+/** Loyalty badge from the number of orders: Repeat 2–4, Regular 5–9, VIP 10+. */
+const badge = (n: number) => (n >= 10 ? { t: "VIP", c: "bg-accent/25 text-accent" } : n >= 5 ? { t: "REGULAR", c: "bg-success/20 text-success" } : n >= 2 ? { t: "REPEAT", c: "bg-brand/15 text-brand" } : null);
+
+export function CustomersView({ customers, q, view, totals, can }: { customers: C[]; q: string; view: "all" | "repeat"; totals: { all: number; repeat: number }; can: { manage: boolean; adjust: boolean } }) {
   const router = useRouter();
   const [open, setOpen] = useState<C | null>(null);
   const [adding, setAdding] = useState(false);
@@ -19,14 +22,20 @@ export function CustomersView({ customers, q, can }: { customers: C[]; q: string
       <div className="mb-4 flex items-center gap-3"><h1 className="text-3xl font-bold">Customers</h1>
         <form action="/admin/customers" className="ml-4"><Input name="q" defaultValue={q} placeholder="Search name or phone" className="w-64" /></form>
         {can.manage && <Button className="ml-auto" onClick={() => setAdding(true)}><Plus size={18} />Add customer</Button>}</div>
+      <div className="mb-3 flex gap-2">
+        {([["all", `All customers (${totals.all})`], ["repeat", `Repeat customers (${totals.repeat})`]] as const).map(([k, label]) => (
+          <a key={k} href={`/admin/customers?${new URLSearchParams({ ...(q ? { q } : {}), ...(k === "repeat" ? { view: "repeat" } : {}) })}`}
+            className={`flex h-11 items-center rounded-xl px-4 font-semibold ${view === k ? "bg-brand text-brand-fg" : "border border-border bg-surface hover:bg-surface-2"}`}>{label}</a>
+        ))}
+      </div>
       <div className="overflow-hidden rounded-2xl border border-border bg-surface">
         {customers.map((c) => (
           <button key={c.id} onClick={() => setOpen(c)} className="flex min-h-16 w-full items-center gap-3 border-b border-border px-4 text-left last:border-0 hover:bg-surface-2">
-            <div className="min-w-0 flex-1"><p className="font-semibold">{c.name || "—"} {c.isCorporate && <span className="ml-1 rounded bg-accent/20 px-2 py-0.5 text-xs font-bold">CORPORATE</span>}</p><p className="text-sm text-muted">{c.phone}</p>{c.address && <p className="truncate text-sm text-muted">📍 {c.address}</p>}</div>
+            <div className="min-w-0 flex-1"><p className="font-semibold">{c.name || "—"} {c.isCorporate && <span className="ml-1 rounded bg-accent/20 px-2 py-0.5 text-xs font-bold">CORPORATE</span>}{badge(c.orders) && <span className={`ml-2 rounded px-2 py-0.5 text-xs font-black ${badge(c.orders)!.c}`}>{badge(c.orders)!.t} · {c.orders}×</span>}</p><p className="text-sm text-muted">{c.phone}{c.last && ` · last order ${c.last}`}</p>{c.address && <p className="truncate text-sm text-muted">📍 {c.address}</p>}</div>
             <span className="w-16 text-right tabular-nums text-sm">{c.orders} orders</span><span className="w-28 text-right tabular-nums">{formatPKR(c.spend)}</span><span className="w-20 text-right text-sm font-semibold text-accent">{c.points} pts</span>
           </button>
         ))}
-        {!customers.length && <p className="p-10 text-center text-muted">No customers found. They are added automatically when an order has a phone number.</p>}
+        {!customers.length && <p className="p-10 text-center text-muted">{view === "repeat" ? "No repeat customers yet (customers with 2 or more orders appear here)." : "No customers found. They are added automatically when an order has a phone number."}</p>}
       </div>
       {open && <Detail c={open} can={can} onClose={() => setOpen(null)} onDone={() => { setOpen(null); router.refresh(); }} />}
       {adding && <Edit onClose={() => setAdding(false)} onDone={() => { setAdding(false); router.refresh(); }} />}

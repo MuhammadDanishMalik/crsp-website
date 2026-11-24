@@ -11,11 +11,17 @@ export default async function CustomersPage({ searchParams }: PageProps<"/admin/
   const db = await getDb();
   const [all, orders] = await Promise.all([db.select().from(s.customers).orderBy(desc(s.customers.createdAt)), db.select({ id: s.orders.id, c: s.orders.customerId, total: s.orders.total, date: s.orders.businessDate, no: s.orders.orderNo, type: s.orders.type, status: s.orders.status, addr: s.orders.deliveryAddress }).from(s.orders).where(notInArray(s.orders.status, ["voided", "refunded", "held"])).orderBy(desc(s.orders.createdAt)).limit(5000)]);
   const live = orders.filter((o) => o.c);
-  const list = all.filter((c) => !q || (c.name ?? "").toLowerCase().includes(q) || c.phone.includes(q)).slice(0, 200);
+  const count = new Map<string, { n: number; spend: number }>();
+  for (const o of live) { const x = count.get(o.c!) ?? { n: 0, spend: 0 }; x.n++; x.spend += o.total; count.set(o.c!, x); }
+  const repeatCount = all.filter((c) => (count.get(c.id)?.n ?? 0) >= 2).length;
+  const view = sp.view === "repeat" ? "repeat" : "all";
+  let pool = all.filter((c) => !q || (c.name ?? "").toLowerCase().includes(q) || c.phone.includes(q));
+  if (view === "repeat") pool = pool.filter((c) => (count.get(c.id)?.n ?? 0) >= 2).sort((a, b) => (count.get(b.id)!.n - count.get(a.id)!.n) || (count.get(b.id)!.spend - count.get(a.id)!.spend));
+  const list = pool.slice(0, 200);
   const ids = list.map((c) => c.id);
   const [addrs, ledger] = ids.length ? await Promise.all([db.select().from(s.customerAddresses).where(inArray(s.customerAddresses.customerId, ids)), db.select().from(s.loyaltyTransactions).where(inArray(s.loyaltyTransactions.customerId, ids)).orderBy(desc(s.loyaltyTransactions.createdAt))]) : [[], []];
   return (
-    <CustomersView q={q} can={{ manage: session.can("customer.manage"), adjust: session.can("loyalty.adjust") }}
+    <CustomersView q={q} view={view} totals={{ all: all.length, repeat: repeatCount }} can={{ manage: session.can("customer.manage"), adjust: session.can("loyalty.adjust") }}
       customers={list.map((c) => {
         const mine = live.filter((o) => o.c === c.id);
         return {
