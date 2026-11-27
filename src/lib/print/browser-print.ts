@@ -1,6 +1,7 @@
 "use client";
 import { formatPKR } from "@/lib/domain/money";
 import type { ReceiptData } from "@/lib/queries/receipt";
+import { desktopBridge } from "@/lib/desktop";
 
 /**
  * Prints the kitchen slip and the customer receipt through the browser's own print dialog, to whichever printer Windows has as default
@@ -128,6 +129,13 @@ async function printSlip(html: string, paper: number): Promise<void> {
   const style = doc.createElement("style");
   style.textContent = `@page{size:${paper}mm ${mm}mm;margin:0}html,body{height:${mm}mm;overflow:hidden}`;
   doc.head.appendChild(style);
+  const native = desktopBridge();
+  if (native) { // installed shop app: straight to the Windows default printer, no dialog
+    const r = await native.print(`<!doctype html>${doc.documentElement.outerHTML}`, paper, mm);
+    frame.remove();
+    if (!r.ok) throw new Error(r.error || "Printing failed");
+    return;
+  }
   const win = frame.contentWindow!;
   await new Promise<void>((done) => {
     const finish = () => { win.removeEventListener("afterprint", finish); done(); };

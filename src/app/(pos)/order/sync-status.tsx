@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { CloudOff, RefreshCw } from "lucide-react";
+import { canReachServer } from "@/lib/desktop";
 import { refreshOutbox, removeFromOutbox, requeue, useOutbox } from "@/lib/offline/outbox";
 import { syncOutbox } from "@/lib/offline/sync";
 import { formatPKR } from "@/lib/domain/money";
@@ -22,7 +23,7 @@ export function SyncStatus({ online, onSynced }: { online: boolean; onSynced: (n
   useEffect(() => {
     if (!online) return;
     void refreshOutbox().then(() => run());
-    const t = setInterval(() => { if (navigator.onLine) void run(); }, 20_000);
+    const t = setInterval(() => { if (canReachServer()) void run(); }, 20_000);
     const onOnline = () => void run();
     window.addEventListener("online", onOnline);
     return () => { clearInterval(t); window.removeEventListener("online", onOnline); };

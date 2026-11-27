@@ -2,6 +2,7 @@
 import { createOrder } from "@/lib/actions/orders";
 import { markFailed, refreshOutbox, removeFromOutbox } from "./outbox";
 import { localDb } from "./db";
+import { canReachServer } from "@/lib/desktop";
 
 let running = false;
 export type SyncResult = { synced: number; failed: number; stopped: "offline" | "login" | null };
@@ -15,7 +16,7 @@ export type SyncResult = { synced: number; failed: number; stopped: "offline" | 
  */
 export async function syncOutbox(): Promise<SyncResult> {
   const result: SyncResult = { synced: 0, failed: 0, stopped: null };
-  if (running || typeof navigator === "undefined" || !navigator.onLine) return { ...result, stopped: "offline" };
+  if (running || typeof navigator === "undefined" || !canReachServer()) return { ...result, stopped: "offline" };
   running = true;
   try {
     const rows = (await localDb().outbox.where("status").equals("queued").sortBy("createdAt"));

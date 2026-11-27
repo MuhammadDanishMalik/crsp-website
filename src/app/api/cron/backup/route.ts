@@ -19,7 +19,7 @@ export async function GET(req: Request) {
   await getDb();
   const pg = getPglite();
   if (!pg) return Response.json({ ok: true, skipped: "Using an external Postgres: rely on its own backups or pg_dump." });
-  const dir = path.join(process.cwd(), ".data/backups");
+  const dir = path.join(process.env["CRSP_DATA_DIR"] ?? path.join(process.cwd(), ".data"), "backups");
   await fs.mkdir(dir, { recursive: true });
   const day = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Karachi" }).format(new Date());
   const file = path.join(dir, `crsp-${day}.tar.gz`);

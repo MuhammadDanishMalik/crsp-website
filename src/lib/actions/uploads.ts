@@ -5,7 +5,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { getSession } from "@/lib/auth/session";
 
-const UPLOAD_DIR = path.join(process.cwd(), ".data/uploads");
+const UPLOAD_DIR = path.join(process.env["CRSP_DATA_DIR"] ?? path.join(process.cwd(), ".data"), "uploads");
 const TYPES: Record<string, string> = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" };
 
 /** Receipt photos, staff photos, deposit slips. Stored on disk; swap for Supabase Storage in production. */

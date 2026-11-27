@@ -4,6 +4,7 @@ import { memo, useCallback, useDeferredValue, useEffect, useMemo, useRef, useSta
 import { Clock, LogOut, Search, Settings2, Star, Wifi, WifiOff, Wallet } from "lucide-react";
 import { LogoutForm } from "@/components/logout-form";
 import { useBranchEvents } from "@/lib/realtime/use-events";
+import { canReachServer } from "@/lib/desktop";
 import { useCart, type OrderType } from "@/lib/stores/cart";
 import { formatPKR } from "@/lib/domain/money";
 import { CategoryIcon } from "@/components/pos/icons";
@@ -187,7 +188,7 @@ export function PosScreen({ menu, me, shiftOpenedAt, offline }: PosProps) {
         <ModifierSheet item={sheet} onClose={() => setSheet(null)}
           onAdd={(mods, qty) => { cart.add({ itemId: sheet.id, name: sheet.name, basePrice: sheet.price, quantity: qty, modifiers: mods }); setSheet(null); }} />
       )}
-      {paying && <PayDialog menu={menu} me={me} offline={offline} online={online} onClose={() => setPaying(false)} onFinished={() => { setPaying(false); if (navigator.onLine) router.refresh(); /* offline: a refresh would fail and reload the page */ }} />}
+      {paying && <PayDialog menu={menu} me={me} offline={offline} online={online} onClose={() => setPaying(false)} onFinished={() => { setPaying(false); if (canReachServer()) router.refresh(); /* offline: a refresh would fail and reload the page */ }} />}
       {discounting && <DiscountDialog subtotal={subtotal} me={me} current={cart.discount} onClose={() => setDiscounting(false)} onApply={(d) => { cart.set({ discount: d }); setDiscounting(false); }} />}
       {heldOpen && <HeldDialog menu={menu} canMove={me.can.moveTable} onClose={() => { setHeldOpen(false); void listHeld().then((l) => setHeldCount(l.length)); }} />}
       {toast && <div className="fixed bottom-6 left-1/2 z-[60] -translate-x-1/2 rounded-2xl bg-surface-2 px-6 py-3 text-lg font-semibold shadow-xl">{toast}</div>}
@@ -232,5 +233,5 @@ function subscribeOnline(cb: () => void) {
   return () => { window.removeEventListener("online", cb); window.removeEventListener("offline", cb); };
 }
 function useOnline() {
-  return useSyncExternalStore(subscribeOnline, () => navigator.onLine, () => true);
+  return useSyncExternalStore(subscribeOnline, canReachServer, () => true);
 }

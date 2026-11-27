@@ -1,4 +1,5 @@
 "use client";
+import { desktopBridge } from "@/lib/desktop";
 import { deliveryChargeFor } from "@/lib/domain/delivery";
 import { openingOfferBps } from "@/lib/domain/opening-offer";
 import { markNoDiscount } from "@/lib/domain/discount-scope";
@@ -6,6 +7,7 @@ import { useMemo, useState, useTransition } from "react";
 import { useTranslations } from "next-intl";
 import { Banknote, CreditCard, Landmark, Smartphone, QrCode, Printer } from "lucide-react";
 import { createOrder } from "@/lib/actions/orders";
+import { canReachServer } from "@/lib/desktop";
 import { lookupCustomer } from "@/lib/actions/customers";
 import { CustomerNoteBox } from "./customer-note";
 import { getKotJobs, getReceiptData, getReceiptPrintJob } from "@/lib/actions/print";
@@ -148,11 +150,11 @@ export function PayDialog({ menu, me, offline, online, onClose, onFinished }: { 
       setDone({ orderId: cart.clientId, orderNo: localNo, change: lr.change, printMsg, offline: true, receipt: lr.receipt });
     };
     start(async () => {
-      if (!navigator.onLine) return saveOffline();
+      if (!canReachServer()) return saveOffline();
       let r: Awaited<ReturnType<typeof createOrder>>;
       try { r = await createOrder(payload); } catch (e) {
         // This page is older than the server (a new version was deployed while it stayed open): it cannot talk to it any more. Reload instead of pretending to be offline.
-        if (e instanceof Error && /server action/i.test(`${e.name} ${e.message}`) && navigator.onLine) { setError("The app was updated. Reloading to the new version, then press Pay again."); setTimeout(() => void reloadClean(), 1500); return; }
+        if (e instanceof Error && /server action/i.test(`${e.name} ${e.message}`) && canReachServer()) { setError("The app was updated. Reloading to the new version, then press Pay again."); setTimeout(() => void reloadClean(), 1500); return; }
         return saveOffline(); // the request never reached the server: keep the sale on this device
       }
       if (!r.ok) return setError(r.error);
@@ -347,7 +349,7 @@ export async function printReceipt(orderId: string, reprint = false, changes?: {
       const data = preloaded ?? (await getReceiptData(orderId)); // a fresh sale brings its receipt along
       if (!data) return "Could not load the receipt to print";
       await printInBrowser(data, reprint ? { kitchen: false } : changes ? { changes } : { kitchen: true });
-      return "Print window opened: choose the receipt printer and press Print";
+      return (desktopBridge() ? "Sent to the printer" : "Print window opened: choose the receipt printer and press Print");
     } catch { return "Could not open the print window"; }
   }
 

@@ -8,6 +8,6 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 <!-- END:nextjs-agent-rules -->
 
-## Performance (till PC runs all day in Firefox)
+## RULES: speed and offline selling (read first)
 
-Read and follow `docs/PERFORMANCE.md` before touching any screen, timer, live update, list, sound or deploy script. `npm test` enforces part of it.
+Before touching ANY screen, timer, live update, list, sound, printing, sync, desktop app or deploy script, read and follow `docs/PERFORMANCE.md`. The shop must keep selling with no internet, and speed must never get worse. `npm test` enforces part of it.

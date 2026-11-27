@@ -1,4 +1,5 @@
 "use client";
+import { desktopBridge } from "@/lib/desktop";
 import { buildKot, buildOrderSlips } from "@/lib/adapters/printers/escpos";
 import { printMode, sendToBridge } from "@/lib/adapters/printers/bridge-client";
 import { printInBrowser } from "@/lib/print/browser-print";
@@ -10,7 +11,7 @@ import type { OfflineConfig } from "./types";
 /** Print the kitchen tickets and receipt from data held on this device (the print bridge runs on the same PC, so it works offline). */
 export async function printOffline(cfg: OfflineConfig, receipt: ReceiptData, lines: CartLine[], items: PosItem[], hasCash: boolean): Promise<string> {
   if (printMode() === "browser") { // default: the browser print dialog, from data on this device (works with no internet)
-    try { await printInBrowser(receipt, { kitchen: true }); return "Print window opened: choose the receipt printer and press Print"; } catch { return "Could not open the print window"; }
+    try { await printInBrowser(receipt, { kitchen: true }); return (desktopBridge() ? "Sent to the printer" : "Print window opened: choose the receipt printer and press Print"); } catch { return "Could not open the print window"; }
   }
   const msgs: string[] = [];
 

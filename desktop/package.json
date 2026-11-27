@@ -1,0 +1,29 @@
+{
+  "name": "crsp-pos-desktop",
+  "productName": "CRSP POS",
+  "version": "1.0.0",
+  "description": "CRSP POS for the shop PC: runs and sells without internet, copies the day to the website at 3 am",
+  "author": "CRSP",
+  "private": true,
+  "main": "main.cjs",
+  "scripts": {
+    "start": "electron .",
+    "dist:win": "electron-builder --win nsis --x64 --publish never"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "electron": "45.5.0",
+    "electron-builder": "26.18.0"
+  },
+  "build": {
+    "appId": "pk.crsp.pos",
+    "productName": "CRSP POS",
+    "directories": { "output": "dist", "buildResources": "assets" },
+    "asar": false,
+    "npmRebuild": false,
+    "files": ["main.cjs", "preload.cjs", "setup.html", "package.json"],
+    "extraResources": [{ "from": "build", "to": ".", "filter": ["**/*"] }],
+    "win": { "icon": "assets/icon.png", "signAndEditExecutable": false },
+    "nsis": { "oneClick": true, "perMachine": false, "createDesktopShortcut": "always", "shortcutName": "CRSP POS", "deleteAppDataOnUninstall": false, "artifactName": "CRSP-POS-Setup-${version}.${ext}" }
+  }
+}

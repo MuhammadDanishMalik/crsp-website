@@ -28,7 +28,7 @@ async function verify<T>(token?: string): Promise<T | null> {
   }
 }
 
-const cookieOpts = { httpOnly: true, sameSite: "lax", path: "/", secure: process.env.NODE_ENV === "production" } as const;
+const cookieOpts = { httpOnly: true, sameSite: "lax", path: "/", secure: process.env.NODE_ENV === "production" && !process.env["CRSP_DESKTOP"] } as const; // the shop app talks to itself over plain http
 
 export { cookieOpts, SESSION, TERMINAL };
 

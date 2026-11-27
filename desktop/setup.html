@@ -1,0 +1,26 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>CRSP POS setup</title>
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'">
+<style>body{font:16px system-ui,sans-serif;background:#111;color:#fff;display:flex;min-height:100vh;align-items:center;justify-content:center;margin:0}
+form{width:440px;padding:28px;background:#1b1b1f;border-radius:16px}h1{margin:0 0 6px}p{color:#aaa}label{display:block;margin:14px 0 6px;font-weight:600}
+input{width:100%;box-sizing:border-box;padding:12px;border-radius:10px;border:1px solid #333;background:#111;color:#fff;font-size:15px}
+button{margin-top:18px;width:100%;padding:14px;border:0;border-radius:10px;background:#d62828;color:#fff;font-size:17px;font-weight:700;cursor:pointer}
+button:disabled{opacity:.6}#msg{margin-top:12px;color:#ffb4b4;white-space:pre-wrap}</style></head>
+<body><form id="f"><h1>CRSP POS setup</h1>
+<p>One time only, with internet: download your menu, staff and orders onto this PC.</p>
+<label>Website</label><input id="url" value="https://www.crspofficial.com" required>
+<label>Sync key</label><input id="key" type="password" placeholder="paste the sync key" required>
+<label>Data folder on this PC</label><div style="display:flex;gap:8px"><input id="folder" readonly><button type="button" id="pick" style="width:auto;margin:0;padding:0 16px;background:#333">Change</button></div>
+<button id="b">Download my shop data</button><div id="msg"></div></form>
+<script>
+const showFolder = async (change) => { document.getElementById("folder").value = await window.crspSetup.folder(change); };
+showFolder(false);
+document.getElementById("pick").addEventListener("click", () => showFolder(true));
+document.getElementById("f").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const b = document.getElementById("b"), m = document.getElementById("msg");
+  b.disabled = true; b.textContent = "Downloading… (a few minutes)"; m.textContent = "";
+  const r = await window.crspSetup.download(document.getElementById("url").value.trim(), document.getElementById("key").value.trim());
+  if (!r.ok) { m.textContent = r.error; b.disabled = false; b.textContent = "Download my shop data"; }
+});
+</script></body></html>

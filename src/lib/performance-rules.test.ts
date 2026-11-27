@@ -11,5 +11,7 @@ const offenders = (re: RegExp, allowed: string) => files.filter((f) => re.test(f
 describe("performance rules", () => {
   it("only the shared live-events hub opens an EventSource", () => expect(offenders(/new EventSource\(/, "lib/realtime/use-events.ts")).toEqual([]));
   it("only the shared sound helper creates an AudioContext", () => expect(offenders(/new AudioContext\(/, "lib/sound.ts")).toEqual([]));
+  it("offline is never judged from navigator.onLine alone (the shop app's server is on the same PC)", () => expect(offenders(/!navigator\.onLine|\(navigator\.onLine\)/, "lib/desktop.ts")).toEqual([]));
+  it("nothing is loaded from the internet at run time", () => expect(files.filter((f) => /(src|href)=["']https?:\/\/[^"']+\.(js|css|woff2?)["']|@import url\(["']?https?:/.test(f.code)).map((f) => f.file)).toEqual([]));
   it("the orders screen never renders the whole list at once", () => expect(files.find((f) => f.file === "components/orders/orders-manager.tsx")!.code).not.toMatch(/filteredOrders\.map\(/));
 });

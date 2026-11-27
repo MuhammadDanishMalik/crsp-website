@@ -3,7 +3,10 @@ import createNextIntlPlugin from "next-intl/plugin";
 
 const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
 
+const desktop = !!process.env.DESKTOP_BUILD; // the installable Windows app carries its own server
+
 const nextConfig: NextConfig = {
+  ...(desktop ? { output: "standalone" as const, images: { unoptimized: true }, outputFileTracingExcludes: { "/**": [".data/**", ".env*", "desktop/**"] } } : {}),
   // the migration files are read from disk at start-up: make sure serverless bundles carry them
   outputFileTracingIncludes: { "/**": ["./drizzle/**/*"] },
   serverExternalPackages: ["@electric-sql/pglite", "pdfkit", "exceljs"],
