@@ -48,6 +48,10 @@ if (target === "win32") rmSync(path.join(out, "pgsql", "bin", "testplug.dll"), {
 if (target !== "win32" && existsSync(path.join(tmp, "package/scripts/hydrate-symlinks.js"))) run(`cp -R . ${JSON.stringify(path.join(out, "hydrate"))} && cd ${JSON.stringify(path.join(out, "hydrate"))} && node scripts/hydrate-symlinks.js && rm -rf ${JSON.stringify(path.join(out, "pgsql"))} && mv native ${JSON.stringify(path.join(out, "pgsql"))} && cd .. && rm -rf hydrate`, path.join(tmp, "package"));
 rmSync(tmp, { recursive: true, force: true });
 
+// not needed to run the database: GUI add-on libraries and manuals
+for (const f of readdirSync(path.join(out, "pgsql/bin"))) if (/^wx.*\.dll$/i.test(f)) rmSync(path.join(out, "pgsql/bin", f));
+rmSync(path.join(out, "pgsql/share/doc"), { recursive: true, force: true });
+
 // 3. icon
 mkdirSync(path.join(here, "assets"), { recursive: true });
 cpSync(path.join(root, "public/brand/icon-512.png"), path.join(here, "assets/icon.png"));

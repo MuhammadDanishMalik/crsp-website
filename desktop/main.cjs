@@ -52,7 +52,8 @@ function startDatabase() {
   }
   const ctl = (args) => spawnSync(pgBin("pg_ctl"), ["-D", dir, ...args], { stdio: "ignore", windowsHide: true, timeout: 90_000 }); // "ignore": postgres would hold a pipe open forever
   if (ctl(["status"]).status === 0) return; // still running from before
-  const options = `-p ${PG_PORT} -h 127.0.0.1${process.platform === "win32" ? "" : " -k ''"}`;
+  // one till on an old PC: a small database server is plenty
+  const options = `-p ${PG_PORT} -h 127.0.0.1 -c shared_buffers=48MB -c max_connections=20 -c work_mem=4MB -c maintenance_work_mem=32MB${process.platform === "win32" ? "" : " -k ''"}`;
   const start = () => ctl(["start", "-w", "-t", "60", "-l", path.join(dataDir, "logs", "database.log"), "-o", options]).status === 0;
   if (start()) return;
   fs.rmSync(path.join(dir, "postmaster.pid"), { force: true }); // left behind by a power cut
@@ -63,13 +64,14 @@ const stopDatabase = () => spawnSync(pgBin("pg_ctl"), ["-D", dbDir(), "stop", "-
 /* ---------- POS server ---------- */
 function startServer() {
   const out = fs.openSync(path.join(dataDir, "logs", "server.log"), "a");
-  server = spawn(process.execPath, [path.join(serverDir, "server.js")], {
+  server = spawn(process.execPath, ["--max-old-space-size=256", "--max-semi-space-size=2", path.join(serverDir, "server.js")], {
     cwd: serverDir, windowsHide: true, stdio: ["ignore", out, out],
     env: {
       ...process.env, ELECTRON_RUN_AS_NODE: "1", NODE_ENV: "production", HOSTNAME: "127.0.0.1", PORT: String(WEB_PORT),
       POSTGRES_URL: `postgresql://crsp:${cfg.dbPassword}@127.0.0.1:${PG_PORT}/postgres`, DATABASE_URL: "",
-      SESSION_SECRET: cfg.sessionSecret, CRSP_DESKTOP: "1", CRSP_NO_SEED: "1", CRSP_DATA_DIR: path.join(storeDir(), "files"),
-      CRSP_LOCAL_TOKEN: cfg.localToken, CRSP_CLOUD_URL: cfg.cloudUrl || "", CRSP_SYNC_KEY: cfg.syncKey || "",
+      SESSION_SECRET: cfg.sessionSecret, CRSP_DESKTOP: "1", CRSP_NO_SEED: cfg.demo ? "" : "1", // sample data only when testing
+      ...(cfg.demo ? { ADMIN_EMAIL: "admin@crsp.com", ADMIN_PASSWORD: "admin123" } : {}), CRSP_DATA_DIR: path.join(storeDir(), "files"),
+      CRSP_LOCAL_TOKEN: cfg.localToken, CRSP_CLOUD_URL: cfg.demo ? "" : cfg.cloudUrl || "", CRSP_SYNC_KEY: cfg.demo ? "" : cfg.syncKey || "",
     },
   });
   const me = server;
@@ -93,6 +95,7 @@ async function sync(mode) {
 }
 const lastDue = () => { const d = new Date(); if (d.getHours() < SYNC_HOUR) d.setDate(d.getDate() - 1); d.setHours(SYNC_HOUR, 0, 0, 0); return d.getTime(); };
 async function upload(manual) {
+  if (cfg.demo) { if (manual) await dialog.showMessageBox(win, { message: "This is sample data for testing: nothing is uploaded." }); return; }
   if (syncing || !cfg.setupDone) return;
   syncing = true;
   try {
@@ -121,13 +124,23 @@ function buildMenu() {
       { type: "separator" }, { role: "quit" },
     ] },
     { label: "Online copy", submenu: [
-      { label: `Last upload: ${last}`, enabled: false },
+      { label: cfg.demo ? "SAMPLE DATA: nothing is uploaded" : `Last upload: ${last}`, enabled: false },
+      ...(cfg.demo ? [{ label: "Delete sample data and set up the real shop", click: () => void removeSample() }] : []),
       ...(cfg.lastError ? [{ label: `Problem: ${String(cfg.lastError).slice(0, 80)}`, enabled: false }] : []),
       { label: "Upload now", click: () => void upload(true) },
       { label: "Open data folder", click: () => void shell.openPath(storeDir()) },
       { label: "Open logs", click: () => void shell.openPath(path.join(dataDir, "logs")) },
     ] },
   ]));
+}
+async function removeSample() {
+  if (!cfg.demo) return; // never delete real shop data
+  const { response } = await dialog.showMessageBox(win, { type: "warning", buttons: ["Cancel", "Delete sample data"], defaultId: 0, cancelId: 0, message: "Delete the sample data and start the real shop setup?" });
+  if (response !== 1) return;
+  quitting = true; stopServer(); stopDatabase();
+  fs.rmSync(dbDir(), { recursive: true, force: true });
+  cfg.demo = false; cfg.setupDone = false; save();
+  app.relaunch(); app.quit();
 }
 function createWindow() {
   win = new BrowserWindow({ width: 1366, height: 800, show: false, backgroundColor: "#111111", title: "CRSP POS",
@@ -178,13 +191,21 @@ ipcMain.handle("folder", async (e, change) => {
   startServer(); await waitForServer();
   return storeDir();
 });
+ipcMain.handle("demo", async (e) => {
+  if (!e.senderFrame?.url.startsWith("file:") || cfg.setupDone) return { ok: false, error: "Not allowed" };
+  cfg.demo = true; save();
+  stopServer(); await new Promise((r) => setTimeout(r, 800)); startServer(); await waitForServer();
+  cfg.setupDone = true; save(); buildMenu(); win.setTitle("CRSP POS (sample data)");
+  setTimeout(() => win.loadURL(`${BASE}/pin`), 100);
+  return { ok: true };
+});
 ipcMain.handle("setup", async (e, url, key) => {
   if (!e.senderFrame?.url.startsWith("file:")) return { ok: false, error: "Not allowed" };
   if (!/^https:\/\//.test(url) && !/^http:\/\/127\.0\.0\.1/.test(url)) return { ok: false, error: "The website address must start with https://" };
   cfg.cloudUrl = url; cfg.syncKey = key; save();
   stopServer(); await new Promise((r) => setTimeout(r, 800)); startServer(); await waitForServer();
   const r = await sync("pull");
-  if (r.ok) { cfg.setupDone = true; cfg.lastSync = Date.now(); save(); buildMenu(); setTimeout(() => win.loadURL(`${BASE}/pin`), 100); }
+  if (r.ok) { cfg.setupDone = true; cfg.lastSync = Date.now(); save(); buildMenu(); if (app.isPackaged) app.setLoginItemSettings({ openAtLogin: true }); setTimeout(() => win.loadURL(`${BASE}/pin`), 100); }
   return r;
 });
 
@@ -197,7 +218,7 @@ else {
     try {
       startDatabase(); startServer(); await waitForServer();
     } catch (e) { log(e.message); dialog.showErrorBox("CRSP POS could not start", e.message); return app.quit(); }
-    if (app.isPackaged) app.setLoginItemSettings({ openAtLogin: true }); // the till opens by itself after a power cut
+    if (app.isPackaged) app.setLoginItemSettings({ openAtLogin: !!cfg.setupDone && !cfg.demo }); // the till opens by itself after a power cut
     if (cfg.setupDone) { await win.loadURL(`${BASE}/pin`); setTimeout(() => { if ((cfg.lastSync || 0) < lastDue()) void upload(false); }, 60_000); }
     else await win.loadFile(path.join(__dirname, "setup.html"));
     scheduleSync();

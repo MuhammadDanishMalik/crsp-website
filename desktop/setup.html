@@ -11,11 +11,18 @@ button:disabled{opacity:.6}#msg{margin-top:12px;color:#ffb4b4;white-space:pre-wr
 <label>Website</label><input id="url" value="https://www.crspofficial.com" required>
 <label>Sync key</label><input id="key" type="password" placeholder="paste the sync key" required>
 <label>Data folder on this PC</label><div style="display:flex;gap:8px"><input id="folder" readonly><button type="button" id="pick" style="width:auto;margin:0;padding:0 16px;background:#333">Change</button></div>
-<button id="b">Download my shop data</button><div id="msg"></div></form>
+<button id="b">Download my shop data</button><div id="msg"></div>
+<hr style="border-color:#333;margin:22px 0 0"><button type="button" id="demo" style="background:#2b2b31">Test with sample data (PIN 1111)</button>
+<p style="margin:8px 0 0;font-size:13px">For trying the software on any computer. No sync key needed; nothing goes to your website.</p></form>
 <script>
 const showFolder = async (change) => { document.getElementById("folder").value = await window.crspSetup.folder(change); };
 showFolder(false);
 document.getElementById("pick").addEventListener("click", () => showFolder(true));
+document.getElementById("demo").addEventListener("click", async (e) => {
+  e.target.disabled = true; e.target.textContent = "Preparing sample data…";
+  const r = await window.crspSetup.demo();
+  if (!r.ok) { document.getElementById("msg").textContent = r.error; e.target.disabled = false; }
+});
 document.getElementById("f").addEventListener("submit", async (e) => {
   e.preventDefault();
   const b = document.getElementById("b"), m = document.getElementById("msg");
