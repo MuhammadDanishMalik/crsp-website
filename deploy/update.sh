@@ -37,6 +37,10 @@ mv "$BUILD/.next" "$APP/.next"
 cp /etc/crsp.version.env /etc/crsp.version.env.old 2>/dev/null || true
 echo "COMMIT_REF=$SHA" > /etc/crsp.version.env   # lets the app tell open browser tabs that a new version is live
 chown -R crsp:crsp "$APP/.next"
+# open screens hold live connections: without this the old server waits 90 s before it stops and the site shows 502
+mkdir -p /etc/systemd/system/crsp.service.d
+printf '[Service]\nTimeoutStopSec=4\n' > /etc/systemd/system/crsp.service.d/stop.conf
+systemctl daemon-reload
 systemctl restart crsp
 
 # 3. check it answers; otherwise put the previous build back

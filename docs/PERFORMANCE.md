@@ -9,5 +9,5 @@ The till runs all day on a modest Windows PC in Firefox. These rules are not opt
 5. **Typing:** filtering large lists goes through `useDeferredValue`.
 6. **Service worker:** cache static files and real page loads only, never background data requests.
 7. **Server:** the database stays on the same machine as the app. No query inside a loop; no whole-table reads for one page.
-8. **Deploys:** use `deploy/update.sh` (builds on the side, the site stays up). Do not build inside the running folder.
+8. **Deploys:** use `deploy/update.sh` (builds on the side, the site stays up). Do not build inside the running folder. The service must keep `TimeoutStopSec=4` (open live connections otherwise delay a restart by 90 s).
 9. **Prove it:** after changing a till screen, run `node scripts/perf-check.mjs` (Firefox) and compare the numbers.
