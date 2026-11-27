@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useState, useTransition, useDeferredValue, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -119,6 +119,9 @@ const PAYMENT_ICONS: Record<string, React.ReactNode> = {
   bank_transfer: <CreditCard size={14} className="text-cyan-500" />,
 };
 
+/** Cards drawn at first on the orders screen (see docs/PERFORMANCE.md). */
+const PAGE_SIZE = 36;
+
 function formatTimeAgo(isoString: string): string {
   const diffSec = Math.floor((Date.now() - new Date(isoString).getTime()) / 1000);
   if (diffSec < 60) return "Just now";
@@ -142,10 +145,17 @@ export function OrdersManager({ orders, can, reasons, context = "pos" }: Props) 
   const [feedback, setFeedback] = useState<{ message: string; type: "success" | "error" | "info" } | null>(null);
   const [pendingTransition, startTransition] = useTransition();
 
-  // Real-time synchronization
+  // Real-time synchronization: new/changed orders arrive as events; the slow poll is only a safety net. A hidden tab does not redraw.
+  const stale = useRef(false);
   useBranchEvents(() => {
-    router.refresh();
-  }, 12_000);
+    if (document.hidden) { stale.current = true; return; }
+    startTransition(() => router.refresh());
+  }, 90_000);
+  useEffect(() => {
+    const back = () => { if (!document.hidden && stale.current) { stale.current = false; startTransition(() => router.refresh()); } };
+    document.addEventListener("visibilitychange", back);
+    return () => document.removeEventListener("visibilitychange", back);
+  }, [router, startTransition]);
 
   const showToast = (message: string, type: "success" | "error" | "info" = "info") => {
     setFeedback({ message, type });
@@ -277,6 +287,7 @@ export function OrdersManager({ orders, can, reasons, context = "pos" }: Props) 
   }, [todays]);
 
   // Filtered & Sorted Orders
+  const query = useDeferredValue(search); // typing stays instant while the list catches up
   const filteredOrders = useMemo(() => {
     return orders
       .filter((o) => {
@@ -297,8 +308,8 @@ export function OrdersManager({ orders, can, reasons, context = "pos" }: Props) 
         if (channelFilter !== "all" && o.type !== channelFilter) return false;
 
         // Search filter
-        if (search.trim()) {
-          const q = search.toLowerCase().trim();
+        if (query.trim()) {
+          const q = query.toLowerCase().trim();
           const matchesNo = o.no.toLowerCase().includes(q);
           const matchesTable = o.table ? `t${o.table}`.toLowerCase().includes(q) : false;
           const matchesCust = (o.customerName && o.customerName.toLowerCase().includes(q)) || (o.customerPhone && o.customerPhone.includes(q));
@@ -316,7 +327,13 @@ export function OrdersManager({ orders, can, reasons, context = "pos" }: Props) 
         if (sortBy === "lowest") return a.total - b.total;
         return 0;
       });
-  }, [orders, statusTab, channelFilter, search, sortBy]);
+  }, [orders, statusTab, channelFilter, query, sortBy]);
+
+  // Only draw what fits a few screens (hundreds of cards froze the till PC); "Show more" adds the rest. A new filter starts from the top.
+  const filterKey = `${statusTab}|${channelFilter}|${query}|${sortBy}`;
+  const [page, setPage] = useState({ key: filterKey, n: PAGE_SIZE });
+  const limit = page.key === filterKey ? page.n : PAGE_SIZE;
+  const shownOrders = useMemo(() => filteredOrders.slice(0, limit), [filteredOrders, limit]);
 
   return (
     <div className="flex h-full flex-col overflow-hidden bg-background text-foreground">
@@ -749,18 +766,15 @@ export function OrdersManager({ orders, can, reasons, context = "pos" }: Props) 
           ) : viewMode === "cards" ? (
             /* Cards View */
             <div className="grid gap-3.5 sm:grid-cols-2 lg:grid-cols-3">
-              {filteredOrders.map((o) => {
+              {shownOrders.map((o) => {
                 const isClosed = o.status === "voided" || o.status === "refunded";
                 const isPreparing = ["open", "preparing"].includes(o.status);
 
                 return (
-                  <motion.div
+                  <div
                     key={o.id}
-                    layout
-                    initial={{ opacity: 0, scale: 0.98 }}
-                    animate={{ opacity: 1, scale: 1 }}
                     className={cn(
-                      "group relative flex flex-col justify-between rounded-2xl border bg-surface p-4 shadow-xs transition hover:border-brand/50 hover:shadow-md",
+                      "group relative flex flex-col justify-between rounded-2xl border bg-surface p-4 [contain-intrinsic-size:auto_360px] [content-visibility:auto] shadow-xs transition hover:border-brand/50 hover:shadow-md",
                       isClosed
                         ? "border-rose-500/20 bg-rose-500/5 opacity-80"
                         : isPreparing
@@ -784,7 +798,7 @@ export function OrdersManager({ orders, can, reasons, context = "pos" }: Props) 
                               {o.table && <span className="text-brand">· T{o.table}</span>}
                             </span>
                             <span className="flex items-center gap-1 text-[11px] text-muted">
-                              <Clock size={11} /> {formatTimeAgo(o.at)}
+                              <Clock size={11} /> <span suppressHydrationWarning>{formatTimeAgo(o.at)}</span>
                             </span>
                           </div>
                         </div>
@@ -934,7 +948,7 @@ export function OrdersManager({ orders, can, reasons, context = "pos" }: Props) 
                         )}
                       </div>
                     </div>
-                  </motion.div>
+                  </div>
                 );
               })}
             </div>
@@ -956,7 +970,7 @@ export function OrdersManager({ orders, can, reasons, context = "pos" }: Props) 
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
-                    {filteredOrders.map((o) => {
+                    {shownOrders.map((o) => {
                       const isClosed = o.status === "voided" || o.status === "refunded";
                       return (
                         <tr key={o.id} className="transition hover:bg-surface-2/40">
@@ -966,7 +980,7 @@ export function OrdersManager({ orders, can, reasons, context = "pos" }: Props) 
                             {o.table && <span className="text-brand"> · T{o.table}</span>}
                           </td>
                           <td className="whitespace-nowrap px-4 py-3 text-xs text-muted">
-                            {new Date(o.at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}
+                            {new Date(o.at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Karachi" })}
                           </td>
                           <td className="max-w-xs truncate px-4 py-3 text-xs">
                             {o.items.map((i) => `${i.quantity}x ${i.name}`).join(", ") || "—"}
@@ -1029,6 +1043,11 @@ export function OrdersManager({ orders, can, reasons, context = "pos" }: Props) 
               </div>
             </div>
           )}
+          {filteredOrders.length > shownOrders.length && (
+            <Button variant="secondary" size="lg" className="mt-4 w-full" onClick={() => setPage({ key: filterKey, n: limit + PAGE_SIZE })}>
+              Show more ({filteredOrders.length - shownOrders.length} older orders)
+            </Button>
+          )}
         </div>
       </div>
 
@@ -1053,7 +1072,7 @@ export function OrdersManager({ orders, can, reasons, context = "pos" }: Props) 
               <div>
                 <span className="text-muted">Timestamp:</span>
                 <p className="font-bold">
-                  {new Date(selectedOrder.at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}
+                  {new Date(selectedOrder.at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Karachi" })}
                 </p>
               </div>
               <div>

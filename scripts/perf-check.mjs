@@ -1,0 +1,24 @@
+// Firefox health check of the Orders screen (read only).  ADMIN_EMAIL=… ADMIN_PASSWORD=… node scripts/perf-check.mjs [baseUrl]
+import { firefox } from "playwright-core";
+const base = process.argv[2] ?? "https://www.crspofficial.com";
+const b = await firefox.launch();
+const page = await (await b.newContext({ viewport: { width: 1366, height: 768 } })).newPage();
+const errors = []; page.on("pageerror", (e) => errors.push(e.message.slice(0, 140)));
+let reqs = 0, bytes = 0, counting = false;
+page.on("requestfinished", async (r) => { if (!counting) return; reqs++; try { bytes += (await r.sizes()).responseBodySize; } catch { /* closed */ } });
+await page.goto(base + "/login");
+await page.fill('input[name="email"]', process.env.ADMIN_EMAIL); await page.fill('input[name="password"]', process.env.ADMIN_PASSWORD);
+await page.click('button:has-text("Sign in as Admin")'); await page.waitForURL("**/admin");
+let t0 = Date.now();
+await page.goto(base + "/admin/orders", { waitUntil: "load" }); await page.waitForSelector("text=Live Orders Manager");
+console.log("page load", Date.now() - t0, "ms | elements on screen", await page.evaluate(() => document.getElementsByTagName("*").length), "(keep under 8000)");
+await page.waitForTimeout(3000);
+await page.evaluate(() => { window.__lag = []; let last = performance.now(); setInterval(() => { const n = performance.now(); if (n - last - 50 > 80) window.__lag.push(Math.round(n - last - 50)); last = n; }, 50); });
+const secs = Number(process.env.SECS ?? 60);
+counting = true; await page.waitForTimeout(secs * 1000); counting = false;
+const lag = await page.evaluate(() => window.__lag);
+console.log(`idle ${secs}s: ${reqs} requests, ${(bytes / 1024).toFixed(0)} KB, ${lag.length} freezes, worst ${Math.max(0, ...lag)} ms`);
+t0 = Date.now(); const s = page.locator('input[placeholder*="Search by order"]'); await s.click(); await s.pressSequentially("zinger", { delay: 20 });
+console.log("typing 6 letters", Date.now() - t0, "ms");
+console.log("page errors:", errors.length ? errors : "none");
+await b.close();

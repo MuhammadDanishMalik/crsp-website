@@ -8,20 +8,11 @@ import { useBranchEvents } from "@/lib/realtime/use-events";
 import type { KdsData, KdsTicket } from "@/lib/queries/kds";
 import { cn } from "@/lib/utils";
 import { Logo } from "@/components/brand/logo";
+import { playTones } from "@/lib/sound";
 
 const TYPE: Record<string, string> = { dine_in: "DINE-IN", takeaway: "TAKEAWAY", delivery: "DELIVERY", drive_thru: "DRIVE-THRU", online: "ONLINE" };
 
-function beep() {
-  try {
-    const ctx = new AudioContext();
-    [880, 1175].forEach((f, i) => {
-      const o = ctx.createOscillator(), g = ctx.createGain();
-      o.frequency.value = f; o.connect(g); g.connect(ctx.destination);
-      g.gain.setValueAtTime(0.25, ctx.currentTime + i * 0.18); g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i * 0.18 + 0.16);
-      o.start(ctx.currentTime + i * 0.18); o.stop(ctx.currentTime + i * 0.18 + 0.17);
-    });
-  } catch { /* audio blocked until first tap */ }
-}
+const beep = () => playTones([880, 1175], { gap: 0.18, volume: 0.25 });
 
 export function KdsBoard({ initial, stationId, who, canBump, canRecall, canPos }: { initial: KdsData; stationId: string | null; who: string; canBump: boolean; canRecall: boolean; canPos: boolean }) {
   const router = useRouter();
@@ -41,7 +32,7 @@ export function KdsBoard({ initial, stationId, who, canBump, canRecall, canPos }
     if (fresh.length && soundRef.current) beep();
     setData(d);
   }, [stationId]);
-  useBranchEvents(() => { void refresh(); }, 10_000);
+  useBranchEvents(() => refresh(), 15_000);
   useEffect(() => { const t = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(t); }, []);
 
   const station = data.stations.find((s) => s.id === stationId);

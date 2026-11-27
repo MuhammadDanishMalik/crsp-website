@@ -26,7 +26,7 @@ export function DeliveryBoard({ initial, can }: { initial: Data; can: { assign: 
   const [settle, setSettle] = useState<Rider | null>(null);
   const [, start] = useTransition();
   const refresh = useCallback(async () => { const d = await fetchDeliveries("board"); if (d) setData(d); }, []);
-  useBranchEvents(() => { void refresh(); }, 10_000);
+  useBranchEvents(() => refresh(), 20_000);
   const riders = data.riders;
   const act = (fn: () => Promise<{ ok: boolean; error?: string }>) => start(async () => { const r = await fn(); setMsg(r.ok ? "" : (r.error ?? "")); await refresh(); });
   const today = data.rows.filter((r) => r.status !== "cancelled" && (r.status !== "delivered" || !r.settled));

@@ -48,7 +48,8 @@ self.addEventListener("fetch", (e) => {
   const url = new URL(req.url);
   if (url.origin !== self.location.origin || url.pathname.startsWith("/api/")) return;
   if (url.pathname.startsWith("/_next/static/") || url.pathname.startsWith("/brand/") || url.pathname === "/icon.png") return void e.respondWith(cacheFirst(req));
-  if (isPage(url)) return void e.respondWith(networkFirst(req));
+  // Only real page loads are kept for offline use. The background data requests of a live screen must not be written to disk each time.
+  if (req.mode === "navigate" && isPage(url)) return void e.respondWith(networkFirst(req));
 });
 `;
 

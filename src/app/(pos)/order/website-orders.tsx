@@ -9,18 +9,9 @@ import { Button } from "@/components/ui/button";
 import { formatPKR } from "@/lib/domain/money";
 import { cn } from "@/lib/utils";
 import { printReceipt } from "./pay-dialog";
+import { playTones } from "@/lib/sound";
 
-function beep() {
-  try {
-    const ctx = new AudioContext();
-    [880, 1175, 880, 1175].forEach((f, i) => {
-      const o = ctx.createOscillator(), g = ctx.createGain();
-      o.frequency.value = f; o.connect(g); g.connect(ctx.destination);
-      g.gain.setValueAtTime(0.3, ctx.currentTime + i * 0.22); g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i * 0.22 + 0.2);
-      o.start(ctx.currentTime + i * 0.22); o.stop(ctx.currentTime + i * 0.22 + 0.21);
-    });
-  } catch { /* audio is blocked until the first tap */ }
-}
+const beep = () => playTones([880, 1175, 880, 1175]);
 
 const phoneForWa = (p: string) => { const d = p.replace(/\D/g, ""); return d.startsWith("92") ? d : d.startsWith("0") ? `92${d.slice(1)}` : d; };
 
@@ -41,7 +32,7 @@ export function WebsiteTab() {
     if (r.newCount > lastNew.current) beep();
     lastNew.current = r.newCount;
   }, []);
-  useBranchEvents(() => { void refresh(); }, 8_000);
+  useBranchEvents(() => refresh(), 20_000);
   useEffect(() => { void refresh(); }, [refresh]);
   // keep ringing every 20 s while an order is still waiting
   useEffect(() => { if (!newCount) return; const t = setInterval(beep, 20_000); return () => clearInterval(t); }, [newCount]);

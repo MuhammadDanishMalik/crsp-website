@@ -19,7 +19,7 @@ export function RiderApp({ initial, name }: { initial: DeliveryRow[]; name: stri
   const [failed, setFailed] = useState<DeliveryRow | null>(null);
   const [, start] = useTransition();
   const refresh = useCallback(async () => { const d = await fetchDeliveries("mine"); if (d) setRows(d.rows); }, []);
-  useBranchEvents(() => { void refresh(); }, 15_000);
+  useBranchEvents(() => refresh(), 20_000);
   const active = rows.filter((r) => r.status === "assigned" || r.status === "picked");
   const holding = rows.filter((r) => r.status === "delivered" && !r.settled).reduce((a, r) => a + (r.cashCollected ?? 0), 0);
   const act = (fn: () => Promise<{ ok: boolean; error?: string }>) => start(async () => { const r = await fn(); setMsg(r.ok ? "" : (r.error ?? "")); await refresh(); });

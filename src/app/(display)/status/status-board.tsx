@@ -8,7 +8,7 @@ type Board = { preparing: string[]; ready: string[] };
 export function StatusBoard({ initial }: { initial: Board }) {
   const [b, setB] = useState(initial);
   const refresh = useCallback(async () => { const d = await fetchStatusBoard(); if (d) setB(d); }, []);
-  useBranchEvents(() => { void refresh(); }, 8000);
+  useBranchEvents(() => refresh(), 15_000);
   return (
     <div className="grid h-full grid-cols-2">
       <Column title="Preparing" nums={b.preparing} tone="text-warn" />
