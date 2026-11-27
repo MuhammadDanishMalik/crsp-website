@@ -1,0 +1,17 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>CRSP POS</title>
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src 'self'">
+<style>
+html,body{height:100%;margin:0;background:#111;color:#fff;font:16px "Segoe UI",system-ui,sans-serif;user-select:none;overflow:hidden}
+body{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:26px}
+img{width:190px}
+/* Windows style ring of dots going round (kept moving even in light graphics: it only shows while starting) */
+.ring{position:relative;width:54px;height:54px}
+.ring i{position:absolute;inset:0;animation:turn 3.2s infinite cubic-bezier(.45,.2,.55,.8);opacity:0}
+.ring i::after{content:"";position:absolute;left:50%;top:0;width:7px;height:7px;margin-left:-3.5px;border-radius:50%;background:#fff}
+.ring i:nth-child(2){animation-delay:.13s}.ring i:nth-child(3){animation-delay:.26s}.ring i:nth-child(4){animation-delay:.39s}.ring i:nth-child(5){animation-delay:.52s}
+@keyframes turn{0%{transform:rotate(210deg);opacity:1}40%{transform:rotate(520deg)}75%{transform:rotate(800deg);opacity:1}76%,100%{transform:rotate(930deg);opacity:0}}
+p{margin:0;color:#bbb}
+footer{position:fixed;bottom:22px;color:#777;font-size:13px}footer b{color:#ddd}
+</style></head>
+<body><img src="logo.png" alt="CRSP"><div class="ring"><i></i><i></i><i></i><i></i><i></i></div><p>Starting your point of sale…</p><footer>Software developed by <b>Orixto</b> · orixto.com</footer></body></html>

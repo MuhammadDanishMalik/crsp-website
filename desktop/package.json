@@ -1,7 +1,7 @@
 {
   "name": "crsp-pos-desktop",
   "productName": "CRSP POS",
-  "version": "1.0.2",
+  "version": "1.1.0",
   "description": "CRSP POS for the shop PC: runs and sells without internet, copies the day to the website at 3 am",
   "author": "CRSP",
   "private": true,
@@ -23,7 +23,7 @@
     "electronLanguages": ["en-US"],
     "compression": "maximum",
     "npmRebuild": false,
-    "files": ["main.cjs", "preload.cjs", "setup.html", "package.json"],
+    "files": ["main.cjs", "preload.cjs", "setup.html", "splash.html", "logo.png", "package.json"],
     "extraResources": [{ "from": "build", "to": ".", "filter": ["**/*"] }],
     "mac": { "icon": "assets/icon.png", "identity": "-", "hardenedRuntime": false, "target": "dir" },
     "win": { "icon": "assets/icon.png", "signAndEditExecutable": false },

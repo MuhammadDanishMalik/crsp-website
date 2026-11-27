@@ -7,6 +7,7 @@ import { formatPKR } from "@/lib/domain/money";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { Key, digitOf, slotKey, slotOf, useKeys } from "./shortcuts";
 
 export function ModifierSheet({ item, onAdd, onClose }: { item: PosItem; onAdd: (mods: { id: string; name: string; priceDelta: number }[], qty: number) => void; onClose: () => void }) {
   const [sel, setSel] = useState<Record<string, string[]>>(() =>
@@ -34,6 +35,17 @@ export function ModifierSheet({ item, onAdd, onClose }: { item: PosItem; onAdd: 
   })();
   const unit = item.price + picked.reduce((a, m) => a + m.priceDelta, 0);
 
+  // keyboard: numbers choose options (counted across all groups), +/- quantity, Enter adds
+  const options = item.groups.flatMap((g) => g.modifiers.map((m) => ({ gid: g.id, mid: m.id, max: g.max })));
+  const add = () => onAdd(picked.map((m) => ({ id: m.id, name: m.name, priceDelta: m.priceDelta })), qty);
+  useKeys((e) => {
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    const d = digitOf(e);
+    if (d) { e.preventDefault(); const o = options[slotOf(d) + (e.shiftKey ? 10 : 0)]; if (o) toggle(o.gid, o.mid, o.max); return; }
+    if (e.key === "+" || e.key === "=") { e.preventDefault(); setQty((q) => Math.min(99, q + 1)); }
+    if (e.key === "-") { e.preventDefault(); setQty((q) => Math.max(1, q - 1)); }
+    if (e.key === "Enter") { e.preventDefault(); if (!e.repeat && valid) add(); }
+  });
   return (
     <Modal title={item.name} onClose={onClose} width="max-w-2xl">
       {item.description && <p className="mb-4 rounded-xl bg-surface-2 p-3 text-sm text-muted">{item.description}</p>}
@@ -53,6 +65,7 @@ export function ModifierSheet({ item, onAdd, onClose }: { item: PosItem; onAdd: 
                     <span className="font-semibold">{m.name}</span>
                     {m.priceDelta !== 0 && <span className="text-sm text-muted">+{formatPKR(m.priceDelta)}</span>}
                     {on && <Check className="absolute right-3 top-3 h-5 w-5 text-brand" />}
+                    <Key k={slotKey(options.findIndex((o) => o.mid === m.id)) || "⇧"} className="absolute bottom-1 right-1" />
                   </button>
                 );
               })}
@@ -71,8 +84,8 @@ export function ModifierSheet({ item, onAdd, onClose }: { item: PosItem; onAdd: 
           <span className="w-10 text-center text-2xl font-bold">{qty}</span>
           <button className="h-14 w-14 rounded-xl bg-surface-2 text-2xl" onClick={() => setQty((q) => Math.min(99, q + 1))}>+</button>
         </div>
-        <Button size="xl" className="flex-1" disabled={!valid} onClick={() => onAdd(picked.map((m) => ({ id: m.id, name: m.name, priceDelta: m.priceDelta })), qty)}>
-          Add · {formatPKR(unit * qty)}
+        <Button size="xl" className="flex-1" disabled={!valid} onClick={add}>
+          Add · {formatPKR(unit * qty)} <span className="ml-2 text-xs opacity-70">Enter ↵</span>
         </Button>
       </div>
     </Modal>

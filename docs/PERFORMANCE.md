@@ -9,7 +9,9 @@ The till is a modest Windows PC, open all day. The internet there fails often.
 - Never load fonts, scripts, images or CSS from the internet at run time. Ship them with the app.
 - Never decide "offline" from `navigator.onLine` directly: use `canReachServer()` (`src/lib/desktop.ts`). In the app the server is on the same PC.
 - The shop database is real PostgreSQL on the PC (same major version as the website). Never replace it with a store that can lose sales on a power cut.
-- The PC is the master copy. The website copy is updated at 3 am (or as soon as the internet returns). Sync only adds and updates rows; it never deletes.
+- The PC is the master copy. Every 2 hours (when there is internet) only new/changed rows go to the website, and new customers come back. Sync never deletes.
+- The whole till must work from the keyboard (`src/app/(pos)/order/shortcuts.tsx`). New screens get keys, a small hint and a line in the help list.
+- Every slip is saved as a PDF copy before printing; a missing printer must never lose a receipt.
 - A download from the website must refuse to run on a PC that already has orders.
 
 ## 2. Speed

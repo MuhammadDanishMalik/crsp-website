@@ -1,6 +1,7 @@
 "use client";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
+import { digitOf, useKeys } from "@/app/(pos)/order/shortcuts";
 import { loginWithPin } from "@/lib/actions/auth";
 import { clockWithPin } from "@/lib/actions/attendance";
 import { Numpad } from "@/components/pos/numpad";
@@ -41,6 +42,14 @@ export function PinForm() {
     setPin(next);
     if (next.length === 6) submit(next);
   };
+
+  useKeys((e) => { // type the PIN on the keyboard; Enter confirms
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    const d = digitOf(e);
+    if (d) { e.preventDefault(); push(d); return; }
+    if (e.key === "Backspace") { e.preventDefault(); setPin((p) => p.slice(0, -1)); }
+    if (e.key === "Enter") { e.preventDefault(); if (!e.repeat && !pending && pin.length >= 4) submit(pin); }
+  });
 
   return (
     <AuthShell title={clock ? t("clockTitle") : t("title")} subtitle={clock ? t("clockHint") : t("hint")}>

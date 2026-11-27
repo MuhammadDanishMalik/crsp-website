@@ -2,10 +2,10 @@ import "server-only";
 import { runtimeEnv } from "@/lib/env";
 import { databaseUrl, getDb } from "@/lib/db/client";
 import { clearMenuCache } from "@/lib/realtime/menu-cache";
-import { connect, exportRows, migrationCount, pushable, tableOrder, upsertRows, type Sql } from "./tables";
+import { changedRows, connect, ensureLedger, insertNew, markAllSent, markSent, migrationCount, pushable, tableOrder, upsertRows, type Sql } from "./tables";
 
 /** Runs INSIDE the installed shop app: copies data from (first setup) or to (nightly) the website. */
-export type SyncResult = { ok: true; tables: number; rows: number; errors: string[] } | { ok: false; error: string };
+export type SyncResult = { ok: true; tables: number; rows: number; received?: number; errors: string[] } | { ok: false; error: string };
 const PAGE = 300;
 
 async function cloud(query: string, body?: unknown): Promise<Record<string, unknown>> {
@@ -59,27 +59,38 @@ export async function pullAll(): Promise<SyncResult> {
         await tx.unsafe(`insert into public."${t}" select * from jsonb_populate_recordset(null::public."${t}", $1::text::jsonb)`, [page]);
       }
     });
+    await ensureLedger(sql);
+    await markAllSent(sql, pushable(order));
     clearMenuCache();
     return { ok: true as const, tables: order.length, rows, errors };
   });
 }
 
-/** Nightly: send everything this PC knows to the website (new rows added, changed rows updated). */
+/** Every couple of hours: send what is new or changed on this PC, then fetch customers the website has and this PC does not. */
 export async function pushAll(): Promise<SyncResult> {
   return withLocal(async (sql) => {
     await checkSameVersion(sql);
+    await ensureLedger(sql);
     const order = pushable(await tableOrder(sql));
     let rows = 0; const errors: string[] = [];
     for (const t of order) {
+      const changed = await changedRows(sql, t);
+      for (let i = 0; i < changed.length; i += PAGE) {
+        const part = changed.slice(i, i + PAGE);
+        const r = (await cloud("", { table: t, rows: `[${part.map((x) => x.row).join(",")}]` })) as unknown as Awaited<ReturnType<typeof upsertRows>>;
+        rows += r.ok; errors.push(...r.errors);
+        if (!r.errors.length) await markSent(sql, t, part); // anything refused is tried again next time
+      }
+    }
+    // new customers (for example from the website) so the till recognises them with no internet later
+    let received = 0;
+    for (const t of ["customers", "customer_addresses"] as const) {
       for (let offset = 0; ; offset += PAGE) {
-        const p = await exportRows(sql, t, offset, PAGE);
-        if (p.count) {
-          const r = (await cloud("", { table: t, rows: p.rows })) as unknown as Awaited<ReturnType<typeof upsertRows>>;
-          rows += r.ok; errors.push(...r.errors);
-        }
+        const p = (await cloud(`?table=${t}&offset=${offset}`)) as { rows: string; count: number };
+        if (p.count) received += await insertNew(sql, t, p.rows);
         if (p.count < PAGE) break;
       }
     }
-    return { ok: true as const, tables: order.length, rows, errors: errors.slice(0, 20) };
+    return { ok: true as const, tables: order.length, rows, received, errors: errors.slice(0, 20) };
   });
 }

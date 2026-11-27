@@ -1,15 +1,16 @@
 "use client";
-import { desktopBridge } from "@/lib/desktop";
+import { desktopBridge, printNote } from "@/lib/desktop";
 import { deliveryChargeFor } from "@/lib/domain/delivery";
 import { openingOfferBps } from "@/lib/domain/opening-offer";
 import { markNoDiscount } from "@/lib/domain/discount-scope";
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useState, useTransition, useRef, useEffect } from "react";
 import { useTranslations } from "next-intl";
 import { Banknote, CreditCard, Landmark, Smartphone, QrCode, Printer } from "lucide-react";
 import { createOrder } from "@/lib/actions/orders";
 import { canReachServer } from "@/lib/desktop";
 import { lookupCustomer } from "@/lib/actions/customers";
 import { CustomerNoteBox } from "./customer-note";
+import { digitOf, isTyping, useKeys } from "./shortcuts";
 import { getKotJobs, getReceiptData, getReceiptPrintJob } from "@/lib/actions/print";
 import { printInBrowser } from "@/lib/print/browser-print";
 import { reloadClean } from "@/components/update-banner";
@@ -60,14 +61,15 @@ export function PayDialog({ menu, me, offline, online, onClose, onFinished }: { 
   const [itemTarget, setItemTarget] = useState<number | null>(null);
   const [picked, setPicked] = useState<Record<string, number>>({});
   const [pending, start] = useTransition();
-  // The customer-details box opens when there is something in it (or for delivery) and then STAYS as the cashier left it: clearing a field with Backspace must not collapse it.
-  const [detailsOpen, setDetailsOpen] = useState(() => cart.orderType === "delivery" || !!(cart.customerName || cart.customerPhone || cart.deliveryAddress));
   // Known customer (by phone): fill the name, points and show their saved note.
   const findCustomer = async (phone: string) => {
     if (!online || phone.replace(/\D/g, "").length < 7) return;
     const c = await lookupCustomer(phone);
-    if (c) cart.set({ customerName: useCart.getState().customerName || c.name, customerPoints: c.points, customerNote: c.notes, customerId: c.id });
+    if (!c) return setKnown(null);
+    cart.set({ customerName: useCart.getState().customerName || c.name, deliveryAddress: useCart.getState().deliveryAddress || (cart.orderType === "delivery" ? c.address : ""), customerPoints: c.points, customerNote: c.notes, customerId: c.id });
+    setKnown({ orders: c.orders, last: c.lastOrder, address: c.address });
   };
+  const [known, setKnown] = useState<null | { orders: number; last: string; address: string }>(null); // a returning customer
   const [done, setDone] = useState<null | { orderId: string; orderNo: string; change: number; printMsg: string; offline?: boolean; receipt?: ReceiptData }>(null);
 
   // Cold drinks (Beverages) are other companies' products: no discount applies to them.
@@ -167,6 +169,31 @@ export function PayDialog({ menu, me, offline, online, onClose, onFinished }: { 
     });
   };
 
+  // Keyboard: digits type the cash received, Enter completes (customer details can simply be skipped), Tab moves into them.
+  const phoneRef = useRef<HTMLInputElement>(null);
+  const newOrder = () => { cart.clear(); onFinished(); };
+  const printAgain = async () => {
+    if (!done) return;
+    try { const data = done.receipt ?? (await getReceiptData(done.orderId)); if (data) await printInBrowser(data, { kitchen: true }); } catch { setDone((d) => (d ? { ...d, printMsg: "Could not print. Check the receipt printer." } : d)); }
+  };
+  useEffect(() => { if (cart.orderType === "delivery") phoneRef.current?.focus(); }, [cart.orderType]); // a delivery needs the phone and address
+  useKeys((e) => {
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    if (done) {
+      if (e.key === "Enter") { e.preventDefault(); if (!e.repeat) newOrder(); }
+      if (e.key.toLowerCase() === "p") { e.preventDefault(); void printAgain(); }
+      return;
+    }
+    if (e.target instanceof HTMLTextAreaElement) return; // writing a customer note
+    if (e.key === "Enter") { e.preventDefault(); if (!e.repeat && !pending && !(remaining > 0 && !currentCovers)) complete(); return; }
+    if (isTyping(e.target)) return;
+    const d = digitOf(e);
+    if (d) { e.preventDefault(); setDigits((v) => (v + d).replace(/^0+(\d)/, "$1").slice(0, 7)); return; }
+    if (e.key === "Backspace") { e.preventDefault(); setDigits((v) => v.slice(0, -1)); }
+    if (e.key === "Delete") { e.preventDefault(); setDigits(""); }
+    if (e.key === "Tab" && !e.shiftKey) { e.preventDefault(); phoneRef.current?.focus(); }
+  });
+
   if (done) {
     return (
       <Modal title={`${t("order")} #${done.orderNo} ${done.offline ? t("savedOffline") : t("paid")}`} onClose={() => { cart.clear(); onFinished(); }} width="max-w-md">
@@ -179,13 +206,11 @@ export function PayDialog({ menu, me, offline, online, onClose, onFinished }: { 
           <div className="flex flex-col gap-2">
             <button
               type="button"
-              onClick={async () => {
-                try { const data = done.receipt ?? (await getReceiptData(done.orderId)); if (data) await printInBrowser(data, { kitchen: true }); } catch { /* print window blocked */ }
-              }}
+              onClick={printAgain}
               className="flex min-h-14 w-full flex-col items-center justify-center rounded-2xl bg-brand py-2 text-center text-brand-fg shadow-sm transition hover:opacity-95"
             >
               <div className="flex items-center gap-2 text-base font-bold">
-                <Printer size={20} /> Print 2 Slips (Kitchen + Customer)
+                <Printer size={20} /> Print 2 Slips (Kitchen + Customer) <span className="text-xs opacity-70">[P]</span>
               </div>
               <span className="text-[11px] font-medium opacity-90">Kitchen slip first, then the customer receipt</span>
             </button>
@@ -207,7 +232,7 @@ export function PayDialog({ menu, me, offline, online, onClose, onFinished }: { 
           </div>
           <div className="flex gap-2">
             <a href="/orders" className="flex min-h-12 flex-1 items-center justify-center rounded-xl border border-border bg-surface-2 text-sm font-semibold text-foreground hover:bg-surface">View Orders Record</a>
-            <Button size="xl" className="flex-[2]" onClick={() => { cart.clear(); onFinished(); }}>{t("newOrder")}</Button>
+            <Button size="xl" className="flex-[2]" onClick={newOrder}>{t("newOrder")} <span className="ml-2 text-xs opacity-70">Enter ↵</span></Button>
           </div>
         </div>
       </Modal>
@@ -217,12 +242,12 @@ export function PayDialog({ menu, me, offline, online, onClose, onFinished }: { 
   return (
     <Modal title={`${t("title")} · ${formatPKR(totals.total)}`} onClose={onClose} width="max-w-4xl">
       {me.can.discount && online && (
-        <div className="mb-4 flex items-center gap-3 rounded-2xl border border-border bg-surface-2 p-3">
+        <div className="mb-2 flex items-center gap-3 rounded-2xl border border-border bg-surface-2 p-1.5">
           <span className="font-semibold">Discount</span>
           {[1000, 1500].map((bps) => {
             const on = cart.discount?.kind === "percent" && cart.discount.value === bps && cart.discount.reason?.startsWith("Quick ");
             return (
-              <label key={bps} className={cn("flex h-12 cursor-pointer items-center gap-2 rounded-xl border-2 px-4 font-bold", on ? "border-brand bg-brand/15" : "border-border")}>
+              <label key={bps} className={cn("flex h-8 cursor-pointer items-center gap-2 rounded-lg border-2 px-3 font-bold", on ? "border-brand bg-brand/15" : "border-border")}>
                 <input type="checkbox" className="h-5 w-5" checked={!!on} onChange={(e) => cart.set({ discount: e.target.checked ? { kind: "percent", value: bps, reason: `Quick ${bps / 100}%`, label: `${bps / 100}% off` } : null })} />
                 {bps / 100}%
               </label>
@@ -232,39 +257,47 @@ export function PayDialog({ menu, me, offline, online, onClose, onFinished }: { 
         </div>
       )}
       {cart.orderType === "delivery" && (
-        <div className="mb-4 flex items-center gap-3 rounded-2xl border border-border bg-surface-2 p-3">
+        <div className="mb-2 flex items-center gap-3 rounded-2xl border border-border bg-surface-2 p-2">
           <label htmlFor="delivery-charge" className="font-semibold">Delivery charge (Rs)</label>
           <Input id="delivery-charge" inputMode="numeric" className="w-32 text-lg font-bold" value={String(deliveryCharge / 100)}
             onChange={(e) => { const n = Number(e.target.value.replace(/\D/g, "") || 0); cart.set({ deliveryCharge: Math.min(n, 500) * 100 }); }} />
           <button type="button" onClick={() => cart.set({ deliveryCharge: null })} className="text-sm text-muted underline">Reset (Rs 100 on orders of Rs 1000 or more)</button>
         </div>
       )}
-      <details className="mb-4 rounded-2xl border border-border bg-surface-2 p-3" open={detailsOpen} onToggle={(e) => setDetailsOpen(e.currentTarget.open)}>
-        <summary className="cursor-pointer font-semibold">{cart.orderType === "delivery" ? "Delivery customer" : "Customer name / number / address on receipt"} <span className="font-normal text-muted">{cart.orderType === "delivery" ? "(address required)" : "(optional)"}</span></summary>
-        <div className="mt-3 grid grid-cols-2 gap-2">
-          <Input aria-label="Customer name" placeholder="Name" value={cart.customerName} maxLength={80} onChange={(e) => cart.set({ customerName: e.target.value })} />
-          <Input aria-label="Customer phone" placeholder="Phone (03xx-xxxxxxx)" inputMode="tel" value={cart.customerPhone} maxLength={20}
-            onChange={(e) => { cart.set({ customerPhone: e.target.value, customerNote: "", customerId: "" }); if (e.target.value.replace(/\D/g, "").length >= 11) void findCustomer(e.target.value); }}
+      <div className="mb-2 rounded-2xl border border-border bg-surface-2 p-1.5">
+        <div className="grid grid-cols-[1.1fr_1fr_1.6fr] gap-2">
+          <input ref={phoneRef} aria-label="Customer phone" placeholder="Phone (Tab)" inputMode="tel" value={cart.customerPhone} maxLength={20}
+            className="min-h-11 w-full rounded-xl border border-border bg-surface px-3 outline-none focus:border-brand"
+            onChange={(e) => { setKnown(null); cart.set({ customerPhone: e.target.value, customerNote: "", customerId: "" }); if (e.target.value.replace(/\D/g, "").length >= 11) void findCustomer(e.target.value); }}
             onBlur={() => void findCustomer(cart.customerPhone)} />
+          <Input aria-label="Customer name" placeholder="Name" className="min-h-11 bg-surface" value={cart.customerName} maxLength={80} onChange={(e) => cart.set({ customerName: e.target.value })} />
+          <Input aria-label="Customer address" className="min-h-11 bg-surface" placeholder={cart.orderType === "delivery" ? "Delivery address (required)" : "Address (optional)"} value={cart.deliveryAddress} maxLength={300} onChange={(e) => cart.set({ deliveryAddress: e.target.value })} />
         </div>
-         <Input className="mt-2" aria-label="Customer address" placeholder={cart.orderType === "delivery" ? "Delivery address" : "Address (optional)"} value={cart.deliveryAddress} maxLength={300} onChange={(e) => cart.set({ deliveryAddress: e.target.value })} />
+        {known && (
+          <p className="mt-1.5 flex flex-wrap items-center gap-2 text-sm">
+            <span className="rounded-full bg-accent/20 px-2 py-0.5 font-bold text-accent">{known.orders >= 10 ? "Gold VIP" : known.orders >= 5 ? "Silver Regular" : known.orders >= 2 ? "Bronze Friend" : "Known customer"}</span>
+            <span>{known.orders} earlier order{known.orders === 1 ? "" : "s"}{known.last && ` · last ${known.last}`}</span>
+            {known.address && known.address !== cart.deliveryAddress && <button type="button" onClick={() => cart.set({ deliveryAddress: known.address })} className="underline">Use address: {known.address.slice(0, 40)}</button>}
+          </p>
+        )}
         <CustomerNoteBox />
-      </details>
-      <div className="grid grid-cols-[220px_1fr] gap-6">
+        <p className="mt-1 text-[11px] text-muted"><b>Enter</b> completes the order (skip these) · type numbers for cash received · <b>Tab</b> phone → name → address · <b>Esc</b> back</p>
+      </div>
+      <div className="grid grid-cols-[190px_1fr] gap-4">
         <div className="space-y-2">
           {available.map((m) => (
             <button key={m.id} onClick={() => { setMethod(m.id); setDigits(""); setCode(""); setError(""); }}
-              className={cn("flex h-16 w-full items-center gap-3 rounded-2xl border-2 px-4 font-semibold", method === m.id ? "border-brand bg-brand/15" : "border-border bg-surface-2")}>
+              className={cn("flex h-10 w-full items-center gap-3 rounded-xl border-2 px-3 font-semibold", method === m.id ? "border-brand bg-brand/15" : "border-border bg-surface-2")}>
               {m.icon}{m.label === "cash" || m.label === "card" ? t(m.label) : m.label}
             </button>
           ))}
           {me.can.split && !entries.length && (
-            <div className="mt-4 space-y-2">
+            <div className="mt-2 space-y-1">
               <p className="text-sm font-semibold text-muted">{t("splitBill")}</p>
               <div className="flex gap-1">
-                {[2, 3, 4].map((n) => <button key={n} onClick={() => setSplit(split?.mode === "equal" && split.n === n ? null : { mode: "equal", n })} className={cn("h-12 flex-1 rounded-xl border-2 font-semibold", split?.mode === "equal" && split.n === n ? "border-brand bg-brand/15" : "border-border bg-surface-2")}>÷{n}</button>)}
+                {[2, 3, 4].map((n) => <button key={n} onClick={() => setSplit(split?.mode === "equal" && split.n === n ? null : { mode: "equal", n })} className={cn("h-9 flex-1 rounded-xl border-2 font-semibold", split?.mode === "equal" && split.n === n ? "border-brand bg-brand/15" : "border-border bg-surface-2")}>÷{n}</button>)}
               </div>
-              <button onClick={() => setSplit(split?.mode === "items" ? null : { mode: "items" })} className={cn("h-12 w-full rounded-xl border-2 font-semibold", split?.mode === "items" ? "border-brand bg-brand/15" : "border-border bg-surface-2")}>{t("byItems")}</button>
+              <button onClick={() => setSplit(split?.mode === "items" ? null : { mode: "items" })} className={cn("h-9 w-full rounded-xl border-2 font-semibold", split?.mode === "items" ? "border-brand bg-brand/15" : "border-border bg-surface-2")}>{t("byItems")}</button>
             </div>
           )}
           {entries.length > 0 && (
@@ -279,20 +312,20 @@ export function PayDialog({ menu, me, offline, online, onClose, onFinished }: { 
           )}
         </div>
         <div>
-          <div className="mb-3 grid grid-cols-2 gap-3">
-            <div className="rounded-2xl bg-surface-2 p-3"><p className="text-xs uppercase text-muted">{t("stillDue")}</p><p className="text-3xl font-black tabular-nums">{formatPKR(remaining)}</p></div>
-            <div className="rounded-2xl bg-surface-2 p-3">
+          <div className="mb-2 grid grid-cols-2 gap-2">
+            <div className="rounded-2xl bg-surface-2 px-3 py-1.5"><p className="text-xs uppercase text-muted">{t("stillDue")}</p><p className="text-2xl font-black tabular-nums">{formatPKR(remaining)}</p></div>
+            <div className="rounded-2xl bg-surface-2 px-3 py-1.5">
               <p className="text-xs uppercase text-muted">{split && target < remaining ? `${t("takePayer")} ${entries.length + 1}` : method === "cash" ? t("cashReceived") : t("amount")}</p>
-              <p className="text-3xl font-black tabular-nums">{formatPKR(typed || target)}</p>
+              <p className="text-2xl font-black tabular-nums">{formatPKR(typed || target)}</p>
             </div>
           </div>
           {method === "cash" && current && (
             <>
-              <div className="mb-3 flex gap-2">
-                <button className="h-14 flex-1 rounded-xl bg-accent/20 font-bold" onClick={() => setDigits(String(target / 100))}>{t("exact")}</button>
-                {[500, 1000, 5000].map((n) => <button key={n} className="h-14 flex-1 rounded-xl bg-surface-2 font-bold" onClick={() => setDigits(String(n))}>Rs {n}</button>)}
+              <div className="mb-1 flex gap-2">
+                <button className="h-9 flex-1 rounded-xl bg-accent/20 font-bold" onClick={() => setDigits(String(target / 100))}>{t("exact")}</button>
+                {[500, 1000, 5000].map((n) => <button key={n} className="h-9 flex-1 rounded-xl bg-surface-2 font-bold" onClick={() => setDigits(String(n))}>Rs {n}</button>)}
               </div>
-              <p className="mb-2 text-sm text-muted">{t("change")}: <b className="text-foreground">{formatPKR(Math.max(0, (current.tendered ?? 0) - current.amount))}</b>
+              <p className="mb-1 text-sm text-muted">{t("change")}: <b className="text-foreground">{formatPKR(Math.max(0, (current.tendered ?? 0) - current.amount))}</b>
                 {quickCashOptions(target).length > 0 && <span className="ml-2">Suggested: {quickCashOptions(target).map((q) => formatPKR(q)).join(" · ")}</span>}</p>
             </>
           )}
@@ -317,7 +350,7 @@ export function PayDialog({ menu, me, offline, online, onClose, onFinished }: { 
               </div>
             </div>
           )}
-          <Numpad onDigit={(d) => setDigits((v) => (v + d).replace(/^0+(\d)/, "$1").slice(0, 7))} onBackspace={() => setDigits((v) => v.slice(0, -1))} onClear={() => setDigits("")} />
+          <Numpad compact onDigit={(d) => setDigits((v) => (v + d).replace(/^0+(\d)/, "$1").slice(0, 7))} onBackspace={() => setDigits((v) => v.slice(0, -1))} onClear={() => setDigits("")} />
           {online && canRedeem && (
             <label className="mt-3 flex items-center gap-3 rounded-xl bg-accent/15 p-3 text-sm font-semibold">
               <input type="checkbox" className="h-6 w-6" checked={cart.redeem} onChange={(e) => cart.set({ redeem: e.target.checked })} />
@@ -329,11 +362,11 @@ export function PayDialog({ menu, me, offline, online, onClose, onFinished }: { 
               Cash on delivery — rider collects {formatPKR(totals.total)}{!cart.customerPhone && " (add phone first)"}
             </Button>
           )}
-          {error && <p className="mt-3 rounded-xl bg-danger/15 p-3 text-danger">{error}</p>}
-          <div className="mt-3 flex gap-2">
-            {me.can.split && remaining > 0 && <Button variant="secondary" size="xl" disabled={!current || currentCovers || (method === "cash" ? (current.tendered ?? 0) < current.amount : false)} onClick={addPartial}>{split ? `${t("takePayer")} ${entries.length + 1}` : t("addPart")}</Button>}
-            <Button variant="success" size="xl" className="flex-1" disabled={pending || (remaining > 0 && !currentCovers)} onClick={() => complete()}>
-              {pending ? t("saving") : t("complete")}
+          {error && <p className="mt-2 rounded-xl bg-danger/15 p-2 text-danger">{error}</p>}
+          <div className="sticky -bottom-4 mt-1.5 flex gap-2 bg-surface py-1.5">
+            {me.can.split && remaining > 0 && <Button variant="secondary" size="lg" disabled={!current || currentCovers || (method === "cash" ? (current.tendered ?? 0) < current.amount : false)} onClick={addPartial}>{split ? `${t("takePayer")} ${entries.length + 1}` : t("addPart")}</Button>}
+            <Button variant="success" size="lg" className="flex-1 text-lg" disabled={pending || (remaining > 0 && !currentCovers)} onClick={() => complete()}>
+              {pending ? t("saving") : t("complete")} <span className="ml-2 text-xs opacity-70">Enter ↵</span>
             </Button>
           </div>
         </div>
@@ -349,8 +382,8 @@ export async function printReceipt(orderId: string, reprint = false, changes?: {
       const data = preloaded ?? (await getReceiptData(orderId)); // a fresh sale brings its receipt along
       if (!data) return "Could not load the receipt to print";
       await printInBrowser(data, reprint ? { kitchen: false } : changes ? { changes } : { kitchen: true });
-      return (desktopBridge() ? "Sent to the printer" : "Print window opened: choose the receipt printer and press Print");
-    } catch { return "Could not open the print window"; }
+      return (desktopBridge() ? printNote() : "Print window opened: choose the receipt printer and press Print");
+    } catch (e) { return desktopBridge() && e instanceof Error ? e.message : "Could not open the print window"; }
   }
 
   // 1st SLIP: Kitchen Order Ticket (KOT)

@@ -141,8 +141,8 @@ export function CartPanel({
           {me.can.discount && (
             <Button variant="secondary" size="lg" disabled={!cart.lines.length} onClick={onDiscount} aria-label="Discount"><Percent size={22} /></Button>
           )}
-          {me.can.hold && <Button variant="secondary" size="lg" disabled={!cart.lines.length} onClick={onHold}>{t("pos.hold")}</Button>}
-          <Button variant="success" size="xl" className="flex-1 text-2xl tracking-wide" disabled={!cart.lines.length} onClick={onPay}>{t("pos.pay")}</Button>
+          {me.can.hold && <Button variant="secondary" size="lg" disabled={!cart.lines.length} onClick={onHold}>{t("pos.hold")} <span className="ml-1 text-[9px] opacity-60">^H</span></Button>}
+          <Button variant="success" size="xl" className="flex-1 text-2xl tracking-wide" disabled={!cart.lines.length} onClick={onPay}>{t("pos.pay")} <span className="ml-2 text-xs font-semibold opacity-70">Enter ↵</span></Button>
         </div>
       </div>
       )}

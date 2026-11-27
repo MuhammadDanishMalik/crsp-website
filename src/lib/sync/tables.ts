@@ -34,7 +34,7 @@ export async function migrationCount(sql: Sql): Promise<number> {
   return (await sql`select count(*)::int n from drizzle.__drizzle_migrations`)[0].n as number;
 }
 
-async function primaryKey(sql: Sql, table: string): Promise<string[]> {
+export async function primaryKey(sql: Sql, table: string): Promise<string[]> {
   return (await sql`select a.attname c from pg_index i join pg_attribute a on a.attrelid = i.indrelid and a.attnum = any(i.indkey)
     where i.indrelid = ${`public.${ident(table)}`}::regclass and i.indisprimary`).map((r) => r.c as string);
 }
@@ -70,4 +70,31 @@ export async function upsertRows(sql: Sql, table: string, rows: string): Promise
     }
     return { ok, errors };
   }
+}
+
+/* ───── what the website already has (kept on the shop PC only, outside "public" so it is never copied) ───── */
+export async function ensureLedger(sql: Sql) {
+  await sql.unsafe("create schema if not exists local_sync; create table if not exists local_sync.sent (tbl text not null, id text not null, h text not null, primary key (tbl, id))");
+}
+const keyed = async (sql: Sql, table: string) => {
+  const key = (await primaryKey(sql, table)).map((c) => `t.${ident(c)}`).join(", ");
+  return `select jsonb_build_array(${key})::text id, to_jsonb(t)::text row, md5(to_jsonb(t)::text) h from public.${ident(table)} t`;
+};
+/** Rows that are new or different since they were last sent. */
+export async function changedRows(sql: Sql, table: string): Promise<{ id: string; row: string; h: string }[]> {
+  return (await sql.unsafe(`select x.id, x.row, x.h from (${await keyed(sql, table)}) x left join local_sync.sent s on s.tbl = $1 and s.id = x.id where s.h is distinct from x.h`, [table])) as unknown as { id: string; row: string; h: string }[];
+}
+export async function markSent(sql: Sql, table: string, rows: { id: string; h: string }[]) {
+  await sql.unsafe(`insert into local_sync.sent (tbl, id, h) select $1, e->>0, e->>1 from jsonb_array_elements($2::text::jsonb) e on conflict (tbl, id) do update set h = excluded.h`,
+    [table, JSON.stringify(rows.map((r) => [r.id, r.h]))]);
+}
+/** After the first download the website and the PC are identical: nothing needs sending yet. */
+export async function markAllSent(sql: Sql, tables: string[]) {
+  for (const t of tables) await sql.unsafe(`insert into local_sync.sent (tbl, id, h) select $1, x.id, x.h from (${await keyed(sql, t)}) x on conflict (tbl, id) do update set h = excluded.h`, [t]);
+}
+/** Add rows that do not exist here yet; anything already known (same id or same phone) is left exactly as it is. */
+export async function insertNew(sql: Sql, table: "customers" | "customer_addresses", rows: string): Promise<number> {
+  const where = table === "customer_addresses" ? "where exists (select 1 from public.customers c where c.id = r.customer_id)" : "";
+  const r = await sql.unsafe(`insert into public.${ident(table)} select r.* from jsonb_populate_recordset(null::public.${ident(table)}, $1::text::jsonb) r ${where} on conflict do nothing`, [rows]);
+  return r.count;
 }

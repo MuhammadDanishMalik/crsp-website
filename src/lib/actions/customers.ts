@@ -1,6 +1,6 @@
 "use server";
 
-import { desc, eq, and } from "drizzle-orm";
+import { desc, eq, and, notInArray, sql } from "drizzle-orm";
 import { getDb } from "@/lib/db/client";
 import * as s from "@/lib/db/schema";
 import { getSession } from "@/lib/auth/session";
@@ -14,5 +14,7 @@ export async function lookupCustomer(phone: string) {
   const [c] = await db.select().from(s.customers).where(and(eq(s.customers.phone, clean)));
   if (!c) return null;
   const [addr] = await db.select().from(s.customerAddresses).where(eq(s.customerAddresses.customerId, c.id)).orderBy(desc(s.customerAddresses.lastUsedAt)).limit(1);
-  return { name: c.name ?? "", address: addr?.address ?? "", zoneId: addr?.zoneId ?? null, points: c.loyaltyPoints, notes: c.notes ?? "", id: c.id };
+  const [seen] = await db.select({ n: sql<number>`count(*)::int`, last: sql<string | null>`max(${s.orders.businessDate})::text` }).from(s.orders)
+    .where(and(eq(s.orders.customerId, c.id), notInArray(s.orders.status, ["voided", "refunded", "held"])));
+  return { orders: seen?.n ?? 0, lastOrder: seen?.last ?? "", name: c.name ?? "", address: addr?.address ?? "", zoneId: addr?.zoneId ?? null, points: c.loyaltyPoints, notes: c.notes ?? "", id: c.id };
 }

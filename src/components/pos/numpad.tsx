@@ -3,10 +3,10 @@ import { Delete } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 /** Touch numpad. Keys are 64px+. */
-export function Numpad({ onDigit, onBackspace, onClear, extra }: { onDigit: (d: string) => void; onBackspace: () => void; onClear?: () => void; extra?: React.ReactNode }) {
-  const key = "flex h-16 items-center justify-center rounded-2xl bg-surface-2 text-2xl font-semibold active:scale-95 active:bg-border transition";
+export function Numpad({ onDigit, onBackspace, onClear, extra, compact }: { compact?: boolean; onDigit: (d: string) => void; onBackspace: () => void; onClear?: () => void; extra?: React.ReactNode }) {
+  const key = cn(compact ? "h-9 text-lg" : "h-16 text-2xl", "flex items-center justify-center rounded-2xl bg-surface-2 font-semibold active:scale-95 active:bg-border transition");
   return (
-    <div className="grid grid-cols-3 gap-3">
+    <div className={cn("grid grid-cols-3", compact ? "gap-1.5" : "gap-3")}>
       {["1", "2", "3", "4", "5", "6", "7", "8", "9"].map((d) => (
         <button key={d} type="button" className={key} onClick={() => onDigit(d)}>{d}</button>
       ))}

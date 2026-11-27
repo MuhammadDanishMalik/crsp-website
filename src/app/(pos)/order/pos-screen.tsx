@@ -18,6 +18,7 @@ import { OrderFieldsDialog } from "./order-fields";
 import { HeldDialog } from "./held-dialog";
 import { WebsiteTab } from "./website-orders";
 import { SyncStatus } from "./sync-status";
+import { HelpDialog, Key, digitOf, isTyping, slotKey, slotOf, useKeys } from "./shortcuts";
 import { holdOrder, listHeld } from "@/lib/actions/hold";
 import { loadOrderForEdit } from "@/lib/actions/order-items-edit";
 import type { PosProps } from "./types";
@@ -40,6 +41,7 @@ export function PosScreen({ menu, me, shiftOpenedAt, offline }: PosProps) {
   const [paying, setPaying] = useState(false);
   const [discounting, setDiscounting] = useState(false);
   const [details, setDetails] = useState(false);
+  const [help, setHelp] = useState(false);
   const [heldOpen, setHeldOpen] = useState(false);
   const [heldCount, setHeldCount] = useState(0);
   const [toast, setToast] = useState("");
@@ -101,37 +103,55 @@ export function PosScreen({ menu, me, shiftOpenedAt, offline }: PosProps) {
 
   // Barcode scanner (keyboard wedge): digits + Enter in the search box adds the matching item.
   const onSearchKey = (e: React.KeyboardEvent) => {
+    if (e.key === "Escape") { setQ(""); searchRef.current?.blur(); return; }
     if (e.key !== "Enter") return;
-    const hit = menu.items.find((i) => i.barcode && i.barcode === q.trim());
-    if (hit) { pick(hit); setQ(""); }
+    e.preventDefault();
+    const term = q.trim().toLowerCase();
+    const hit = menu.items.find((i) => i.barcode && i.barcode === q.trim()) ?? (term ? menu.items.find((i) => i.available && i.name.toLowerCase().includes(term)) : undefined);
+    if (hit) { pick(hit); setQ(""); searchRef.current?.blur(); }
   };
-
-  // Shortcuts: F2 search, F4 pay, F8 discount
-  useEffect(() => {
-    const h = (e: KeyboardEvent) => {
-      if (e.key === "F2") { e.preventDefault(); searchRef.current?.focus(); }
-      if (e.key === "F4" && cart.lines.length && !cart.edit) { e.preventDefault(); setPaying(true); }
-      if (e.key === "F8" && me.can.discount && cart.lines.length && !cart.edit) { e.preventDefault(); setDiscounting(true); }
-    };
-    window.addEventListener("keydown", h);
-    return () => window.removeEventListener("keydown", h);
-  }, [cart.lines.length, cart.edit, me.can.discount]);
 
   const subtotal = cart.lines.reduce((a, l) => a + (l.basePrice + l.modifiers.reduce((x, m) => x + m.priceDelta, 0)) * l.quantity, 0);
   const needsDetails = cart.orderType === "dine_in" || cart.orderType === "online"; // delivery works like takeaway: its address is typed in the pay window
   const detailsOk = cart.orderType === "dine_in" ? !!cart.tableNo : true;
   const startPay = () => (needsDetails && !detailsOk ? setDetails(true) : setPaying(true));
 
+  // The whole till can be run from the keyboard (list: Ctrl + ? ). Keys do nothing while a window is open: that window has its own.
+  const tabs = [FAV, ...menu.categories.map((c) => c.id)];
+  const openTab = (id: string) => { setCat(id); setQ(""); };
+  useKeys((e) => {
+    const ctrl = e.ctrlKey || e.metaKey;
+    if (e.key === "F1" || (ctrl && (e.key === "?" || e.code === "Slash"))) { e.preventDefault(); setHelp((h) => !h); return; }
+    if (e.defaultPrevented || document.querySelector("[role=dialog]")) return;
+    const d = digitOf(e);
+    if (ctrl && d) { e.preventDefault(); const id = tabs[slotOf(d)]; if (id) openTab(id); return; }
+    if (ctrl && (e.key === "ArrowUp" || e.key === "ArrowDown")) { e.preventDefault(); openTab(tabs[(tabs.indexOf(cat) + (e.key === "ArrowDown" ? 1 : tabs.length - 1)) % tabs.length]); return; }
+    if (e.key === "F2") { e.preventDefault(); searchRef.current?.focus(); return; }
+    const types2: Record<string, OrderType> = { F6: "dine_in", F7: "takeaway", F9: "delivery", F3: "drive_thru" };
+    if (types2[e.key]) { e.preventDefault(); cart.set({ orderType: types2[e.key] }); return; }
+    if (e.key === "F4") { e.preventDefault(); if (cart.lines.length && !cart.edit) startPay(); return; }
+    if (e.key === "F8") { e.preventDefault(); if (me.can.discount && cart.lines.length && !cart.edit) setDiscounting(true); return; }
+    if (ctrl && e.key.toLowerCase() === "h") { e.preventDefault(); if (me.can.hold && cart.lines.length && !cart.edit) void hold(); return; }
+    if (ctrl && (e.key === "Delete" || e.key === "Backspace")) { e.preventDefault(); if ((cart.lines.length || cart.edit) && confirm("Clear this order?")) cart.clear(); return; }
+    if (ctrl || e.altKey || isTyping(e.target)) return;
+    if (d) { e.preventDefault(); const item = visible[slotOf(d) + (e.shiftKey ? 10 : 0)]; if (item) pick(item); return; }
+    const last = cart.lines.at(-1);
+    if ((e.key === "+" || e.key === "=") && last) { e.preventDefault(); cart.setQty(last.key, last.quantity + 1); return; }
+    if (e.key === "-" && last) { e.preventDefault(); cart.setQty(last.key, last.quantity - 1); return; }
+    if (e.key === "Delete" && last) { e.preventDefault(); cart.remove(last.key); return; }
+    if (e.key === "Enter") { e.preventDefault(); if (!e.repeat && cart.lines.length && !cart.edit) startPay(); }
+  });
+
   return (
     <div className="flex h-full flex-col">
       <header className="flex h-16 shrink-0 items-center gap-4 border-b border-border bg-surface px-4">
         <Logo height={34} />
-        <div className="leading-tight"><p className="font-bold">{me.branch}</p><p className="text-xs text-muted">{me.terminal}</p></div>
+        <div className="max-w-[150px] leading-tight 2xl:max-w-none"><p className="truncate font-bold">{me.branch}</p><p className="text-xs text-muted">{me.terminal}</p></div>
         <ShiftTimer since={shiftOpenedAt} />
         <div className="mx-auto flex gap-1 rounded-2xl bg-surface-2 p-1">
           {types.map((tp) => (
             <button key={tp.id} onClick={() => cart.set({ orderType: tp.id })}
-              className={cn("h-12 rounded-xl px-4 font-semibold transition", cart.orderType === tp.id ? "bg-brand text-brand-fg" : "text-muted hover:text-foreground")}>{t(`types.${tp.id}`)}</button>
+              className={cn("flex h-12 flex-col items-center justify-center whitespace-nowrap rounded-xl px-3 font-semibold leading-tight transition", cart.orderType === tp.id ? "bg-brand text-brand-fg" : "text-muted hover:text-foreground")}>{t(`types.${tp.id}`)}<Key k={({ dine_in: "F6", takeaway: "F7", delivery: "F9", drive_thru: "F3", online: "" } as Record<string, string>)[tp.id]} /></button>
           ))}
           <WebsiteTab />
         </div>
@@ -152,11 +172,12 @@ export function PosScreen({ menu, me, shiftOpenedAt, offline }: PosProps) {
       </header>
 
       <div className="flex min-h-0 flex-1">
-        <nav className="scroll-thin flex w-28 shrink-0 flex-col gap-2 overflow-y-auto border-r border-border bg-surface p-2">
-          <RailBtn active={cat === FAV && !q} onClick={() => { setCat(FAV); setQ(""); }} label={t("pos.bestSellers")} icon={<Star />} />
-          {menu.categories.map((c) => (
-            <RailBtn key={c.id} active={cat === c.id && !q} onClick={() => { setCat(c.id); setQ(""); }} label={ur && c.nameUr ? c.nameUr : c.name} icon={<CategoryIcon name={c.icon} />} />
+        <nav className="scroll-thin flex w-28 shrink-0 flex-col gap-1 overflow-y-auto border-r border-border bg-surface p-1.5">
+          <RailBtn hint="^1" active={cat === FAV && !q} onClick={() => openTab(FAV)} label={t("pos.bestSellers")} icon={<Star />} />
+          {menu.categories.map((c, i) => (
+            <RailBtn key={c.id} hint={slotKey(i + 1) ? `^${slotKey(i + 1)}` : ""} active={cat === c.id && !q} onClick={() => { setCat(c.id); setQ(""); }} label={ur && c.nameUr ? c.nameUr : c.name} icon={<CategoryIcon name={c.icon} />} />
           ))}
+          <button onClick={() => setHelp(true)} title="Keyboard shortcuts (Ctrl + ?)" className="flex h-8 shrink-0 items-center justify-center gap-1 rounded-xl text-[10px] font-semibold text-muted hover:bg-surface-2">Keys <Key k="Ctrl ?" /></button>
         </nav>
 
         <main className="flex min-w-0 flex-1 flex-col">
@@ -168,7 +189,7 @@ export function PosScreen({ menu, me, shiftOpenedAt, offline }: PosProps) {
             </div>
           </div>
           <div className="scroll-thin grid flex-1 auto-rows-[132px] grid-cols-[repeat(auto-fill,minmax(168px,1fr))] gap-3 overflow-y-auto p-3 pt-0 content-start">
-            {switching ? <ItemGridSkeleton count={Math.min(12, Math.max(visible.length, 6))} /> : visible.map((i) => <ItemTile key={i.id} item={i} ur={ur} soldOut={soldOutText} onPick={pick} />)}
+            {switching ? <ItemGridSkeleton count={Math.min(12, Math.max(visible.length, 6))} /> : visible.map((i, n) => <ItemTile key={i.id} hint={slotKey(n) || (n < 20 ? `⇧${slotKey(n - 10)}` : "")} item={i} ur={ur} soldOut={soldOutText} onPick={pick} />)}
             {!switching && !visible.length && <p className="col-span-full mt-16 text-center text-muted">{t("pos.nothing")}</p>}
           </div>
         </main>
@@ -192,24 +213,28 @@ export function PosScreen({ menu, me, shiftOpenedAt, offline }: PosProps) {
       {discounting && <DiscountDialog subtotal={subtotal} me={me} current={cart.discount} onClose={() => setDiscounting(false)} onApply={(d) => { cart.set({ discount: d }); setDiscounting(false); }} />}
       {heldOpen && <HeldDialog menu={menu} canMove={me.can.moveTable} onClose={() => { setHeldOpen(false); void listHeld().then((l) => setHeldCount(l.length)); }} />}
       {toast && <div className="fixed bottom-6 left-1/2 z-[60] -translate-x-1/2 rounded-2xl bg-surface-2 px-6 py-3 text-lg font-semibold shadow-xl">{toast}</div>}
+      {help && <HelpDialog onClose={() => setHelp(false)} />}
       {details && <OrderFieldsDialog menu={menu} onClose={() => setDetails(false)} />}
     </div>
   );
 }
 
-function RailBtn({ active, onClick, label, icon }: { active: boolean; onClick: () => void; label: string; icon: React.ReactNode }) {
+function RailBtn({ active, onClick, label, icon, hint }: { active: boolean; onClick: () => void; label: string; icon: React.ReactNode; hint: string }) {
   return (
-    <button onClick={onClick} className={cn("flex min-h-[84px] flex-col items-center justify-center gap-1 rounded-2xl px-1 text-xs font-semibold transition [&_svg]:h-7 [&_svg]:w-7", active ? "bg-brand text-brand-fg" : "bg-surface-2 text-muted hover:text-foreground")}>
+    // all tabs share the height of the screen, so the menu on the left never has to be scrolled
+    <button onClick={onClick} className={cn("relative flex max-h-[84px] min-h-[46px] flex-1 flex-col items-center justify-center gap-0.5 rounded-xl px-1 text-[11px] font-semibold transition [&_svg]:h-5 [&_svg]:w-5", active ? "bg-brand text-brand-fg" : "text-muted hover:bg-surface-2")}>
+      {hint && <Key k={hint} className="absolute right-0.5 top-0.5" />}
       {icon}<span className="text-center leading-tight">{label}</span>
     </button>
   );
 }
 
-const ItemTile = memo(function ItemTile({ item, ur, soldOut, onPick }: { item: PosItem; ur: boolean; soldOut: string; onPick: (item: PosItem) => void }) {
+const ItemTile = memo(function ItemTile({ item, ur, soldOut, onPick, hint }: { item: PosItem; ur: boolean; soldOut: string; onPick: (item: PosItem) => void; hint: string }) {
   const emoji = item.image?.startsWith("emoji:") ? item.image.slice(6) : null;
   return (
     <button onClick={() => onPick(item)} disabled={!item.available}
       className="relative flex flex-col justify-between overflow-hidden rounded-2xl border border-border bg-surface p-3 text-left transition active:scale-[.97] hover:border-brand">
+      {hint && <Key k={hint} className="absolute right-2 top-2" />}
       <span className="text-4xl leading-none">{emoji ?? "🍽️"}</span>
       <span>
         <span dir="auto" className="block text-[15px] font-semibold leading-tight">{ur && item.nameUr ? item.nameUr : item.name}</span>

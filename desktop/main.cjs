@@ -1,5 +1,5 @@
 // CRSP POS for Windows. This window starts a local PostgreSQL database and the POS server on THIS PC, so selling never needs internet.
-// Once a day (3 am, or at the next start if the PC was off) it copies the data to the website. Rules: docs/PERFORMANCE.md.
+// Every 2 hours, when there is internet, it copies what changed to the website and fetches new customers. Rules: docs/PERFORMANCE.md.
 const { app, BrowserWindow, Menu, dialog, ipcMain, shell } = require("electron");
 const { spawn, spawnSync } = require("node:child_process");
 const crypto = require("node:crypto");
@@ -7,7 +7,9 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 app.setName("CRSP POS");
-const WEB_PORT = 3777, PG_PORT = 5499, SYNC_HOUR = 3;
+const WEB_PORT = 3777, PG_PORT = 5499;
+const SYNC_EVERY = 2 * 60 * 60_000; // copy to the website every 2 hours (and shortly after start)
+const RECEIPT_DAYS = 30;
 const BASE = `http://127.0.0.1:${WEB_PORT}`;
 const resources = app.isPackaged ? process.resourcesPath : path.join(__dirname, "build");
 const serverDir = path.join(resources, "app-server");
@@ -93,7 +95,6 @@ async function sync(mode) {
   log(`sync ${mode}: ${JSON.stringify(r)}`);
   return r;
 }
-const lastDue = () => { const d = new Date(); if (d.getHours() < SYNC_HOUR) d.setDate(d.getDate() - 1); d.setHours(SYNC_HOUR, 0, 0, 0); return d.getTime(); };
 async function upload(manual) {
   if (cfg.demo) { if (manual) await dialog.showMessageBox(win, { message: "This is sample data for testing: nothing is uploaded." }); return; }
   if (syncing || !cfg.setupDone) return;
@@ -102,11 +103,15 @@ async function upload(manual) {
     const r = await sync("push");
     if (r.ok) { cfg.lastSync = Date.now(); cfg.lastError = r.errors.length ? r.errors[0] : ""; } else cfg.lastError = r.error;
     save(); buildMenu();
-    if (manual) await dialog.showMessageBox(win, { message: r.ok ? `Uploaded ${r.rows} records.${r.errors.length ? `\n${r.errors.length} could not be copied: ${r.errors[0]}` : ""}` : `Not uploaded: ${r.error}` });
+    if (manual) await dialog.showMessageBox(win, { message: r.ok ? `Online copy is up to date.\nSent: ${r.rows} records. New customers received: ${r.received || 0}.${r.errors.length ? `\n${r.errors.length} could not be copied: ${r.errors[0]}` : ""}` : `Not uploaded: ${r.error}\nThe sales are safe on this PC and will be sent later.` });
   } catch (e) { log(`sync failed ${e.message}`); } finally { syncing = false; }
 }
-// checked every 10 minutes: after 3 am, upload once; if there was no internet, keep trying until it works
-const scheduleSync = () => setInterval(() => { if ((cfg.lastSync || 0) < lastDue()) void upload(false); }, 10 * 60_000);
+// looked at every 5 minutes: when 2 hours have passed since the last good copy, copy again; with no internet it keeps trying
+const scheduleSync = () => {
+  const due = () => { if (Date.now() - (cfg.lastSync || 0) >= SYNC_EVERY - 60_000) void upload(false); };
+  setTimeout(due, 60_000);
+  setInterval(due, 5 * 60_000);
+};
 
 /* ---------- window ---------- */
 function buildMenu() {
@@ -120,8 +125,16 @@ function buildMenu() {
         if (lightGraphics) fs.writeFileSync(lightFlag(), "1"); else fs.rmSync(lightFlag(), { force: true });
         app.relaunch(); app.quit();
       } },
-      { type: "separator" }, { role: "reload" }, { role: "togglefullscreen" }, { role: "zoomIn" }, { role: "zoomOut" }, { role: "resetZoom" },
-      { type: "separator" }, { role: "quit" },
+      { type: "separator" }, { label: "Reload screen", accelerator: "CmdOrCtrl+Shift+R", click: () => win.reload() }, { role: "togglefullscreen" }, // zoom keys are not bound: Ctrl + number belongs to the POS
+      { label: "Bigger text", click: () => win.webContents.setZoomLevel(win.webContents.getZoomLevel() + 0.5) }, { label: "Smaller text", click: () => win.webContents.setZoomLevel(win.webContents.getZoomLevel() - 0.5) },
+      { type: "separator" }, { label: "Close CRSP POS", click: () => app.quit() },
+    ] },
+    { label: "Printer", submenu: [
+      { label: "Receipt printer (automatic)", type: "radio", checked: !cfg.printer, click: () => { cfg.printer = ""; save(); buildMenu(); } },
+      ...printers.map((p) => ({ label: p.displayName || p.name, type: "radio", checked: cfg.printer === p.name, click: () => { cfg.printer = p.name; save(); buildMenu(); } })),
+      { type: "separator" },
+      { label: "Refresh printer list", click: () => void refreshPrinters() },
+      { label: "Open saved receipts", click: () => { const d = path.join(storeDir(), "receipts"); fs.mkdirSync(d, { recursive: true }); void shell.openPath(d); } },
     ] },
     { label: "Online copy", submenu: [
       { label: cfg.demo ? "SAMPLE DATA: nothing is uploaded" : `Last upload: ${last}`, enabled: false },
@@ -149,23 +162,67 @@ function createWindow() {
   const outside = (url) => !url.startsWith(BASE) && !url.startsWith("file:") && !url.startsWith("data:");
   win.webContents.setWindowOpenHandler(({ url }) => { if (/^https?:/.test(url)) void shell.openExternal(url); return { action: "deny" }; }); // WhatsApp, maps
   win.webContents.on("will-navigate", (e, url) => { if (outside(url)) { e.preventDefault(); if (/^https?:/.test(url)) void shell.openExternal(url); } });
-  win.loadURL("data:text/html,<body style='background:%23111;color:%23fff;font:24px sans-serif;display:flex;height:100vh;align-items:center;justify-content:center'>Starting CRSP POS…</body>");
+  win.loadFile(path.join(__dirname, "splash.html"));
 }
 
-/* ---------- printing: each slip goes straight to the Windows default printer ---------- */
+/* ---------- printing ----------
+   A copy of every slip is saved in the data folder ("receipts"), so a receipt is never lost. Then it goes straight to the receipt printer. */
 let printQueue = Promise.resolve();
+let printers = [];
+const VIRTUAL = /pdf|xps|onenote|fax|document writer|send to/i;
+const THERMAL = /thermal|receipt|pos|80 ?mm|58 ?mm|xp-|tm-|bixolon|blackcopper|black copper|bc-|rongta|rp-|zj-|gprinter/i;
+async function refreshPrinters() {
+  try { printers = await win.webContents.getPrintersAsync(); } catch (e) { log(`printers: ${e.message}`); printers = []; }
+  buildMenu();
+}
+function receiptPrinter() {
+  const real = printers.filter((p) => !VIRTUAL.test(p.name));
+  return real.find((p) => p.name === cfg.printer) || real.find((p) => THERMAL.test(p.name)) || real[0] || null;
+}
+async function saveCopy(w) {
+  const now = new Date(), day = now.toLocaleDateString("en-CA");
+  const dir = path.join(storeDir(), "receipts", day);
+  fs.mkdirSync(dir, { recursive: true });
+  const file = path.join(dir, `${now.toTimeString().slice(0, 8).replace(/:/g, "-")}-${now.getMilliseconds()}.pdf`);
+  fs.writeFileSync(file, await w.webContents.printToPDF({ preferCSSPageSize: true, printBackground: true }));
+  return file;
+}
+function cleanReceipts() {
+  const root = path.join(storeDir(), "receipts"), limit = Date.now() - RECEIPT_DAYS * 86_400_000;
+  try { for (const d of fs.readdirSync(root)) if (new Date(d).getTime() < limit) fs.rmSync(path.join(root, d), { recursive: true, force: true }); } catch { /* none yet */ }
+}
+const send = (w, options) => new Promise((resolve) => w.webContents.print(options, (ok, reason) => resolve(ok ? "" : reason || "failed")));
 async function printSlip(html, paperMm, heightMm) {
   const w = new BrowserWindow({ show: false, webPreferences: { sandbox: true, javascript: false } });
   const file = path.join(dataDir, "slip.html");
   try {
-    fs.writeFileSync(file, html.replace("<head>", `<head><base href="${BASE}/">`));
+    fs.writeFileSync(file, html.replace("<head>", `<head><meta charset="utf-8"><base href="${BASE}/">`));
     await w.loadFile(file);
-    if (process.env.CRSP_PRINT_TO_FILE) { fs.writeFileSync(process.env.CRSP_PRINT_TO_FILE, await w.webContents.printToPDF({ preferCSSPageSize: true, printBackground: true })); return { ok: true }; } // used by tests
-    return await new Promise((resolve) => w.webContents.print(
-      { silent: true, printBackground: true, margins: { marginType: "none" }, pageSize: { width: Math.round(paperMm * 1000), height: Math.round(heightMm * 1000) } },
-      (ok, reason) => resolve(ok ? { ok: true } : { ok: false, error: `Printing failed: ${reason}` })));
-  } catch (e) { return { ok: false, error: e.message }; } finally { w.destroy(); }
+    let saved = "";
+    try { saved = await saveCopy(w); } catch (e) { log(`receipt copy: ${e.message}`); }
+    if (process.env.CRSP_PRINT_TO_FILE && saved) { fs.copyFileSync(saved, process.env.CRSP_PRINT_TO_FILE); return { ok: true, note: "Saved (test)" }; } // used by tests
+    if (!printers.length) await refreshPrinters();
+    const printer = receiptPrinter();
+    if (!printer) return saved ? { ok: true, note: "No receipt printer found: the slip is saved (Printer menu > Open saved receipts)" } : { ok: false, error: "No receipt printer found" };
+    const base = { silent: true, printBackground: true, margins: { marginType: "none" }, deviceName: printer.name };
+    let problem = await send(w, { ...base, pageSize: { width: Math.round(paperMm * 1000), height: Math.round(heightMm * 1000) } });
+    if (problem) problem = await send(w, base); // some drivers refuse a custom paper size: use the printer's own
+    if (problem) { log(`print ${printer.name}: ${problem}`); return { ok: false, error: `The printer "${printer.name}" did not print. The slip is saved; check the printer and press Print again.` }; }
+    return { ok: true, note: `Sent to ${printer.displayName || printer.name}` };
+  } catch (e) { log(`print: ${e.message}`); return { ok: false, error: e.message }; } finally { w.destroy(); }
 }
+
+/* The sync key is copied to the shop PC as a small file; the app finds it so the operator only has to choose a folder. */
+function findSyncKey() {
+  const places = [];
+  for (const n of ["desktop", "downloads", "documents"]) { try { const d = app.getPath(n); places.push(d, path.join(d, "CRSP-POS-Windows")); } catch { /* no such folder */ } }
+  if (process.platform === "win32") for (const drive of "DEFGHIJ") places.push(`${drive}:\\`, `${drive}:\\CRSP-POS-Windows`);
+  for (const dir of places) for (const name of ["sync-key.txt", "crsp-sync-key.txt", "sync-key.txt.txt"]) {
+    try { const key = fs.readFileSync(path.join(dir, name), "utf8").trim(); if (/^[A-Za-z0-9]{32,128}$/.test(key)) return key; } catch { /* not here */ }
+  }
+  return "";
+}
+ipcMain.handle("hasKey", (e) => !!e.senderFrame?.url.startsWith("file:") && !!findSyncKey());
 
 const fromPos = (e) => e.senderFrame?.url.startsWith(`${BASE}/`);
 ipcMain.handle("print", (e, html, paper, height) => {
@@ -202,6 +259,8 @@ ipcMain.handle("demo", async (e) => {
 ipcMain.handle("setup", async (e, url, key) => {
   if (!e.senderFrame?.url.startsWith("file:")) return { ok: false, error: "Not allowed" };
   if (!/^https:\/\//.test(url) && !/^http:\/\/127\.0\.0\.1/.test(url)) return { ok: false, error: "The website address must start with https://" };
+  key = key || findSyncKey();
+  if (!key) return { ok: false, error: "Sync key not found. Copy sync-key.txt to the Desktop, or paste the key." };
   cfg.cloudUrl = url; cfg.syncKey = key; save();
   stopServer(); await new Promise((r) => setTimeout(r, 800)); startServer(); await waitForServer();
   const r = await sync("pull");
@@ -219,8 +278,10 @@ else {
       startDatabase(); startServer(); await waitForServer();
     } catch (e) { log(e.message); dialog.showErrorBox("CRSP POS could not start", e.message); return app.quit(); }
     if (app.isPackaged) app.setLoginItemSettings({ openAtLogin: !!cfg.setupDone && !cfg.demo }); // the till opens by itself after a power cut
-    if (cfg.setupDone) { await win.loadURL(`${BASE}/pin`); setTimeout(() => { if ((cfg.lastSync || 0) < lastDue()) void upload(false); }, 60_000); }
+    if (cfg.setupDone) await win.loadURL(`${BASE}/pin`);
     else await win.loadFile(path.join(__dirname, "setup.html"));
+    await refreshPrinters();
+    cleanReceipts();
     scheduleSync();
   });
   app.on("window-all-closed", () => app.quit());

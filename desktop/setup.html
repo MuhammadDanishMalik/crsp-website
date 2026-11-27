@@ -9,14 +9,16 @@ button:disabled{opacity:.6}#msg{margin-top:12px;color:#ffb4b4;white-space:pre-wr
 <body><form id="f"><h1>CRSP POS setup</h1>
 <p>One time only, with internet: download your menu, staff and orders onto this PC.</p>
 <label>Website</label><input id="url" value="https://www.crspofficial.com" required>
-<label>Sync key</label><input id="key" type="password" placeholder="paste the sync key" required>
+<div id="keybox"><label>Sync key</label><input id="key" type="password" placeholder="paste the sync key"></div><p id="found" style="display:none;color:#7ddc8a;font-weight:700">✓ Sync key found on this computer</p>
 <label>Data folder on this PC</label><div style="display:flex;gap:8px"><input id="folder" readonly><button type="button" id="pick" style="width:auto;margin:0;padding:0 16px;background:#333">Change</button></div>
 <button id="b">Download my shop data</button><div id="msg"></div>
 <hr style="border-color:#333;margin:22px 0 0"><button type="button" id="demo" style="background:#2b2b31">Test with sample data (PIN 1111)</button>
-<p style="margin:8px 0 0;font-size:13px">For trying the software on any computer. No sync key needed; nothing goes to your website.</p></form>
+<p style="margin:8px 0 0;font-size:13px">For trying the software on any computer. No sync key needed; nothing goes to your website.</p>
+<p style="text-align:center;font-size:12px;color:#777;margin:16px 0 0">Software developed by <b style="color:#ddd">Orixto</b> · orixto.com</p></form>
 <script>
 const showFolder = async (change) => { document.getElementById("folder").value = await window.crspSetup.folder(change); };
 showFolder(false);
+window.crspSetup.hasKey().then((yes) => { if (yes) { document.getElementById("keybox").style.display = "none"; document.getElementById("found").style.display = "block"; } });
 document.getElementById("pick").addEventListener("click", () => showFolder(true));
 document.getElementById("demo").addEventListener("click", async (e) => {
   e.target.disabled = true; e.target.textContent = "Preparing sample data…";
