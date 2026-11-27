@@ -4,6 +4,7 @@
 set -euo pipefail
 APP=/opt/crsp
 BUILD=/opt/crsp-build
+DEPSLOCK=/opt/crsp-build.deps-lock   # outside the build folder: root writes it, the build user never reads it
 [ "$(id -u)" = 0 ] || { echo "Run as root."; exit 1; }
 
 git config --global --add safe.directory "$APP" >/dev/null 2>&1 || true
@@ -13,15 +14,16 @@ command -v rsync >/dev/null || apt-get install -y -q rsync
 
 # 1. copy the source next to the live app and build there
 mkdir -p "$BUILD"
-rsync -a --delete --exclude .git --exclude node_modules --exclude .next --exclude .data --exclude .deps-lock "$APP/" "$BUILD/"
+rsync -a --delete --exclude .git --exclude node_modules --exclude .next --exclude .data "$APP/" "$BUILD/"
 [ -d "$BUILD/node_modules" ] || cp -a "$APP/node_modules" "$BUILD/node_modules"
 NEWDEPS=0
-if [ -f "$BUILD/.deps-lock" ] && ! cmp -s "$BUILD/package-lock.json" "$BUILD/.deps-lock"; then NEWDEPS=1; fi
+rm -f "$BUILD/.deps-lock"
+if [ -f "$DEPSLOCK" ] && ! cmp -s "$BUILD/package-lock.json" "$DEPSLOCK"; then NEWDEPS=1; fi
 chown -R crsp:crsp "$APP" "$BUILD"
 if [ "$NEWDEPS" = 1 ]; then
   sudo -u crsp -H bash -c "cd $BUILD && (npm ci --no-audit --no-fund || npm install --no-audit --no-fund)"
 fi
-cp "$BUILD/package-lock.json" "$BUILD/.deps-lock"
+cp "$BUILD/package-lock.json" "$DEPSLOCK"
 sudo -u crsp -H bash -c "cd $BUILD && export COMMIT_REF=$SHA && (npm run build </dev/null || npm run build </dev/null)"
 [ -f "$BUILD/.next/BUILD_ID" ] || { echo "Build failed: the running site was not touched."; exit 1; }
 
