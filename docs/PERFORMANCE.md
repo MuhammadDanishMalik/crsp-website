@@ -22,6 +22,10 @@ The till is a modest Windows PC, open all day. The internet there fails often.
 7. Database next to the app. No query inside a loop. No whole-table read for one page.
 8. No new heavy dependency or new background process without measuring memory and start-up time before and after.
 
+## Target machine (measure against THIS, not a developer laptop)
+HP Z220 SFF: Intel i3-3240 (2 cores, 2012), 8 GB DDR3, SSD, NVIDIA GeForce 210 (no longer supported), Windows 10.
+Assume no usable graphics card: no decorative animation, blur or large shadows on selling screens; the app runs in "light graphics".
+
 ## 3. Budgets (measure, do not guess)
 | What | Limit |
 |---|---|

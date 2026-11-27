@@ -1,7 +1,7 @@
 {
   "name": "crsp-pos-desktop",
   "productName": "CRSP POS",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "CRSP POS for the shop PC: runs and sells without internet, copies the day to the website at 3 am",
   "author": "CRSP",
   "private": true,

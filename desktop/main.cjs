@@ -16,6 +16,13 @@ const storeDir = () => cfg.dataFolder || dataDir;
 const dbDir = () => path.join(storeDir(), "database");
 const pgBin = (name) => path.join(resources, "pgsql", "bin", process.platform === "win32" ? `${name}.exe` : name);
 
+/* ---------- old graphics cards ---------- */
+// The shop PC has a 2009 GeForce 210 with drivers that are no longer updated: such cards make screens stutter or hang.
+// "Light graphics" (on by default) draws with the processor and switches animations off. It is read before the app starts.
+const lightFlag = () => path.join(process.env.CRSP_DESKTOP_DATA || app.getPath("userData"), "use-graphics-card");
+const lightGraphics = !fs.existsSync(lightFlag());
+if (lightGraphics) { app.disableHardwareAcceleration(); app.commandLine.appendSwitch("force-prefers-reduced-motion"); }
+
 let win, server, cfg, dataDir, quitting = false, syncing = false;
 
 /* ---------- settings kept on this PC ---------- */
@@ -105,6 +112,11 @@ function buildMenu() {
     { label: "POS", submenu: [
       { label: "Till (PIN)", click: () => win.loadURL(`${BASE}/pin`) },
       { label: "Back office", click: () => win.loadURL(`${BASE}/login`) },
+      { type: "separator" },
+      { label: "Light graphics (for old PCs)", type: "checkbox", checked: lightGraphics, click: () => {
+        if (lightGraphics) fs.writeFileSync(lightFlag(), "1"); else fs.rmSync(lightFlag(), { force: true });
+        app.relaunch(); app.quit();
+      } },
       { type: "separator" }, { role: "reload" }, { role: "togglefullscreen" }, { role: "zoomIn" }, { role: "zoomOut" }, { role: "resetZoom" },
       { type: "separator" }, { role: "quit" },
     ] },

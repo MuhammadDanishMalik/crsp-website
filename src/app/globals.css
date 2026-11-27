@@ -88,3 +88,6 @@ button:disabled { cursor: not-allowed; opacity: .5; }
 .badge-text { background: linear-gradient(110deg, var(--b1) 38%, var(--b2) 50%, var(--b1) 62%); background-size: 260% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; animation: badge-sweep 2.6s linear infinite; }
 @keyframes badge-sweep { from { background-position: 160% 0; } to { background-position: -60% 0; } }
 @media (prefers-reduced-motion: reduce) { .badge-text { animation: none; } }
+
+/* Old till PC / "light graphics": no decorative movement at all. */
+@media (prefers-reduced-motion: reduce) { .badge-text, .btn-shine::after, .text-shimmer, .shimmer-busy, .skeleton, .animate-pulse, .anim-fly, .anim-bob { animation: none !important; } }
