@@ -35,7 +35,7 @@ function loadConfig() {
   fs.mkdirSync(path.join(dataDir, "logs"), { recursive: true });
   try { cfg = JSON.parse(fs.readFileSync(cfgFile(), "utf8")); } catch { cfg = {}; }
   const secret = () => crypto.randomBytes(32).toString("hex");
-  cfg.dbPassword ||= secret(); cfg.sessionSecret ||= secret(); cfg.localToken ||= secret();
+  cfg.paperMode ||= "driver"; cfg.scale ||= 100; cfg.dbPassword ||= secret(); cfg.sessionSecret ||= secret(); cfg.localToken ||= secret();
   save();
 }
 const log = (line) => { try { fs.appendFileSync(path.join(dataDir, "logs", "app.log"), `${new Date().toISOString()} ${line}\n`); } catch { /* disk full */ } };
@@ -133,6 +133,12 @@ function buildMenu() {
       { label: "Receipt printer (automatic)", type: "radio", checked: !cfg.printer, click: () => { cfg.printer = ""; save(); buildMenu(); } },
       ...printers.map((p) => ({ label: p.displayName || p.name, type: "radio", checked: cfg.printer === p.name, click: () => { cfg.printer = p.name; save(); buildMenu(); } })),
       { type: "separator" },
+      { label: "Print TEST slip (check size)", id: "print-test", click: () => void printTest() },
+      { type: "separator" },
+      { label: "Paper: printer's own size (recommended)", type: "radio", checked: cfg.paperMode !== "exact", click: () => { cfg.paperMode = "driver"; save(); buildMenu(); } },
+      { label: "Paper: exact slip size", type: "radio", checked: cfg.paperMode === "exact", click: () => { cfg.paperMode = "exact"; save(); buildMenu(); } },
+      { label: "Size of print", submenu: [80, 85, 90, 95, 100, 105, 110].map((n) => ({ label: `${n}%${n === 100 ? " (normal)" : ""}`, type: "radio", checked: (cfg.scale || 100) === n, click: () => { cfg.scale = n; save(); buildMenu(); } })) },
+      { type: "separator" },
       { label: "Refresh printer list", click: () => void refreshPrinters() },
       { label: "Open saved receipts", click: () => { const d = path.join(storeDir(), "receipts"); fs.mkdirSync(d, { recursive: true }); void shell.openPath(d); } },
     ] },
@@ -204,9 +210,13 @@ async function printSlip(html, paperMm, heightMm) {
     if (!printers.length) await refreshPrinters();
     const printer = receiptPrinter();
     if (!printer) return saved ? { ok: true, note: "No receipt printer found: the slip is saved (Printer menu > Open saved receipts)" } : { ok: false, error: "No receipt printer found" };
-    const base = { silent: true, printBackground: true, margins: { marginType: "none" }, deviceName: printer.name };
-    let problem = await send(w, { ...base, pageSize: { width: Math.round(paperMm * 1000), height: Math.round(heightMm * 1000) } });
-    if (problem) problem = await send(w, base); // some drivers refuse a custom paper size: use the printer's own
+    // Default: the printer's OWN paper (an 80 mm roll). Thermal drivers often ignore or mis-scale a custom size, which gives cut-off / tiny / huge slips.
+    const base = { silent: true, printBackground: true, margins: { marginType: "none" }, deviceName: printer.name, scaleFactor: cfg.scale || 100 };
+    const exact = { ...base, pageSize: { width: Math.round(paperMm * 1000), height: Math.round(heightMm * 1000) } };
+    const [first, second] = cfg.paperMode === "exact" ? [exact, base] : [base, exact];
+    log(`print on "${printer.name}" mode=${cfg.paperMode || "driver"} scale=${base.scaleFactor}`);
+    let problem = await send(w, first);
+    if (problem) problem = await send(w, second);
     if (problem) { log(`print ${printer.name}: ${problem}`); return { ok: false, error: `The printer "${printer.name}" did not print. The slip is saved; check the printer and press Print again.` }; }
     return { ok: true, note: `Sent to ${printer.displayName || printer.name}` };
   } catch (e) { log(`print: ${e.message}`); return { ok: false, error: e.message }; } finally { w.destroy(); }
@@ -223,6 +233,22 @@ function findSyncKey() {
   return "";
 }
 ipcMain.handle("hasKey", (e) => !!e.senderFrame?.url.startsWith("file:") && !!findSyncKey());
+
+/* A test slip with rulers: shows at a glance whether the paper width, the print width and the size are right. */
+async function printTest() {
+  const p = receiptPrinter();
+  const marks = Array.from({ length: 9 }, (_, i) => `<span style="position:absolute;left:${i * 10}mm;top:0;border-left:1px solid #000;height:${i % 5 === 0 ? 7 : 4}mm;font:8px Arial;padding-left:1px">${i * 10 ? i : ""}</span>`).join("");
+  const html = `<!doctype html><html><head><meta charset="utf-8"><style>@page{size:80mm auto;margin:0}body{margin:0;width:80mm;font:700 15px/1.3 Arial;color:#000}
+    .box{border:2px solid #000;margin:2mm 0;padding:1mm;text-align:center}.ruler{position:relative;height:9mm;width:80mm;border-bottom:1px solid #000}</style></head><body>
+    <div style="text-align:center;font-size:18px">PRINT TEST</div><div style="text-align:center;font-size:12px">${(p ? p.displayName || p.name : "no printer").replace(/</g, "")}</div>
+    <div class="ruler">${marks}</div><div style="font-size:10px">cm marks: 0 ... 8 (the full 80 mm paper)</div>
+    <div class="box" style="width:72mm;margin-left:4mm">72 mm box: both lines must show</div>
+    <div>1234567890123456789012345678</div><div>ABCDEFGHIJKLMNOPQRSTUVWXYZAB</div>
+    <div style="display:flex;justify-content:space-between;padding:0 4mm"><span>left</span><span>Rs 450</span><span>right</span></div>
+    <div style="text-align:center;font-size:11px;margin-top:3mm">If the box is cut or the slip is small/large:<br>Printer menu > Size of print, or change Paper mode</div><div style="height:8mm"></div></body></html>`;
+  const r = await printSlip(html, 80, 120);
+  await dialog.showMessageBox(win, { message: r.ok ? `Test slip: ${r.note}` : `Test slip failed: ${r.error}` });
+}
 
 const fromPos = (e) => e.senderFrame?.url.startsWith(`${BASE}/`);
 ipcMain.handle("print", (e, html, paper, height) => {
